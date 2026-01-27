@@ -1,5 +1,5 @@
-# Created by https://www.toptal.com/developers/gitignore/api/pycharm,visualstudiocode,python,macos,windows
-# Edit at https://www.toptal.com/developers/gitignore?templates=pycharm,visualstudiocode,python,macos,windows
+### Custom ###
+/data/cache
 
 ### macOS ###
 # General

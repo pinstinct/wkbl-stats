@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WKBL Player Stats</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div class="bg-grid"></div>
+    <header class="site-header">
+      <div class="brand">
+        <span class="badge">WKBL DATA LAB</span>
+        <h1>Player Stats Explorer</h1>
+        <p>NBA Stats 스타일의 WKBL 선수 대시보드</p>
+      </div>
+      <div class="controls">
+        <label class="control">
+          시즌
+          <select id="seasonSelect"></select>
+        </label>
+        <label class="control">
+          팀
+          <select id="teamSelect">
+            <option value="all">전체</option>
+          </select>
+        </label>
+        <label class="control">
+          포지션
+          <select id="posSelect">
+            <option value="all">전체</option>
+            <option value="G">G</option>
+            <option value="F">F</option>
+            <option value="C">C</option>
+          </select>
+        </label>
+        <label class="control search">
+          검색
+          <input id="searchInput" type="text" placeholder="선수 이름" />
+        </label>
+      </div>
+    </header>
+
+    <main class="content">
+      <section class="player-card">
+        <div class="player-head">
+          <div>
+            <span id="playerTeam" class="player-team">-</span>
+            <h2 id="playerName">선수를 선택하세요</h2>
+            <div class="player-meta">
+              <span id="playerPos">-</span>
+              <span id="playerHeight">-</span>
+            </div>
+          </div>
+          <div class="player-portrait" id="playerPortrait">WKBL</div>
+        </div>
+        <div class="stat-grid" id="playerStatGrid"></div>
+      </section>
+
+      <section class="table-section">
+        <div class="table-head">
+          <h3>선수 스탯</h3>
+          <div class="legend">정렬: 스탯 헤더 클릭</div>
+        </div>
+        <div class="table-wrap">
+          <table id="statsTable">
+            <thead>
+              <tr>
+                <th data-key="name">선수</th>
+                <th data-key="team">팀</th>
+                <th data-key="pos">POS</th>
+                <th data-key="gp">GP</th>
+                <th data-key="min">MIN</th>
+                <th data-key="pts">PTS</th>
+                <th data-key="reb">REB</th>
+                <th data-key="ast">AST</th>
+                <th data-key="stl">STL</th>
+                <th data-key="blk">BLK</th>
+                <th data-key="fgp">FG%</th>
+                <th data-key="tpp">3P%</th>
+                <th data-key="ftp">FT%</th>
+              </tr>
+            </thead>
+            <tbody id="statsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        데이터 출처: WKBL Data Lab (연결 예정)
+      </div>
+      <div>
+        초기 프로젝트 스캐폴드
+      </div>
+    </footer>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>

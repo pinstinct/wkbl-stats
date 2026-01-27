@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""Centralized configuration for WKBL Stats."""
+
+import logging
+import os
+
+# URL Constants
+BASE_URL = "https://datalab.wkbl.or.kr"
+PLAYER_RECORD_WRAPPER = BASE_URL + "/playerRecord"
+GAME_LIST_MONTH = BASE_URL + "/game/list/month"
+PLAYER_LIST = "https://www.wkbl.or.kr/player/player_list.asp"
+
+# Server Settings
+HOST = ""
+PORT = 8000
+
+# Paths
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CACHE_DIR = os.path.join(BASE_DIR, "data", "cache")
+STATUS_PATH = os.path.join(CACHE_DIR, "ingest_status.json")
+OUTPUT_PATH = os.path.join(BASE_DIR, "data", "wkbl-active.json")
+
+# Season Settings
+CURRENT_SEASON = "2025-26"
+
+# Request Settings
+USER_AGENT = "wkbl-stats-ingest/0.1"
+TIMEOUT = 30
+DELAY = 0.15
+MAX_RETRIES = 3
+RETRY_BACKOFF = 2.0
+
+
+def setup_logging(name, level=logging.INFO):
+    """Configure and return a logger with consistent formatting."""
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter(
+            "[%(asctime)s] %(levelname)s - %(name)s - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+    logger.setLevel(level)
+    return logger
