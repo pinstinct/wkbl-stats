@@ -1,94 +1,123 @@
-# WKBL Player Stats (Scaffold)
+# WKBL Player Stats
 
-WKBL Data Lab 데이터를 NBA Stats 스타일로 보여주는 초기 스캐폴드입니다.
-현재는 2025-26 시즌 데이터를 시즌 시작일부터 오늘까지 자동 수집해 표시하도록 구성되어 있습니다.
+WKBL(한국여자농구연맹) 선수 스탯을 NBA Stats 스타일로 보여주는 대시보드입니다.
 
-## 실행 방법
+**Live Demo**: https://pinstinct.github.io/wkbl-stats/
 
-데이터를 최신화한 뒤 로컬 서버로 실행하세요.
+## 주요 기능
+
+- 2025-26 시즌 선수별 경기당 평균 스탯 조회
+- 시즌/팀/포지션 필터링 및 선수 검색
+- 컬럼 클릭으로 정렬
+- 반응형 디자인 (모바일/태블릿/데스크톱)
+- 매일 자동 데이터 업데이트 (GitHub Actions)
+
+## 스탯 지표
+
+### 기본 스탯
+| 지표 | 설명 |
+|------|------|
+| GP | 출전 경기 수 |
+| MIN | 경기당 평균 출전 시간 |
+| PTS | 경기당 평균 득점 |
+| REB | 경기당 평균 리바운드 |
+| AST | 경기당 평균 어시스트 |
+| STL | 경기당 평균 스틸 |
+| BLK | 경기당 평균 블록 |
+| TOV | 경기당 평균 턴오버 |
+| FG% | 야투 성공률 |
+| 3P% | 3점슛 성공률 |
+| FT% | 자유투 성공률 |
+
+### 2차 지표 (Advanced Stats)
+| 지표 | 설명 | 계산식 |
+|------|------|--------|
+| TS% | True Shooting % | `PTS / (2 × (FGA + 0.44 × FTA))` |
+| eFG% | Effective FG% | `(FGM + 0.5 × 3PM) / FGA` |
+| AST/TO | 어시스트/턴오버 비율 | `AST / TO` |
+| PIR | Performance Index Rating | 유럽식 종합 효율 지표 |
+| PTS/36 | 36분당 환산 득점 | `PTS × (36 / MIN)` |
+| REB/36 | 36분당 환산 리바운드 | `REB × (36 / MIN)` |
+| AST/36 | 36분당 환산 어시스트 | `AST × (36 / MIN)` |
+
+PTS, REB, AST 중 2개 이상이 평균 10 이상이면 **Double-Double 평균** 배지가 표시됩니다.
+
+## 로컬 실행
 
 ```bash
 python3 server.py
 ```
 
-브라우저에서 `http://localhost:8000` 접속.
+브라우저에서 http://localhost:8000 접속
 
-## 현재 구현된 흐름
+## 데이터 수집
 
-- 서버 시작 시 ingest 실행 → 2025-26 시즌 데이터를 오늘 날짜까지 수집
-- WKBL 현역 선수 리스트와 매핑해 포지션/신장 정보를 보강
-- 같은 날짜 재실행 시 ingest 스킵(하루 1회 캐싱)
-- 프런트는 `data/wkbl-active.json`을 우선 로드, 없으면 샘플 데이터로 폴백
-
-## 데이터 수집 (ingest)
-
-직접 실행할 때:
+수동 실행:
 
 ```bash
 python3 tools/ingest_wkbl.py \
   --season-label 2025-26 \
   --auto \
-  --end-date 20260127 \
+  --end-date $(date +%Y%m%d) \
   --active-only \
   --output data/wkbl-active.json
 ```
 
-- `--auto`: Data Lab 홈에서 시즌 시작일/게임 ID를 자동으로 찾음
-- `--end-date`: 오늘(YYYYMMDD)까지 집계
-- `--active-only`: 현역 선수만 필터링
+### 옵션
+| 옵션 | 설명 |
+|------|------|
+| `--season-label` | 시즌 (예: 2025-26) |
+| `--auto` | Data Lab에서 시즌 파라미터 자동 탐색 |
+| `--end-date` | 집계 종료일 (YYYYMMDD) |
+| `--active-only` | 현역 선수만 필터링 |
+| `--no-cache` | 캐시 무시하고 새로 수집 |
 
-캐싱:
+## 배포
 
-- `data/cache/ingest_status.json`에 마지막 실행 날짜 저장
-- 같은 날짜에 `server.py` 재실행 시 ingest 생략
+GitHub Pages로 무료 호스팅됩니다.
 
-스크립트는 `game/list/month`에서 gameID 목록을 수집한 뒤, 각 경기의 `record_player.asp`를 파싱해 시즌 평균 스탯으로 집계합니다.
-또한 `wkbl.or.kr/player/player_list.asp`에서 현역 선수 명단을 가져와 프로필(포지션/신장)과 연결하고, 현역 선수만 필터링합니다.
+### 자동 배포
+- `main` 브랜치 푸시 시 자동 배포 (`.github/workflows/deploy.yml`)
 
-## 프런트 데이터 연결
+### 자동 데이터 업데이트
+- 매일 오전 6시, 오후 10시 (KST) 자동 실행 (`.github/workflows/update-data.yml`)
+- 변경사항이 있을 때만 커밋
 
-`src/app.js`의 `loadData()`에서 fetch 경로를 바꾸면 됩니다.
+## 데이터 출처
 
-```js
-const res = await fetch("./data/wkbl-active.json");
-```
+- 경기 기록: [WKBL Data Lab](https://datalab.wkbl.or.kr/)
+- 선수 프로필: [WKBL 공식 사이트](https://www.wkbl.or.kr/)
 
-### players 스키마
+## 기술 스택
 
-```json
-{
-  "id": "wkbl-001",
-  "name": "선수명",
-  "team": "팀명",
-  "pos": "G/F/C",
-  "height": "170cm",
-  "season": "2024-25",
-  "gp": 30,
-  "min": 31.2,
-  "pts": 15.8,
-  "reb": 4.1,
-  "ast": 6.3,
-  "stl": 1.9,
-  "blk": 0.2,
-  "fgp": 0.438,
-  "tpp": 0.351,
-  "ftp": 0.822
-}
-```
+- **Frontend**: Vanilla JS, CSS (외부 라이브러리 없음)
+- **Backend**: Python 3 표준 라이브러리만 사용
+- **Hosting**: GitHub Pages (무료)
+- **CI/CD**: GitHub Actions (무료)
 
 ## 폴더 구조
 
 ```
 .
-├─ index.html
-├─ server.py
-├─ src/
-│  ├─ app.js
-│  └─ styles.css
-├─ data/
-│  └─ sample.json
-├─ docs/
-│  └─ data-sources.md
-└─ tools/
-   └─ ingest_wkbl.py
+├── index.html              # 메인 페이지
+├── server.py               # 로컬 개발 서버
+├── src/
+│   ├── app.js              # 프론트엔드 로직
+│   └── styles.css          # 스타일
+├── data/
+│   ├── wkbl-active.json    # 현역 선수 스탯 (자동 생성)
+│   ├── sample.json         # 폴백 샘플 데이터
+│   └── cache/              # 크롤링 캐시 (git 제외)
+├── tools/
+│   ├── config.py           # 설정 모듈
+│   └── ingest_wkbl.py      # 데이터 수집 스크립트
+├── docs/
+│   └── data-sources.md     # 데이터 소스 문서
+└── .github/workflows/
+    ├── deploy.yml          # GitHub Pages 배포
+    └── update-data.yml     # 데이터 자동 업데이트
 ```
+
+## 라이선스
+
+MIT
