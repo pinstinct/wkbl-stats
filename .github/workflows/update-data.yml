@@ -28,6 +28,7 @@ jobs:
           python3 tools/ingest_wkbl.py \
             --season-label 2025-26 \
             --auto \
+            --no-cache \
             --end-date $(date +%Y%m%d) \
             --active-only \
             --output data/wkbl-active.json
