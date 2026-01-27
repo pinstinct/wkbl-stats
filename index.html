@@ -15,7 +15,6 @@
       <div class="brand">
         <span class="badge">WKBL DATA LAB</span>
         <h1>Player Stats Explorer</h1>
-        <p>NBA Stats 스타일의 WKBL 선수 대시보드</p>
       </div>
       <div class="controls">
         <label class="control">
@@ -55,7 +54,6 @@
               <span id="playerHeight">-</span>
             </div>
           </div>
-          <div class="player-portrait" id="playerPortrait">WKBL</div>
         </div>
         <div class="stat-grid" id="playerStatGrid"></div>
       </section>
@@ -70,18 +68,22 @@
             <thead>
               <tr>
                 <th data-key="name">선수</th>
-                <th data-key="team">팀</th>
-                <th data-key="pos">POS</th>
-                <th data-key="gp">GP</th>
-                <th data-key="min">MIN</th>
-                <th data-key="pts">PTS</th>
-                <th data-key="reb">REB</th>
-                <th data-key="ast">AST</th>
-                <th data-key="stl">STL</th>
-                <th data-key="blk">BLK</th>
-                <th data-key="fgp">FG%</th>
-                <th data-key="tpp">3P%</th>
-                <th data-key="ftp">FT%</th>
+                <th data-key="team" class="hide-mobile">팀</th>
+                <th data-key="pos" class="hide-mobile" title="포지션 (G: 가드, F: 포워드, C: 센터)">POS</th>
+                <th data-key="gp" class="hide-tablet" title="Games Played - 출전 경기 수">GP</th>
+                <th data-key="min" class="hide-tablet" title="Minutes - 경기당 평균 출전 시간">MIN</th>
+                <th data-key="pts" title="Points - 경기당 평균 득점">PTS</th>
+                <th data-key="reb" title="Rebounds - 경기당 평균 리바운드">REB</th>
+                <th data-key="ast" title="Assists - 경기당 평균 어시스트">AST</th>
+                <th data-key="stl" class="hide-mobile" title="Steals - 경기당 평균 스틸">STL</th>
+                <th data-key="blk" class="hide-mobile" title="Blocks - 경기당 평균 블록">BLK</th>
+                <th data-key="tov" class="hide-tablet" title="Turnovers - 경기당 평균 턴오버">TOV</th>
+                <th data-key="fgp" class="hide-tablet" title="Field Goal % - 야투 성공률 (2점+3점)">FG%</th>
+                <th data-key="tpp" class="hide-tablet" title="3-Point % - 3점슛 성공률">3P%</th>
+                <th data-key="ftp" class="hide-tablet" title="Free Throw % - 자유투 성공률">FT%</th>
+                <th data-key="ts_pct" class="hide-mobile" title="True Shooting % - 모든 슛 시도(2점, 3점, 자유투)를 고려한 실제 슈팅 효율">TS%</th>
+                <th data-key="efg_pct" class="hide-mobile" title="Effective FG% - 3점슛의 추가 가치를 반영한 야투율">eFG%</th>
+                <th data-key="pir" class="hide-tablet" title="Performance Index Rating - 종합 퍼포먼스 지수 (유럽식 효율 지표)">PIR</th>
               </tr>
             </thead>
             <tbody id="statsBody"></tbody>
@@ -92,10 +94,7 @@
 
     <footer class="site-footer">
       <div>
-        데이터 출처: WKBL Data Lab (연결 예정)
-      </div>
-      <div>
-        초기 프로젝트 스캐폴드
+        데이터 출처: <a href="https://datalab.wkbl.or.kr/" target="_blank" rel="noopener">WKBL Data Lab</a>
       </div>
     </footer>
 

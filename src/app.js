@@ -7,15 +7,28 @@
     debounceDelay: 150,
   };
 
-  const statConfig = [
-    { key: "pts", label: "PTS" },
-    { key: "reb", label: "REB" },
-    { key: "ast", label: "AST" },
-    { key: "stl", label: "STL" },
-    { key: "blk", label: "BLK" },
-    { key: "fgp", label: "FG%" },
-    { key: "tpp", label: "3P%" },
-    { key: "ftp", label: "FT%" },
+  // Primary stats for player card with tooltips
+  const primaryStats = [
+    { key: "pts", label: "PTS", desc: "Points - 경기당 평균 득점" },
+    { key: "reb", label: "REB", desc: "Rebounds - 경기당 평균 리바운드" },
+    { key: "ast", label: "AST", desc: "Assists - 경기당 평균 어시스트" },
+    { key: "stl", label: "STL", desc: "Steals - 경기당 평균 스틸" },
+    { key: "blk", label: "BLK", desc: "Blocks - 경기당 평균 블록" },
+    { key: "tov", label: "TOV", desc: "Turnovers - 경기당 평균 턴오버" },
+    { key: "fgp", label: "FG%", format: "pct", desc: "Field Goal % - 야투 성공률 (2점+3점)" },
+    { key: "tpp", label: "3P%", format: "pct", desc: "3-Point % - 3점슛 성공률" },
+    { key: "ftp", label: "FT%", format: "pct", desc: "Free Throw % - 자유투 성공률" },
+  ];
+
+  // Advanced stats for player card with tooltips
+  const advancedStats = [
+    { key: "ts_pct", label: "TS%", format: "pct", desc: "True Shooting % - 모든 슛 시도를 고려한 실제 슈팅 효율. 계산: PTS / (2 × (FGA + 0.44 × FTA))" },
+    { key: "efg_pct", label: "eFG%", format: "pct", desc: "Effective FG% - 3점슛의 추가 가치(1.5배)를 반영한 야투율. 계산: (FGM + 0.5 × 3PM) / FGA" },
+    { key: "ast_to", label: "AST/TO", format: "ratio", desc: "Assist to Turnover Ratio - 어시스트/턴오버 비율. 높을수록 실수 대비 기여도가 높음" },
+    { key: "pir", label: "PIR", format: "number", desc: "Performance Index Rating - 유럽식 종합 효율 지표. 긍정적 스탯에서 부정적 스탯을 뺀 값" },
+    { key: "pts36", label: "PTS/36", format: "number", desc: "Points per 36 min - 36분당 환산 득점. 출전 시간이 다른 선수들을 비교할 때 유용" },
+    { key: "reb36", label: "REB/36", format: "number", desc: "Rebounds per 36 min - 36분당 환산 리바운드" },
+    { key: "ast36", label: "AST/36", format: "number", desc: "Assists per 36 min - 36분당 환산 어시스트" },
   ];
 
   const state = {
@@ -70,6 +83,22 @@
     return value.toFixed(decimals);
   }
 
+  function formatRatio(value) {
+    if (value === null || value === undefined || value === 0) return "-";
+    return value.toFixed(2);
+  }
+
+  function formatStat(value, format) {
+    switch (format) {
+      case "pct":
+        return formatPct(value);
+      case "ratio":
+        return formatRatio(value);
+      default:
+        return formatNumber(value);
+    }
+  }
+
   function populateControls(players) {
     const seasons = [...new Set(players.map((p) => p.season))].sort().reverse();
     seasons.forEach((season) => {
@@ -121,6 +150,32 @@
     }
   }
 
+  function createStatCard(stat, player, isAdvanced = false) {
+    const card = document.createElement("div");
+    card.className = isAdvanced ? "stat-card stat-card--advanced" : "stat-card";
+    if (stat.desc) {
+      card.title = stat.desc;
+      card.setAttribute("data-tooltip", stat.desc);
+    }
+
+    const label = document.createElement("span");
+    label.textContent = stat.label;
+
+    const value = document.createElement("strong");
+    value.textContent = formatStat(player[stat.key], stat.format);
+
+    card.append(label, value);
+    return card;
+  }
+
+  function getDoubleCategoriesText(player) {
+    const categories = [];
+    if (player.pts >= 10) categories.push("PTS");
+    if (player.reb >= 10) categories.push("REB");
+    if (player.ast >= 10) categories.push("AST");
+    return categories;
+  }
+
   function renderPlayer(player) {
     elements.playerName.textContent = player.name;
     elements.playerTeam.textContent = player.team;
@@ -128,24 +183,54 @@
     elements.playerHeight.textContent = player.height;
 
     elements.playerStatGrid.innerHTML = "";
-    statConfig.forEach((stat) => {
-      const card = document.createElement("div");
-      card.className = "stat-card";
-      const label = document.createElement("span");
-      label.textContent = stat.label;
-      const value = document.createElement("strong");
 
-      let displayValue = player[stat.key];
-      if (["fgp", "tpp", "ftp"].includes(stat.key)) {
-        displayValue = formatPct(displayValue);
-      } else {
-        displayValue = formatNumber(displayValue);
-      }
+    // Primary stats section
+    const primarySection = document.createElement("div");
+    primarySection.className = "stat-section";
+    const primaryTitle = document.createElement("div");
+    primaryTitle.className = "stat-section-title";
+    primaryTitle.textContent = "기본 스탯";
+    primarySection.append(primaryTitle);
 
-      value.textContent = displayValue;
-      card.append(label, value);
-      elements.playerStatGrid.append(card);
+    const primaryGrid = document.createElement("div");
+    primaryGrid.className = "stat-grid-inner";
+    primaryStats.forEach((stat) => {
+      primaryGrid.append(createStatCard(stat, player, false));
     });
+    primarySection.append(primaryGrid);
+
+    // Advanced stats section
+    const advancedSection = document.createElement("div");
+    advancedSection.className = "stat-section";
+    const advancedTitle = document.createElement("div");
+    advancedTitle.className = "stat-section-title";
+    advancedTitle.textContent = "2차 지표";
+    advancedSection.append(advancedTitle);
+
+    const advancedGrid = document.createElement("div");
+    advancedGrid.className = "stat-grid-inner";
+    advancedStats.forEach((stat) => {
+      advancedGrid.append(createStatCard(stat, player, true));
+    });
+    advancedSection.append(advancedGrid);
+
+    // Double-double indicator with categories
+    if (player.dd_cats >= 2) {
+      const categories = getDoubleCategoriesText(player);
+      const ddBadge = document.createElement("div");
+      ddBadge.className = "dd-badge";
+
+      if (player.dd_cats === 3) {
+        ddBadge.textContent = `평균 Triple-Double (${categories.join(" + ")})`;
+        ddBadge.setAttribute("data-tooltip", "PTS, REB, AST 세 부문에서 경기당 평균 10 이상 기록");
+      } else {
+        ddBadge.textContent = `평균 Double-Double (${categories.join(" + ")})`;
+        ddBadge.setAttribute("data-tooltip", "PTS, REB, AST 중 두 부문에서 경기당 평균 10 이상 기록");
+      }
+      advancedSection.append(ddBadge);
+    }
+
+    elements.playerStatGrid.append(primarySection, advancedSection);
   }
 
   function renderTable(players) {
@@ -155,18 +240,22 @@
       row.dataset.playerIndex = index;
       row.innerHTML = `
         <td>${player.name}</td>
-        <td>${player.team}</td>
-        <td>${player.pos}</td>
-        <td>${player.gp}</td>
-        <td>${formatNumber(player.min)}</td>
+        <td class="hide-mobile">${player.team}</td>
+        <td class="hide-mobile">${player.pos}</td>
+        <td class="hide-tablet">${player.gp}</td>
+        <td class="hide-tablet">${formatNumber(player.min)}</td>
         <td>${formatNumber(player.pts)}</td>
         <td>${formatNumber(player.reb)}</td>
         <td>${formatNumber(player.ast)}</td>
-        <td>${formatNumber(player.stl)}</td>
-        <td>${formatNumber(player.blk)}</td>
-        <td>${formatPct(player.fgp)}</td>
-        <td>${formatPct(player.tpp)}</td>
-        <td>${formatPct(player.ftp)}</td>
+        <td class="hide-mobile">${formatNumber(player.stl)}</td>
+        <td class="hide-mobile">${formatNumber(player.blk)}</td>
+        <td class="hide-tablet">${formatNumber(player.tov)}</td>
+        <td class="hide-tablet">${formatPct(player.fgp)}</td>
+        <td class="hide-tablet">${formatPct(player.tpp)}</td>
+        <td class="hide-tablet">${formatPct(player.ftp)}</td>
+        <td class="hide-mobile">${formatPct(player.ts_pct)}</td>
+        <td class="hide-mobile">${formatPct(player.efg_pct)}</td>
+        <td class="hide-tablet">${formatNumber(player.pir)}</td>
       `;
       elements.statsBody.append(row);
     });
@@ -201,7 +290,7 @@
   }
 
   function showError(message) {
-    elements.statsBody.innerHTML = `<tr><td colspan="13" style="text-align:center;color:#c00;">${message}</td></tr>`;
+    elements.statsBody.innerHTML = `<tr><td colspan="17" style="text-align:center;color:#c00;">${message}</td></tr>`;
   }
 
   async function loadData() {

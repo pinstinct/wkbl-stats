@@ -303,6 +303,7 @@ def _create_empty_player_entry(player_id, name, team, pos, height, season_label)
         "ast_total": 0.0,
         "stl_total": 0.0,
         "blk_total": 0.0,
+        "to_total": 0.0,
         "fgm": 0,
         "fga": 0,
         "tpm": 0,
@@ -321,6 +322,7 @@ def _accumulate_game_stats(entry, record):
     entry["ast_total"] += float(record["ast"] or 0)
     entry["stl_total"] += float(record["stl"] or 0)
     entry["blk_total"] += float(record["blk"] or 0)
+    entry["to_total"] += float(record["to"] or 0)
 
     two_m, two_a = parse_made_attempt(record["two_pm_a"])
     three_m, three_a = parse_made_attempt(record["three_pm_a"])
@@ -334,15 +336,67 @@ def _accumulate_game_stats(entry, record):
 
 
 def _compute_averages(entry, active_info):
-    """Convert accumulated totals to per-game averages."""
+    """Convert accumulated totals to per-game averages and advanced stats."""
     gp = entry["gp"] or 1
+    fgm = entry["fgm"]
     fga = entry["fga"]
+    tpm = entry["tpm"]
     tpa = entry["tpa"]
+    ftm = entry["ftm"]
     fta = entry["fta"]
+    pts_total = entry["pts_total"]
+    min_total = entry["min_total"]
+    to_total = entry["to_total"]
+    ast_total = entry["ast_total"]
 
     pos = active_info.get("pos") or entry["pos"] if active_info else entry["pos"]
     height = active_info.get("height") or entry["height"] if active_info else entry["height"]
     player_id = active_info.get("pno") or entry["id"] if active_info else entry["id"]
+
+    # Primary stats (per game)
+    pts = round(pts_total / gp, 1)
+    reb = round(entry["reb_total"] / gp, 1)
+    ast = round(ast_total / gp, 1)
+    stl = round(entry["stl_total"] / gp, 1)
+    blk = round(entry["blk_total"] / gp, 1)
+    tov = round(to_total / gp, 1)
+    minutes = round(min_total / gp, 1)
+
+    # Shooting percentages
+    fgp = round(fgm / fga, 3) if fga else 0
+    tpp = round(tpm / tpa, 3) if tpa else 0
+    ftp = round(ftm / fta, 3) if fta else 0
+
+    # Advanced stats
+    # TS% (True Shooting %) = PTS / (2 * (FGA + 0.44 * FTA))
+    tsa = 2 * (fga + 0.44 * fta)  # True shooting attempts
+    ts_pct = round(pts_total / tsa, 3) if tsa else 0
+
+    # eFG% (Effective FG %) = (FGM + 0.5 * 3PM) / FGA
+    efg_pct = round((fgm + 0.5 * tpm) / fga, 3) if fga else 0
+
+    # AST/TO Ratio
+    ast_to = round(ast_total / to_total, 2) if to_total else 0
+
+    # PER36 (Per 36 minutes stats)
+    if min_total > 0:
+        per36_factor = 36 / (min_total / gp) if (min_total / gp) > 0 else 0
+        pts36 = round(pts * per36_factor, 1)
+        reb36 = round(reb * per36_factor, 1)
+        ast36 = round(ast * per36_factor, 1)
+    else:
+        pts36 = reb36 = ast36 = 0
+
+    # PIR (Performance Index Rating) - European efficiency metric
+    # PIR = (PTS + REB + AST + STL + BLK + FGM + FTM) - (FGA-FGM) - (FTA-FTM) - TO
+    pir_total = (
+        pts_total + entry["reb_total"] + ast_total +
+        entry["stl_total"] + entry["blk_total"] + fgm + ftm
+    ) - (fga - fgm) - (fta - ftm) - to_total
+    pir = round(pir_total / gp, 1)
+
+    # Double-double potential (average 10+ in two categories)
+    dd_cats = sum(1 for v in [pts, reb, ast] if v >= 10)
 
     return {
         "id": player_id,
@@ -351,16 +405,28 @@ def _compute_averages(entry, active_info):
         "pos": pos,
         "height": height,
         "season": entry["season"],
+        # Primary stats
         "gp": entry["gp"],
-        "min": round(entry["min_total"] / gp, 1),
-        "pts": round(entry["pts_total"] / gp, 1),
-        "reb": round(entry["reb_total"] / gp, 1),
-        "ast": round(entry["ast_total"] / gp, 1),
-        "stl": round(entry["stl_total"] / gp, 1),
-        "blk": round(entry["blk_total"] / gp, 1),
-        "fgp": round(entry["fgm"] / fga, 3) if fga else 0,
-        "tpp": round(entry["tpm"] / tpa, 3) if tpa else 0,
-        "ftp": round(entry["ftm"] / fta, 3) if fta else 0,
+        "min": minutes,
+        "pts": pts,
+        "reb": reb,
+        "ast": ast,
+        "stl": stl,
+        "blk": blk,
+        "tov": tov,
+        # Shooting percentages
+        "fgp": fgp,
+        "tpp": tpp,
+        "ftp": ftp,
+        # Advanced stats
+        "ts_pct": ts_pct,
+        "efg_pct": efg_pct,
+        "ast_to": ast_to,
+        "pts36": pts36,
+        "reb36": reb36,
+        "ast36": ast36,
+        "pir": pir,
+        "dd_cats": dd_cats,
     }
 
 
