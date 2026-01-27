@@ -51,6 +51,7 @@
       "playerTeam",
       "playerPos",
       "playerHeight",
+      "playerGp",
       "playerStatGrid",
     ];
 
@@ -181,6 +182,7 @@
     elements.playerTeam.textContent = player.team;
     elements.playerPos.textContent = player.pos;
     elements.playerHeight.textContent = player.height;
+    elements.playerGp.textContent = `${player.gp}경기 출전`;
 
     elements.playerStatGrid.innerHTML = "";
 
