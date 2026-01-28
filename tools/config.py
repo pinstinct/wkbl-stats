@@ -16,9 +16,11 @@ PORT = 8000
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CACHE_DIR = os.path.join(BASE_DIR, "data", "cache")
+DATA_DIR = os.path.join(BASE_DIR, "data")
+CACHE_DIR = os.path.join(DATA_DIR, "cache")
 STATUS_PATH = os.path.join(CACHE_DIR, "ingest_status.json")
-OUTPUT_PATH = os.path.join(BASE_DIR, "data", "wkbl-active.json")
+OUTPUT_PATH = os.path.join(DATA_DIR, "wkbl-active.json")
+DB_PATH = os.path.join(DATA_DIR, "wkbl.db")
 
 # Season Settings
 CURRENT_SEASON = "2025-26"
