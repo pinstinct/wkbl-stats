@@ -375,10 +375,6 @@ body {
 
 /* Responsive: Tablet (< 1024px) */
 @media (max-width: 1024px) {
-  .hide-tablet {
-    display: none;
-  }
-
   #statsTable {
     font-size: 12px;
   }
@@ -393,10 +389,6 @@ body {
 @media (max-width: 720px) {
   .control.search {
     grid-column: span 1;
-  }
-
-  .hide-mobile {
-    display: none;
   }
 
   .stat-grid-inner {
@@ -423,18 +415,77 @@ body {
     display: none;
   }
 
+  .dd-badge {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+
+  /* Prevent page horizontal overflow */
+  body {
+    overflow-x: hidden;
+  }
+
+  .content {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  /* Table section must contain the wide table */
+  .table-section {
+    overflow: hidden;
+    max-width: 100%;
+  }
+
+  /* Show all columns on mobile with horizontal scroll */
+  #statsTable .hide-mobile,
+  #statsTable .hide-tablet {
+    display: table-cell !important;
+  }
+
+  /* Table horizontal scroll setup */
+  .table-wrap {
+    position: relative;
+    overflow-x: scroll;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+
   #statsTable {
     font-size: 11px;
+    border-collapse: separate;
+    border-spacing: 0;
+    min-width: 900px;
+    width: max-content;
   }
 
   #statsTable th,
   #statsTable td {
-    padding: 8px 4px;
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--line);
   }
 
-  .dd-badge {
-    font-size: 11px;
-    padding: 6px 10px;
+  /* Sticky first column (player name) */
+  #statsTable th:first-child,
+  #statsTable td:first-child {
+    position: sticky;
+    left: 0;
+    background: var(--surface);
+    z-index: 2;
+    min-width: 70px;
+    max-width: 90px;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+  }
+
+  #statsTable th:first-child {
+    z-index: 3;
+  }
+
+  #statsTable tbody tr:hover td {
+    background: rgba(217, 79, 49, 0.06);
+  }
+
+  #statsTable tbody tr:hover td:first-child {
+    background: #fef6f4;
   }
 }
 
