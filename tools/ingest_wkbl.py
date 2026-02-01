@@ -16,11 +16,13 @@ from config import (
     PLAYER_RECORD_WRAPPER,
     GAME_LIST_MONTH,
     PLAYER_LIST,
+    TEAM_STANDINGS_URL,
     USER_AGENT,
     TIMEOUT,
     DELAY,
     MAX_RETRIES,
     RETRY_BACKOFF,
+    SEASON_CODES,
     setup_logging,
 )
 import database
@@ -251,6 +253,42 @@ def normalize_team(team):
     return re.sub(r"\s+", " ", team).strip()
 
 
+# Game type mapping based on game_id structure
+# Game ID format: SSSTTGGG where SSS=season, TT=type, GGG=game number
+# Examples: 04601055 = season 046, type 01 (regular), game 055
+#           04604010 = season 046, type 04 (playoff), game 010
+#           04601001 = season 046, type 01, game 001 (all-star)
+GAME_TYPE_MAP = {
+    "01": "regular",
+    "04": "playoff",
+}
+
+# All-Star game numbers (game 001 in regular season slot is typically all-star)
+ALLSTAR_GAME_NUMBERS = {"001"}
+
+
+def parse_game_type(game_id):
+    """Extract game type from game_id.
+
+    Args:
+        game_id: WKBL game ID (e.g., '04601055', '04604010', '04601001')
+
+    Returns:
+        Game type string: 'regular', 'playoff', 'allstar', or 'regular' (default)
+    """
+    if len(game_id) < 8:
+        return "regular"
+
+    game_type_code = game_id[3:5]
+    game_number = game_id[5:8]
+
+    # Check for all-star game (game 001 in regular season slot)
+    if game_type_code == "01" and game_number in ALLSTAR_GAME_NUMBERS:
+        return "allstar"
+
+    return GAME_TYPE_MAP.get(game_type_code, "regular")
+
+
 # Team name to DB ID mapping
 TEAM_ID_MAP = {
     # 삼성생명
@@ -316,6 +354,38 @@ def get_season_meta(cache_dir, season_label, use_cache=True, delay=0.0):
         "firstGameDate": m.group(1),
         "selectedId": m.group(2),
         "selectedGameDate": m.group(3),
+    }
+
+
+def get_season_meta_by_code(season_code):
+    """Get season metadata from season code without network request.
+
+    Args:
+        season_code: WKBL season code (e.g., '046')
+
+    Returns:
+        Dict with season metadata: firstGameDate, selectedId, label
+    """
+    label = SEASON_CODES.get(season_code)
+    if not label:
+        raise ValueError(f"Unknown season code: {season_code}")
+
+    # Calculate season start year from code
+    # Season codes: 046 = 2025-26, 045 = 2024-25, etc.
+    code_num = int(season_code)
+    season_year = 2025 - (46 - code_num)
+
+    # Season typically starts in late October/November
+    first_game_date = f"{season_year}1027"  # Approximate start date
+
+    # Generate a representative selected_id (first game of season)
+    selected_id = f"{season_code}01001"
+
+    return {
+        "firstGameDate": first_game_date,
+        "selectedId": selected_id,
+        "selectedGameDate": first_game_date,
+        "label": label,
     }
 
 
@@ -425,6 +495,7 @@ def parse_active_player_links(html):
 def parse_player_profile(html):
     pos = None
     height = None
+    birth_date = None
     # Match "포지션</span> - F" or "포지션 - F"
     pos_m = re.search(r"포지션(?:</span>)?\s*-\s*([A-Z/]+)", html)
     if pos_m:
@@ -433,7 +504,12 @@ def parse_player_profile(html):
     height_m = re.search(r"신장(?:</span>)?\s*-\s*([0-9]+\s*cm)", html)
     if height_m:
         height = height_m.group(1).strip()
-    return pos, height
+    # Match "생년월일</span> - 1994.10.27" or "생년월일 - 1994.10.27"
+    birth_m = re.search(r"생년월일(?:</span>)?\s*-\s*(\d{4}\.\d{1,2}\.\d{1,2})", html)
+    if birth_m:
+        # Convert from YYYY.MM.DD to YYYY-MM-DD
+        birth_date = birth_m.group(1).replace(".", "-")
+    return pos, height, birth_date
 
 
 def load_active_players(cache_dir, use_cache=True, delay=0.0):
@@ -445,11 +521,13 @@ def load_active_players(cache_dir, use_cache=True, delay=0.0):
         if not player.get("url"):
             continue
         detail_html = fetch(player["url"], cache_dir, use_cache=use_cache, delay=delay)
-        pos, height = parse_player_profile(detail_html)
+        pos, height, birth_date = parse_player_profile(detail_html)
         if pos:
             player["pos"] = pos
         if height:
             player["height"] = height
+        if birth_date:
+            player["birth_date"] = birth_date
     return players
 
 
@@ -656,7 +734,201 @@ def _resolve_season_params(args):
 WKBL_SCHEDULE_URL = "https://www.wkbl.or.kr/game/sch/inc_list_1_new.asp"
 
 
-def _fetch_schedule_from_wkbl(cache_dir, season_code, use_cache=True, delay=0.0):
+def fetch_post(url, data, cache_dir, use_cache=True, delay=0.0):
+    """Fetch URL with POST data, caching, retry logic, and exponential backoff."""
+    if cache_dir:
+        os.makedirs(cache_dir, exist_ok=True)
+        # Include POST data in cache key
+        cache_data = url + "|" + "&".join(f"{k}={v}" for k, v in sorted(data.items()))
+        key = hashlib.sha1(cache_data.encode("utf-8")).hexdigest()
+        path = os.path.join(cache_dir, key + ".html")
+        if use_cache and os.path.exists(path):
+            logger.debug(f"Cache hit: {url}")
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                return f.read()
+
+    if delay:
+        time.sleep(delay)
+
+    last_error = None
+    post_data = "&".join(f"{k}={v}" for k, v in data.items()).encode("utf-8")
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            req = Request(url, data=post_data, headers={
+                "User-Agent": USER_AGENT,
+                "Content-Type": "application/x-www-form-urlencoded",
+            })
+            with urlopen(req, timeout=TIMEOUT) as resp:
+                content = resp.read()
+                text = content.decode("utf-8", errors="ignore")
+            if cache_dir:
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(text)
+            logger.debug(f"Fetched (POST): {url}")
+            return text
+        except HTTPError as e:
+            last_error = e
+            logger.warning(f"HTTP error {e.code} on attempt {attempt}/{MAX_RETRIES}: {url}")
+        except URLError as e:
+            last_error = e
+            logger.warning(f"URL error on attempt {attempt}/{MAX_RETRIES}: {url} - {e.reason}")
+        except socket.timeout as e:
+            last_error = e
+            logger.warning(f"Timeout on attempt {attempt}/{MAX_RETRIES}: {url}")
+
+        if attempt < MAX_RETRIES:
+            backoff = RETRY_BACKOFF ** attempt
+            logger.info(f"Retrying in {backoff:.1f}s...")
+            time.sleep(backoff)
+
+    logger.error(f"Failed to fetch after {MAX_RETRIES} attempts: {url}")
+    raise last_error
+
+
+def fetch_team_standings(cache_dir, season_code, gun="1", use_cache=True, delay=0.0):
+    """Fetch team standings from WKBL AJAX endpoint.
+
+    Args:
+        cache_dir: Cache directory for HTTP responses
+        season_code: Season code (e.g., '046')
+        gun: Game type ('1' for regular season, '4' for playoff)
+        use_cache: Whether to use cached responses
+        delay: Delay between requests
+
+    Returns:
+        List of team standing dicts
+    """
+    data = {
+        "season_gu": season_code,
+        "gun": gun,
+    }
+
+    html = fetch_post(TEAM_STANDINGS_URL, data, cache_dir, use_cache=use_cache, delay=delay)
+    return parse_standings_html(html, season_code)
+
+
+def _parse_record(text):
+    """Parse win-loss record like '6-3' or '13승 5패' into (wins, losses)."""
+    text = text.strip()
+    # Format: "6-3"
+    if "-" in text and "승" not in text:
+        parts = text.split("-")
+        if len(parts) == 2:
+            try:
+                return int(parts[0]), int(parts[1])
+            except ValueError:
+                pass
+    # Format: "13승 5패"
+    m = re.match(r"(\d+)승\s*(\d+)패", text)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    return 0, 0
+
+
+def parse_standings_html(html, season_code):
+    """Parse team standings HTML from WKBL AJAX response.
+
+    HTML structure (11 columns):
+    0: rank, 1: team, 2: games_played, 3: "13승 5패", 4: win_pct,
+    5: games_behind, 6: home (6-3), 7: away (7-2), 8: neutral (0-0),
+    9: last5 (3-2), 10: streak (W3/L2)
+
+    Args:
+        html: HTML content from ajax_team_rank.asp
+        season_code: Season code for team ID resolution
+
+    Returns:
+        List of team standing dicts with team_id, rank, wins, losses, etc.
+    """
+    standings = []
+
+    # Find the table rows
+    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S)
+
+    for row in rows:
+        # Skip header rows
+        if "<th" in row:
+            continue
+
+        # Parse cells
+        cells = re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)
+        if len(cells) < 11:
+            continue
+
+        # Extract rank (1st cell)
+        rank_text = strip_tags(cells[0]).strip()
+        if not rank_text.isdigit():
+            continue
+        rank = int(rank_text)
+
+        # Extract team name (2nd cell)
+        team_name = strip_tags(cells[1]).strip()
+        if not team_name:
+            continue
+        team_id = get_team_id(team_name)
+
+        # Extract games played (3rd cell)
+        gp_text = strip_tags(cells[2]).strip()
+        games_played = int(gp_text) if gp_text.isdigit() else 0
+
+        # Extract wins/losses (4th cell) - format: "13승 5패"
+        record_text = strip_tags(cells[3]).strip()
+        wins, losses = _parse_record(record_text)
+
+        # Extract win percentage (5th cell) - format: 72.2
+        pct_text = strip_tags(cells[4]).strip()
+        try:
+            win_pct = float(pct_text) / 100.0  # Convert 72.2 to 0.722
+        except ValueError:
+            win_pct = wins / games_played if games_played > 0 else 0.0
+
+        # Extract games behind (6th cell)
+        gb_text = strip_tags(cells[5]).strip()
+        try:
+            games_behind = float(gb_text) if gb_text and gb_text != "-" else 0.0
+        except ValueError:
+            games_behind = 0.0
+
+        # Extract home record (7th cell) - format: "6-3"
+        home_text = strip_tags(cells[6]).strip()
+        home_wins, home_losses = _parse_record(home_text)
+
+        # Extract away record (8th cell) - format: "7-2"
+        away_text = strip_tags(cells[7]).strip()
+        away_wins, away_losses = _parse_record(away_text)
+
+        # Skip neutral record (9th cell, cells[8])
+
+        # Extract last5 (10th cell) - stored as last10 in DB - format: "3-2"
+        last5_text = strip_tags(cells[9]).strip()
+        last10 = last5_text if last5_text and last5_text != "-" else None
+
+        # Extract streak (11th cell) - format: "연3승" or "연2패"
+        streak_text = strip_tags(cells[10]).strip()
+        streak = streak_text if streak_text and streak_text != "-" else None
+
+        standings.append({
+            "team_id": team_id,
+            "team_name": team_name,
+            "rank": rank,
+            "games_played": games_played,
+            "wins": wins,
+            "losses": losses,
+            "win_pct": round(win_pct, 3),
+            "games_behind": games_behind,
+            "home_wins": home_wins,
+            "home_losses": home_losses,
+            "away_wins": away_wins,
+            "away_losses": away_losses,
+            "streak": streak,
+            "last10": last10,
+        })
+
+    return standings
+
+
+def _fetch_schedule_from_wkbl(cache_dir, season_code, use_cache=True, delay=0.0, game_types=None):
     """Fetch game schedule from WKBL official site.
 
     Args:
@@ -664,10 +936,19 @@ def _fetch_schedule_from_wkbl(cache_dir, season_code, use_cache=True, delay=0.0)
         season_code: Season code (e.g., '046')
         use_cache: Whether to use cached responses
         delay: Delay between requests
+        game_types: List of game types to fetch (e.g., ['01', '04']).
+                    '01' = regular season, '04' = playoff.
+                    Default: ['01'] (regular season only)
 
     Returns:
         Dict mapping game_id to dict with 'date', 'home_team', 'away_team'
     """
+    if game_types is None:
+        game_types = ["01"]  # Default: regular season only
+
+    # gun parameter mapping: 1 = regular season, 4 = playoff
+    gun_map = {"01": "1", "04": "4"}
+
     # Season months to fetch (November to April)
     # Construct year-month list based on season
     # Season codes: 046 = 2025-26, 045 = 2024-25, 044 = 2023-24
@@ -684,65 +965,70 @@ def _fetch_schedule_from_wkbl(cache_dir, season_code, use_cache=True, delay=0.0)
 
     games = {}
 
-    for ym in months:
-        url = f"{WKBL_SCHEDULE_URL}?season_gu={season_code}&ym={ym}&viewType=2&gun=1"
-        try:
-            html = fetch(url, cache_dir, use_cache=use_cache, delay=delay)
+    for game_type_code in game_types:
+        gun = gun_map.get(game_type_code, "1")
 
-            # Find all table rows with game data
-            rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S)
+        for ym in months:
+            url = f"{WKBL_SCHEDULE_URL}?season_gu={season_code}&ym={ym}&viewType=2&gun={gun}"
+            try:
+                html = fetch(url, cache_dir, use_cache=use_cache, delay=delay)
 
-            for row in rows:
-                # Skip header row
-                if "<th" in row:
-                    continue
+                # Find all table rows with game data
+                rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S)
 
-                # Get date: format is MM/DD in <td>
-                date_match = re.search(r"<td[^>]*>(\d{1,2})/(\d{1,2})", row)
+                for row in rows:
+                    # Skip header row
+                    if "<th" in row:
+                        continue
 
-                # Get game_no from link
-                game_match = re.search(r"game_no=(\d+)", row)
+                    # Get date: format is MM/DD in <td>
+                    date_match = re.search(r"<td[^>]*>(\d{1,2})/(\d{1,2})", row)
 
-                # Get teams - away and home from data-kr attributes
-                away_match = re.search(r"info_team away.*?data-kr=\"([^\"]+)\"", row, re.S)
-                home_match = re.search(r"info_team home.*?data-kr=\"([^\"]+)\"", row, re.S)
+                    # Get game_no from link
+                    game_match = re.search(r"game_no=(\d+)", row)
 
-                if date_match and game_match:
-                    month = int(date_match.group(1))
-                    day = int(date_match.group(2))
-                    game_no = int(game_match.group(1))
+                    # Get teams - away and home from data-kr attributes
+                    away_match = re.search(r"info_team away.*?data-kr=\"([^\"]+)\"", row, re.S)
+                    home_match = re.search(r"info_team home.*?data-kr=\"([^\"]+)\"", row, re.S)
 
-                    # Determine year based on month
-                    if month >= 10:  # Oct-Dec
-                        game_year = season_year
-                    else:  # Jan-Apr
-                        game_year = season_year + 1
+                    if date_match and game_match:
+                        month = int(date_match.group(1))
+                        day = int(date_match.group(2))
+                        game_no = int(game_match.group(1))
 
-                    date = f"{game_year}{month:02d}{day:02d}"
-                    game_id = f"{season_code}01{game_no:03d}"
+                        # Determine year based on month
+                        if month >= 10:  # Oct-Dec
+                            game_year = season_year
+                        else:  # Jan-Apr
+                            game_year = season_year + 1
 
-                    away_team = away_match.group(1) if away_match else ""
-                    home_team = home_match.group(1) if home_match else ""
+                        date = f"{game_year}{month:02d}{day:02d}"
+                        # Build game_id with correct game type code
+                        game_id = f"{season_code}{game_type_code}{game_no:03d}"
 
-                    games[game_id] = {
-                        "date": date,
-                        "home_team": home_team,
-                        "away_team": away_team,
-                    }
+                        away_team = away_match.group(1) if away_match else ""
+                        home_team = home_match.group(1) if home_match else ""
 
-        except Exception as e:
-            logger.warning(f"Failed to fetch schedule for {ym}: {e}")
+                        games[game_id] = {
+                            "date": date,
+                            "home_team": home_team,
+                            "away_team": away_team,
+                        }
+
+            except Exception as e:
+                logger.warning(f"Failed to fetch schedule for {ym} (gun={gun}): {e}")
 
     return games
 
 
-def _get_games_to_process(args, end_date, existing_game_ids=None):
+def _get_games_to_process(args, end_date, existing_game_ids=None, game_types=None):
     """Get list of games to process using WKBL schedule API.
 
     Args:
         args: Command line arguments
         end_date: End date for filtering games (YYYYMMDD)
         existing_game_ids: Set of game IDs already in DB (skip these)
+        game_types: List of game type codes to fetch (e.g., ['01', '04'])
 
     Returns:
         Tuple of (filtered_items, schedule_info):
@@ -757,7 +1043,8 @@ def _get_games_to_process(args, end_date, existing_game_ids=None):
     # Fetch schedule from WKBL official site
     schedule_info = _fetch_schedule_from_wkbl(
         args.cache_dir, season_code,
-        use_cache=not args.no_cache, delay=args.delay
+        use_cache=not args.no_cache, delay=args.delay,
+        game_types=game_types
     )
 
     logger.info(f"Found {len(schedule_info)} games in schedule")
@@ -786,7 +1073,7 @@ def _get_games_to_process(args, end_date, existing_game_ids=None):
     return filtered_items, schedule_info
 
 
-def _fetch_game_records(args, end_date, fetch_team_stats=False, existing_game_ids=None):
+def _fetch_game_records(args, end_date, fetch_team_stats=False, existing_game_ids=None, game_types=None):
     """Fetch and parse game records up to end_date.
 
     Args:
@@ -794,6 +1081,7 @@ def _fetch_game_records(args, end_date, fetch_team_stats=False, existing_game_id
         end_date: End date for filtering games (YYYYMMDD)
         fetch_team_stats: Whether to also fetch team statistics
         existing_game_ids: Set of game IDs already in DB (skip these)
+        game_types: List of game type codes to fetch (e.g., ['01', '04'])
 
     Returns:
         tuple: (records, team_records, game_items, schedule_info)
@@ -803,7 +1091,7 @@ def _fetch_game_records(args, end_date, fetch_team_stats=False, existing_game_id
             - schedule_info: dict with game schedule including home/away teams
     """
     # Get games from WKBL schedule API
-    filtered_items, schedule_info = _get_games_to_process(args, end_date, existing_game_ids)
+    filtered_items, schedule_info = _get_games_to_process(args, end_date, existing_game_ids, game_types=game_types)
 
     if not filtered_items:
         logger.info("No new games to process")
@@ -993,6 +1281,7 @@ def _save_to_db(args, game_records, team_records, active_players, game_items, sc
             team_id=team_id,
             position=p.get("pos"),
             height=p.get("height"),
+            birth_date=p.get("birth_date"),
             is_active=1,
         )
         key = f"{p['name']}|{normalize_team(p['team'])}"
@@ -1043,6 +1332,9 @@ def _save_to_db(args, game_records, team_records, active_players, game_items, sc
         home_score = sum(int(r["pts"] or 0) for r in records if get_team_id(r["team"]) == home_team_id)
         away_score = sum(int(r["pts"] or 0) for r in records if get_team_id(r["team"]) == away_team_id)
 
+        # Auto-detect game type from game_id
+        game_type = parse_game_type(game_id)
+
         database.insert_game(
             game_id=game_id,
             season_id=season_code,
@@ -1051,6 +1343,7 @@ def _save_to_db(args, game_records, team_records, active_players, game_items, sc
             away_team_id=away_team_id,
             home_score=home_score,
             away_score=away_score,
+            game_type=game_type,
         )
         games_inserted += 1
 
@@ -1132,12 +1425,130 @@ def _save_to_db(args, game_records, team_records, active_players, game_items, sc
         logger.info(f"Saved {team_games_saved} team-game records to database")
 
 
+def _ingest_single_season(args, season_code, season_label, active_players, game_types):
+    """Ingest data for a single season.
+
+    Args:
+        args: Command line arguments
+        season_code: WKBL season code (e.g., '046')
+        season_label: Season label (e.g., '2025-26')
+        active_players: List of active players for enrichment
+        game_types: List of game type codes to fetch
+
+    Returns:
+        Tuple of (records, team_records, game_items) for the season
+    """
+    logger.info(f"Processing season {season_label} (code: {season_code})")
+
+    # Set up args for this season
+    meta = get_season_meta_by_code(season_code)
+    args.first_game_date = meta["firstGameDate"]
+    args.selected_id = meta["selectedId"]
+    args.selected_game_date = meta["selectedGameDate"]
+    args.season_label = season_label
+
+    # Calculate end date (end of season for past seasons, today for current)
+    code_num = int(season_code)
+    current_code = 46  # 2025-26 season
+    if code_num < current_code:
+        # Past season - use end of April of the following year
+        season_year = 2025 - (46 - code_num)
+        end_date = f"{season_year + 1}0430"
+    else:
+        # Current season - use today or provided end_date
+        end_date = args.end_date or datetime.date.today().strftime("%Y%m%d")
+
+    # Get existing game IDs for incremental update
+    existing_game_ids = None
+    if args.save_db and not args.force_refresh:
+        existing_game_ids = database.get_existing_game_ids(season_code)
+        if existing_game_ids:
+            logger.info(f"Found {len(existing_game_ids)} existing games in database")
+
+    records, team_records, game_items, schedule_info = _fetch_game_records(
+        args, end_date, fetch_team_stats=args.fetch_team_stats,
+        existing_game_ids=existing_game_ids, game_types=game_types
+    )
+
+    # Save to database if requested
+    if args.save_db and game_items:
+        _save_to_db(args, records, team_records, active_players, game_items, schedule_info)
+
+    # Fetch and save standings if requested
+    if getattr(args, 'fetch_standings', False) and args.save_db:
+        try:
+            standings = fetch_team_standings(
+                args.cache_dir, season_code,
+                use_cache=not args.no_cache, delay=args.delay
+            )
+            if standings:
+                database.bulk_insert_team_standings(season_code, standings)
+                logger.info(f"Saved {len(standings)} team standings for season {season_label}")
+        except Exception as e:
+            logger.warning(f"Failed to fetch standings for {season_label}: {e}")
+
+    return records, team_records, game_items
+
+
+def _ingest_multiple_seasons(args):
+    """Ingest data for multiple seasons.
+
+    Args:
+        args: Command line arguments with --all-seasons or --seasons
+    """
+    # Determine which seasons to process
+    if args.all_seasons:
+        season_codes = list(SEASON_CODES.keys())
+        logger.info(f"Processing all {len(season_codes)} historical seasons")
+    else:
+        season_codes = args.seasons
+        logger.info(f"Processing {len(season_codes)} specified seasons")
+
+    # Validate season codes
+    for code in season_codes:
+        if code not in SEASON_CODES:
+            raise SystemExit(f"Unknown season code: {code}. Valid codes: {list(SEASON_CODES.keys())}")
+
+    # Convert game_type argument to game_types list
+    game_type_mapping = {
+        "regular": ["01"],
+        "playoff": ["04"],
+        "all": ["01", "04"],
+    }
+    game_types = game_type_mapping.get(args.game_type, ["01"])
+
+    # Load active players once for all seasons
+    active_players = load_active_players(
+        args.cache_dir, use_cache=not args.no_cache, delay=args.delay
+    )
+
+    # Initialize database
+    if args.save_db:
+        database.init_db()
+
+    # Process each season
+    total_games = 0
+    for season_code in sorted(season_codes):
+        season_label = SEASON_CODES[season_code]
+        try:
+            records, team_records, game_items = _ingest_single_season(
+                args, season_code, season_label, active_players, game_types
+            )
+            total_games += len(game_items)
+            logger.info(f"Completed {season_label}: {len(game_items)} new games")
+        except Exception as e:
+            logger.error(f"Failed to process season {season_label}: {e}")
+            continue
+
+    logger.info(f"Multi-season ingest complete: {total_games} total new games across {len(season_codes)} seasons")
+
+
 def main():
     parser = argparse.ArgumentParser(description="WKBL Data Lab ingest")
     parser.add_argument("--first-game-date", help="e.g. 20241027")
     parser.add_argument("--selected-id", help="e.g. 04601055")
     parser.add_argument("--selected-game-date", help="e.g. 20260126")
-    parser.add_argument("--season-label", required=True, help="e.g. 2024-25")
+    parser.add_argument("--season-label", help="e.g. 2024-25 (required unless --all-seasons or --seasons)")
     parser.add_argument("--cache-dir", default="data/cache", help="cache dir")
     parser.add_argument("--no-cache", action="store_true")
     parser.add_argument("--delay", type=float, default=DELAY)
@@ -1148,8 +1559,26 @@ def main():
     parser.add_argument("--save-db", action="store_true", help="save raw records to SQLite database")
     parser.add_argument("--fetch-team-stats", action="store_true", help="also fetch team statistics")
     parser.add_argument("--force-refresh", action="store_true", help="ignore existing data and re-fetch all games")
+    parser.add_argument("--game-type", choices=["regular", "playoff", "all"],
+                        default="regular", help="game type to collect (default: regular)")
+    parser.add_argument("--all-seasons", action="store_true",
+                        help="collect all historical seasons (2020-21 ~ current)")
+    parser.add_argument("--seasons", nargs="+",
+                        help="specific season codes to collect (e.g., 044 045)")
+    parser.add_argument("--fetch-standings", action="store_true",
+                        help="also fetch team standings/rankings")
 
     args = parser.parse_args()
+
+    # Handle multi-season collection mode
+    if args.all_seasons or args.seasons:
+        _ingest_multiple_seasons(args)
+        return
+
+    # Single season mode requires --season-label
+    if not args.season_label:
+        parser.error("--season-label is required (unless using --all-seasons or --seasons)")
+
     logger.info(f"Starting ingest for season {args.season_label}")
 
     end_date = _resolve_season_params(args)
@@ -1163,9 +1592,17 @@ def main():
             if existing_game_ids:
                 logger.info(f"Found {len(existing_game_ids)} existing games in database")
 
+    # Convert game_type argument to game_types list
+    game_type_mapping = {
+        "regular": ["01"],
+        "playoff": ["04"],
+        "all": ["01", "04"],
+    }
+    game_types = game_type_mapping.get(args.game_type, ["01"])
+
     records, team_records, game_items, schedule_info = _fetch_game_records(
         args, end_date, fetch_team_stats=args.fetch_team_stats,
-        existing_game_ids=existing_game_ids
+        existing_game_ids=existing_game_ids, game_types=game_types
     )
 
     active_players = load_active_players(
@@ -1202,6 +1639,28 @@ def main():
         logger.info(f"Filtered to {len(players)} active players")
 
     _write_output(args, players)
+
+    # Fetch and save team standings if requested
+    if args.fetch_standings:
+        season_code = args.selected_id[:3] if args.selected_id else "046"
+        logger.info(f"Fetching team standings for season {season_code}")
+        try:
+            standings = fetch_team_standings(
+                args.cache_dir, season_code,
+                use_cache=not args.no_cache, delay=args.delay
+            )
+            if standings:
+                logger.info(f"Fetched {len(standings)} team standings")
+                if args.save_db:
+                    database.bulk_insert_team_standings(season_code, standings)
+                # Log standings summary
+                for s in standings:
+                    logger.info(f"  {s['rank']}. {s['team_name']}: {s['wins']}-{s['losses']} ({s['win_pct']:.3f})")
+            else:
+                logger.warning("No standings data found")
+        except Exception as e:
+            logger.error(f"Failed to fetch standings: {e}")
+
     logger.info("Ingest complete")
 
 

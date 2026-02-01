@@ -45,6 +45,10 @@ python3 tools/ingest_wkbl.py \
 | `--save-db` | Save game records to SQLite database |
 | `--force-refresh` | Ignore existing data, re-fetch all games |
 | `--fetch-team-stats` | Also collect team statistics |
+| `--fetch-standings` | Also collect team standings/rankings |
+| `--game-type {regular,playoff,all}` | Game type to collect (default: regular) |
+| `--all-seasons` | Collect all historical seasons (2020-21 ~ current) |
+| `--seasons 044 045` | Collect specific seasons by code |
 
 ## Architecture
 
@@ -86,13 +90,22 @@ seasons ─┐
          │
 teams ───┼──→ games ──→ player_games (per-game player stats)
          │        └──→ team_games (per-game team stats)
+         │
+         └──→ team_standings (season standings)
 players ─┘
 ```
 
 Key tables:
-- `player_games`: Individual game records (MIN, PTS, REB, AST, shooting splits, etc.)
-- `team_games`: Team game records (fast break, paint points, etc.)
-- `games`: Game metadata (date, home/away teams, scores)
+- `seasons`: Season info (id=046, label=2025-26, start_date, end_date)
+- `teams`: Team info (id=kb, name=KB스타즈, short_name=KB)
+- `players`: Player info (id=pno, name, team_id, position, height)
+- `games`: Game metadata (id=04601055, date, home/away teams, scores, game_type)
+- `player_games`: Per-game player stats (MIN, PTS, REB, AST, shooting splits)
+- `team_games`: Per-game team stats (fast_break_pts, paint_pts, two_pts, three_pts)
+- `team_standings`: Season standings (rank, wins, losses, win_pct, home/away records, streak)
+- `_meta_descriptions`: Table/column descriptions metadata
+
+See `docs/data-sources.md` for detailed column definitions.
 
 ## Data Sources
 
@@ -102,6 +115,8 @@ External endpoints (documented in `docs/data-sources.md`):
 - `datalab.wkbl.or.kr:9001/data_lab/record_team.asp` - Per-game team stats
 - `wkbl.or.kr/player/player_list.asp` - Active player roster
 - `wkbl.or.kr/player/detail.asp` - Individual player profiles
+- `wkbl.or.kr/game/ajax/ajax_team_rank.asp` - Team standings (POST)
+- `wkbl.or.kr/game/sch/inc_list_1_new.asp` - Game schedule by month
 
 ## Player Data Schema
 
@@ -142,6 +157,16 @@ External endpoints (documented in `docs/data-sources.md`):
 | 2025-26 | 046 |
 | 2024-25 | 045 |
 | 2023-24 | 044 |
+| 2022-23 | 043 |
+| 2021-22 | 042 |
+| 2020-21 | 041 |
+
+## Game ID Structure
+
+Format: `SSSTTGGG` (e.g., `04601055`)
+- `SSS`: Season code (046 = 2025-26)
+- `TT`: Game type (01 = regular, 04 = playoff)
+- `GGG`: Game number (001 = all-star, 002+ = regular games)
 
 ## Notes
 

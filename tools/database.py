@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS games (
     away_team_id TEXT NOT NULL,
     home_score INTEGER,
     away_score INTEGER,
-    game_type TEXT DEFAULT 'regular',  -- regular, playoff, final
+    game_type TEXT DEFAULT 'regular',  -- regular, playoff, allstar
     FOREIGN KEY (season_id) REFERENCES seasons(id),
     FOREIGN KEY (home_team_id) REFERENCES teams(id),
     FOREIGN KEY (away_team_id) REFERENCES teams(id)
@@ -106,33 +106,50 @@ CREATE TABLE IF NOT EXISTS team_games (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     game_id TEXT NOT NULL,
     team_id TEXT NOT NULL,
-    is_home INTEGER NOT NULL,      -- 1: 홈, 0: 원정
+    is_home INTEGER NOT NULL,           -- 1: 홈, 0: 원정
 
     -- 득점 세부
     fast_break_pts INTEGER DEFAULT 0,   -- 속공 득점
     paint_pts INTEGER DEFAULT 0,        -- 페인트존 득점
-
-    -- 슈팅
-    two_pm INTEGER DEFAULT 0,
-    two_pa INTEGER DEFAULT 0,
-    tpm INTEGER DEFAULT 0,
-    tpa INTEGER DEFAULT 0,
-    ftm INTEGER DEFAULT 0,
-    fta INTEGER DEFAULT 0,
+    two_pts INTEGER DEFAULT 0,          -- 2점슛 득점
+    three_pts INTEGER DEFAULT 0,        -- 3점슛 득점
 
     -- 기타 스탯
-    reb INTEGER DEFAULT 0,
-    ast INTEGER DEFAULT 0,
-    stl INTEGER DEFAULT 0,
-    blk INTEGER DEFAULT 0,
-    tov INTEGER DEFAULT 0,
-    pf INTEGER DEFAULT 0,
+    reb INTEGER DEFAULT 0,              -- 리바운드
+    ast INTEGER DEFAULT 0,              -- 어시스트
+    stl INTEGER DEFAULT 0,              -- 스틸
+    blk INTEGER DEFAULT 0,              -- 블록
+    tov INTEGER DEFAULT 0,              -- 턴오버
+    pf INTEGER DEFAULT 0,               -- 파울
 
     created_at TEXT DEFAULT (datetime('now')),
 
     FOREIGN KEY (game_id) REFERENCES games(id),
     FOREIGN KEY (team_id) REFERENCES teams(id),
     UNIQUE (game_id, team_id)
+);
+
+-- 팀 순위 테이블
+CREATE TABLE IF NOT EXISTS team_standings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    season_id TEXT NOT NULL,            -- 시즌 코드 (예: '046')
+    team_id TEXT NOT NULL,              -- 팀 ID (예: 'kb')
+    rank INTEGER NOT NULL,              -- 순위
+    games_played INTEGER DEFAULT 0,     -- 경기 수
+    wins INTEGER DEFAULT 0,             -- 승
+    losses INTEGER DEFAULT 0,           -- 패
+    win_pct REAL DEFAULT 0.0,           -- 승률 (0.000 ~ 1.000)
+    games_behind REAL DEFAULT 0.0,      -- 승차 (게임 차)
+    home_wins INTEGER DEFAULT 0,        -- 홈 승
+    home_losses INTEGER DEFAULT 0,      -- 홈 패
+    away_wins INTEGER DEFAULT 0,        -- 원정 승
+    away_losses INTEGER DEFAULT 0,      -- 원정 패
+    streak TEXT,                        -- 연속 기록 (예: 'W3', 'L2')
+    last10 TEXT,                        -- 최근 10경기 (예: '7-3')
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (season_id) REFERENCES seasons(id),
+    FOREIGN KEY (team_id) REFERENCES teams(id),
+    UNIQUE (season_id, team_id)
 );
 
 -- 인덱스
@@ -142,7 +159,119 @@ CREATE INDEX IF NOT EXISTS idx_player_games_team ON player_games(team_id);
 CREATE INDEX IF NOT EXISTS idx_games_season ON games(season_id);
 CREATE INDEX IF NOT EXISTS idx_games_date ON games(game_date);
 CREATE INDEX IF NOT EXISTS idx_team_games_game ON team_games(game_id);
+CREATE INDEX IF NOT EXISTS idx_team_standings_season ON team_standings(season_id);
+
+-- 메타데이터 테이블 (테이블/컬럼 설명)
+CREATE TABLE IF NOT EXISTS _meta_descriptions (
+    table_name TEXT NOT NULL,
+    column_name TEXT,              -- NULL이면 테이블 설명
+    description TEXT NOT NULL,
+    PRIMARY KEY (table_name, column_name)
+);
 """
+
+# 테이블/컬럼 설명 메타데이터
+# NOTE: 테이블 설명은 빈 문자열 ''을 사용 (NULL은 PRIMARY KEY에서 중복 허용됨)
+META_DESCRIPTIONS = [
+    # 테이블 설명 (column_name = '' for table-level descriptions)
+    ("seasons", "", "시즌 정보"),
+    ("teams", "", "팀 마스터 데이터"),
+    ("players", "", "선수 마스터 데이터"),
+    ("games", "", "경기 정보"),
+    ("player_games", "", "경기별 선수 기록 (핵심 테이블)"),
+    ("team_games", "", "경기별 팀 기록"),
+    ("team_standings", "", "시즌 팀 순위"),
+
+    # seasons 컬럼
+    ("seasons", "id", "WKBL 시즌 코드 (예: 046)"),
+    ("seasons", "label", "시즌 라벨 (예: 2025-26)"),
+    ("seasons", "start_date", "시즌 시작일 (YYYY-MM-DD)"),
+    ("seasons", "end_date", "시즌 종료일 (YYYY-MM-DD)"),
+    ("seasons", "is_playoff", "플레이오프 여부 (0: 정규, 1: 플레이오프)"),
+
+    # teams 컬럼
+    ("teams", "id", "팀 ID (예: samsung, kb)"),
+    ("teams", "name", "팀 정식 명칭 (예: 삼성생명)"),
+    ("teams", "short_name", "팀 약칭 (예: 삼성)"),
+    ("teams", "logo_url", "팀 로고 URL"),
+    ("teams", "founded_year", "창단 연도"),
+
+    # players 컬럼
+    ("players", "id", "WKBL 선수 번호 (pno)"),
+    ("players", "name", "선수명"),
+    ("players", "birth_date", "생년월일 (YYYY-MM-DD)"),
+    ("players", "height", "신장 (예: 175cm)"),
+    ("players", "position", "포지션 (G/F/C)"),
+    ("players", "team_id", "현재 소속팀 ID"),
+    ("players", "is_active", "현역 여부 (1: 현역, 0: 은퇴)"),
+
+    # games 컬럼
+    ("games", "id", "WKBL game_id (예: 04601055)"),
+    ("games", "season_id", "시즌 코드"),
+    ("games", "game_date", "경기 날짜 (YYYY-MM-DD)"),
+    ("games", "home_team_id", "홈팀 ID"),
+    ("games", "away_team_id", "원정팀 ID"),
+    ("games", "home_score", "홈팀 점수"),
+    ("games", "away_score", "원정팀 점수"),
+    ("games", "game_type", "경기 유형 (regular/playoff/allstar)"),
+
+    # player_games 컬럼
+    ("player_games", "id", "자동 증가 PK"),
+    ("player_games", "game_id", "경기 ID"),
+    ("player_games", "player_id", "선수 ID"),
+    ("player_games", "team_id", "팀 ID"),
+    ("player_games", "minutes", "출전 시간 (분)"),
+    ("player_games", "pts", "득점"),
+    ("player_games", "off_reb", "공격 리바운드"),
+    ("player_games", "def_reb", "수비 리바운드"),
+    ("player_games", "reb", "총 리바운드"),
+    ("player_games", "ast", "어시스트"),
+    ("player_games", "stl", "스틸"),
+    ("player_games", "blk", "블록"),
+    ("player_games", "tov", "턴오버"),
+    ("player_games", "pf", "파울"),
+    ("player_games", "fgm", "야투 성공 (2점+3점)"),
+    ("player_games", "fga", "야투 시도"),
+    ("player_games", "tpm", "3점슛 성공"),
+    ("player_games", "tpa", "3점슛 시도"),
+    ("player_games", "ftm", "자유투 성공"),
+    ("player_games", "fta", "자유투 시도"),
+    ("player_games", "two_pm", "2점슛 성공"),
+    ("player_games", "two_pa", "2점슛 시도"),
+
+    # team_games 컬럼
+    ("team_games", "id", "자동 증가 PK"),
+    ("team_games", "game_id", "경기 ID"),
+    ("team_games", "team_id", "팀 ID"),
+    ("team_games", "is_home", "홈 여부 (1: 홈, 0: 원정)"),
+    ("team_games", "fast_break_pts", "속공 득점"),
+    ("team_games", "paint_pts", "페인트존 득점"),
+    ("team_games", "two_pts", "2점슛 득점"),
+    ("team_games", "three_pts", "3점슛 득점"),
+    ("team_games", "reb", "리바운드"),
+    ("team_games", "ast", "어시스트"),
+    ("team_games", "stl", "스틸"),
+    ("team_games", "blk", "블록"),
+    ("team_games", "tov", "턴오버"),
+    ("team_games", "pf", "파울"),
+
+    # team_standings 컬럼
+    ("team_standings", "id", "자동 증가 PK"),
+    ("team_standings", "season_id", "시즌 코드"),
+    ("team_standings", "team_id", "팀 ID"),
+    ("team_standings", "rank", "순위"),
+    ("team_standings", "games_played", "경기 수"),
+    ("team_standings", "wins", "승"),
+    ("team_standings", "losses", "패"),
+    ("team_standings", "win_pct", "승률 (0.000~1.000)"),
+    ("team_standings", "games_behind", "승차 (게임 차)"),
+    ("team_standings", "home_wins", "홈 승"),
+    ("team_standings", "home_losses", "홈 패"),
+    ("team_standings", "away_wins", "원정 승"),
+    ("team_standings", "away_losses", "원정 패"),
+    ("team_standings", "streak", "연속 기록 (예: W3, L2)"),
+    ("team_standings", "last10", "최근 10경기 (예: 7-3)"),
+]
 
 # WKBL 팀 마스터 데이터
 TEAMS_DATA = [
@@ -181,6 +310,13 @@ def init_db():
             """INSERT OR IGNORE INTO teams (id, name, short_name, logo_url, founded_year)
                VALUES (?, ?, ?, ?, ?)""",
             TEAMS_DATA
+        )
+
+        # Insert meta descriptions
+        cursor.executemany(
+            """INSERT OR REPLACE INTO _meta_descriptions (table_name, column_name, description)
+               VALUES (?, ?, ?)""",
+            META_DESCRIPTIONS
         )
 
         conn.commit()
@@ -285,19 +421,14 @@ def insert_team_game(game_id: str, team_id: str, is_home: int, stats: Dict[str, 
         conn.execute(
             """INSERT OR REPLACE INTO team_games
                (game_id, team_id, is_home, fast_break_pts, paint_pts,
-                two_pm, two_pa, tpm, tpa, ftm, fta,
-                reb, ast, stl, blk, tov, pf)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                two_pts, three_pts, reb, ast, stl, blk, tov, pf)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 game_id, team_id, is_home,
                 stats.get("fast_break", 0),
                 stats.get("paint_pts", 0),
-                stats.get("two_pm", 0),
-                stats.get("two_pa", 0),
-                stats.get("tpm", 0),
-                stats.get("tpa", 0),
-                stats.get("ftm", 0),
-                stats.get("fta", 0),
+                stats.get("two_pts", 0),
+                stats.get("three_pts", 0),
                 stats.get("reb", 0),
                 stats.get("ast", 0),
                 stats.get("stl", 0),
@@ -502,6 +633,149 @@ def get_last_game_date(season_id: str) -> Optional[str]:
         ).fetchone()
 
         return row["last_date"] if row and row["last_date"] else None
+
+
+def insert_team_standing(season_id: str, team_id: str, standing: Dict[str, Any]):
+    """Insert or update a team's standings.
+
+    Args:
+        season_id: Season code (e.g., '046')
+        team_id: Team ID (e.g., 'kb')
+        standing: Dict with standing data (rank, wins, losses, etc.)
+    """
+    with get_connection() as conn:
+        conn.execute(
+            """INSERT OR REPLACE INTO team_standings
+               (season_id, team_id, rank, games_played, wins, losses, win_pct,
+                games_behind, home_wins, home_losses, away_wins, away_losses,
+                streak, last10, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+            (
+                season_id,
+                team_id,
+                standing.get("rank", 0),
+                standing.get("games_played", 0),
+                standing.get("wins", 0),
+                standing.get("losses", 0),
+                standing.get("win_pct", 0.0),
+                standing.get("games_behind", 0.0),
+                standing.get("home_wins", 0),
+                standing.get("home_losses", 0),
+                standing.get("away_wins", 0),
+                standing.get("away_losses", 0),
+                standing.get("streak"),
+                standing.get("last10"),
+            )
+        )
+        conn.commit()
+
+
+def bulk_insert_team_standings(season_id: str, standings: List[Dict[str, Any]]):
+    """Bulk insert team standings for a season.
+
+    Args:
+        season_id: Season code (e.g., '046')
+        standings: List of standing dicts with team_id and standing data
+    """
+    with get_connection() as conn:
+        for standing in standings:
+            conn.execute(
+                """INSERT OR REPLACE INTO team_standings
+                   (season_id, team_id, rank, games_played, wins, losses, win_pct,
+                    games_behind, home_wins, home_losses, away_wins, away_losses,
+                    streak, last10, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+                (
+                    season_id,
+                    standing.get("team_id"),
+                    standing.get("rank", 0),
+                    standing.get("games_played", 0),
+                    standing.get("wins", 0),
+                    standing.get("losses", 0),
+                    standing.get("win_pct", 0.0),
+                    standing.get("games_behind", 0.0),
+                    standing.get("home_wins", 0),
+                    standing.get("home_losses", 0),
+                    standing.get("away_wins", 0),
+                    standing.get("away_losses", 0),
+                    standing.get("streak"),
+                    standing.get("last10"),
+                )
+            )
+        conn.commit()
+        logger.info(f"Inserted {len(standings)} team standings for season {season_id}")
+
+
+def get_team_standings(season_id: str) -> List[Dict]:
+    """Get team standings for a season.
+
+    Args:
+        season_id: Season code (e.g., '046')
+
+    Returns:
+        List of team standing dicts sorted by rank
+    """
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT ts.*, t.name as team_name, t.short_name
+               FROM team_standings ts
+               JOIN teams t ON ts.team_id = t.id
+               WHERE ts.season_id = ?
+               ORDER BY ts.rank""",
+            (season_id,)
+        ).fetchall()
+
+        return [dict(row) for row in rows]
+
+
+def get_table_description(table_name: str) -> Optional[str]:
+    """Get description for a table."""
+    with get_connection() as conn:
+        row = conn.execute(
+            """SELECT description FROM _meta_descriptions
+               WHERE table_name = ? AND column_name = ''""",
+            (table_name,)
+        ).fetchone()
+        return row["description"] if row else None
+
+
+def get_column_descriptions(table_name: str) -> Dict[str, str]:
+    """Get all column descriptions for a table."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT column_name, description FROM _meta_descriptions
+               WHERE table_name = ? AND column_name != ''""",
+            (table_name,)
+        ).fetchall()
+        return {row["column_name"]: row["description"] for row in rows}
+
+
+def get_all_descriptions() -> Dict[str, Dict]:
+    """Get all table and column descriptions.
+
+    Returns:
+        Dict with table names as keys, each containing:
+        - 'description': table description
+        - 'columns': dict of column_name -> description
+    """
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT table_name, column_name, description FROM _meta_descriptions"
+        ).fetchall()
+
+    result = {}
+    for row in rows:
+        table = row["table_name"]
+        if table not in result:
+            result[table] = {"description": None, "columns": {}}
+
+        # Empty string or NULL means table-level description
+        if not row["column_name"]:
+            result[table]["description"] = row["description"]
+        else:
+            result[table]["columns"][row["column_name"]] = row["description"]
+
+    return result
 
 
 if __name__ == "__main__":

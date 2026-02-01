@@ -9,6 +9,7 @@ BASE_URL = "https://datalab.wkbl.or.kr"
 PLAYER_RECORD_WRAPPER = BASE_URL + "/playerRecord"
 GAME_LIST_MONTH = BASE_URL + "/game/list/month"
 PLAYER_LIST = "https://www.wkbl.or.kr/player/player_list.asp"
+TEAM_STANDINGS_URL = "https://www.wkbl.or.kr/game/ajax/ajax_team_rank.asp"
 
 # Server Settings
 HOST = ""
@@ -24,6 +25,16 @@ DB_PATH = os.path.join(DATA_DIR, "wkbl.db")
 
 # Season Settings
 CURRENT_SEASON = "2025-26"
+
+# Season code to label mapping (WKBL season codes)
+SEASON_CODES = {
+    "041": "2020-21",
+    "042": "2021-22",
+    "043": "2022-23",
+    "044": "2023-24",
+    "045": "2024-25",
+    "046": "2025-26",
+}
 
 # Request Settings
 USER_AGENT = "wkbl-stats-ingest/0.1"
