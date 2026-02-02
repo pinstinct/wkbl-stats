@@ -168,9 +168,37 @@ Format: `SSSTTGGG` (e.g., `04601055`)
 - `TT`: Game type (01 = regular, 04 = playoff)
 - `GGG`: Game number (001 = all-star, 002+ = regular games)
 
+## Development
+
+### Pre-commit Hooks
+
+This project uses pre-commit for code quality checks. Hooks run automatically on every commit.
+
+**Setup:**
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+**Manual run:**
+```bash
+pre-commit run --all-files
+```
+
+**Configured hooks:**
+
+| Hook | Purpose |
+|------|---------|
+| black | Code formatting |
+| isort | Import sorting |
+| ruff-check | Linting |
+| ruff-format | Formatting |
+| mypy | Type checking |
+| bandit | Security analysis |
+
 ## Notes
 
-- No external dependencies - uses Python 3 standard library only
+- No external dependencies for runtime - uses Python 3 standard library only
 - Ingest script adds 0.15s delays between requests to be respectful to WKBL servers
 - Incremental updates: only fetches games not already in database
 - HTTP responses are cached in `data/cache/` to avoid redundant network requests
