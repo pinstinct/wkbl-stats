@@ -2,21 +2,14 @@
 import datetime
 import json
 import os
-import subprocess
+import subprocess  # nosec B404
 import sys
 from http.server import SimpleHTTPRequestHandler
 from socketserver import TCPServer
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools"))
 
-from config import (
-    HOST,
-    PORT,
-    STATUS_PATH,
-    OUTPUT_PATH,
-    CURRENT_SEASON,
-    setup_logging,
-)
+from config import CURRENT_SEASON, HOST, OUTPUT_PATH, PORT, STATUS_PATH, setup_logging
 
 logger = setup_logging("server")
 
@@ -67,7 +60,7 @@ def run_ingest_if_needed():
     ]
 
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603
             cmd,
             timeout=INGEST_TIMEOUT,
             capture_output=True,

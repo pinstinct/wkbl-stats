@@ -11,21 +11,20 @@ from html import unescape
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+import database
 from config import (
     BASE_URL,
-    PLAYER_RECORD_WRAPPER,
-    GAME_LIST_MONTH,
-    PLAYER_LIST,
-    TEAM_STANDINGS_URL,
-    USER_AGENT,
-    TIMEOUT,
     DELAY,
     MAX_RETRIES,
+    PLAYER_LIST,
+    PLAYER_RECORD_WRAPPER,
     RETRY_BACKOFF,
     SEASON_CODES,
+    TEAM_STANDINGS_URL,
+    TIMEOUT,
+    USER_AGENT,
     setup_logging,
 )
-import database
 
 logger = setup_logging("ingest_wkbl")
 
@@ -34,7 +33,7 @@ def fetch(url, cache_dir, use_cache=True, delay=0.0):
     """Fetch URL with caching, retry logic, and exponential backoff."""
     if cache_dir:
         os.makedirs(cache_dir, exist_ok=True)
-        key = hashlib.sha1(url.encode("utf-8")).hexdigest()
+        key = hashlib.sha1(url.encode("utf-8"), usedforsecurity=False).hexdigest()  # nosec B324
         ext = ".json" if url.endswith(".json") or "search" in url else ".html"
         path = os.path.join(cache_dir, key + ext)
         if use_cache and os.path.exists(path):
@@ -49,7 +48,7 @@ def fetch(url, cache_dir, use_cache=True, delay=0.0):
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             req = Request(url, headers={"User-Agent": USER_AGENT})
-            with urlopen(req, timeout=TIMEOUT) as resp:
+            with urlopen(req, timeout=TIMEOUT) as resp:  # nosec B310
                 content = resp.read()
                 text = content.decode("utf-8", errors="ignore")
             if cache_dir:
@@ -59,16 +58,20 @@ def fetch(url, cache_dir, use_cache=True, delay=0.0):
             return text
         except HTTPError as e:
             last_error = e
-            logger.warning(f"HTTP error {e.code} on attempt {attempt}/{MAX_RETRIES}: {url}")
+            logger.warning(
+                f"HTTP error {e.code} on attempt {attempt}/{MAX_RETRIES}: {url}"
+            )
         except URLError as e:
             last_error = e
-            logger.warning(f"URL error on attempt {attempt}/{MAX_RETRIES}: {url} - {e.reason}")
+            logger.warning(
+                f"URL error on attempt {attempt}/{MAX_RETRIES}: {url} - {e.reason}"
+            )
         except socket.timeout as e:
             last_error = e
             logger.warning(f"Timeout on attempt {attempt}/{MAX_RETRIES}: {url}")
 
         if attempt < MAX_RETRIES:
-            backoff = RETRY_BACKOFF ** attempt
+            backoff = RETRY_BACKOFF**attempt
             logger.info(f"Retrying in {backoff:.1f}s...")
             time.sleep(backoff)
 
@@ -179,7 +182,11 @@ def parse_team_record(html):
             except ValueError:
                 pass
 
-    if team1_stats.get("reb") or team1_stats.get("ast") or team1_stats.get("fast_break"):
+    if (
+        team1_stats.get("reb")
+        or team1_stats.get("ast")
+        or team1_stats.get("fast_break")
+    ):
         results.append(team1_stats)
         results.append(team2_stats)
 
@@ -227,24 +234,26 @@ def parse_player_tables(html):
             name = cells[0]
             if not name or name in ("합계", "TOTAL"):
                 continue
-            results.append({
-                "team": team,
-                "name": name,
-                "pos": cells[1],
-                "min": parse_minutes(cells[2]),
-                "two_pm_a": cells[3],
-                "three_pm_a": cells[4],
-                "ftm_a": cells[5],
-                "off": cells[6],
-                "def": cells[7],
-                "reb": cells[8],
-                "ast": cells[9],
-                "pf": cells[10],
-                "stl": cells[11],
-                "to": cells[12],
-                "blk": cells[13],
-                "pts": cells[14],
-            })
+            results.append(
+                {
+                    "team": team,
+                    "name": name,
+                    "pos": cells[1],
+                    "min": parse_minutes(cells[2]),
+                    "two_pm_a": cells[3],
+                    "three_pm_a": cells[4],
+                    "ftm_a": cells[5],
+                    "off": cells[6],
+                    "def": cells[7],
+                    "reb": cells[8],
+                    "ast": cells[9],
+                    "pf": cells[10],
+                    "stl": cells[11],
+                    "to": cells[12],
+                    "blk": cells[13],
+                    "pts": cells[14],
+                }
+            )
 
     return results
 
@@ -282,8 +291,8 @@ def parse_game_type(game_id):
     game_type_code = game_id[3:5]
     game_number = game_id[5:8]
 
-    # Check for all-star game (game 001 in regular season slot)
-    if game_type_code == "01" and game_number in ALLSTAR_GAME_NUMBERS:
+    # Check for all-star game (game 001 is typically all-star regardless of type code)
+    if game_number in ALLSTAR_GAME_NUMBERS:
         return "allstar"
 
     return GAME_TYPE_MAP.get(game_type_code, "regular")
@@ -392,7 +401,11 @@ def get_season_meta_by_code(season_code):
 def parse_game_list_items(html, season_start_date):
     start_year = int(season_start_date[:4])
     start_month = int(season_start_date[4:6])
-    items = re.findall(r"<li class=\"game-item[^\"]*\"[^>]*data-id=\"(\d+)\"[^>]*>(.*?)</li>", html, re.S)
+    items = re.findall(
+        r"<li class=\"game-item[^\"]*\"[^>]*data-id=\"(\d+)\"[^>]*>(.*?)</li>",
+        html,
+        re.S,
+    )
     results = []
     for game_id, block in items:
         m = re.search(r"class=\"game-date\">\s*([0-9]{1,2})\.([0-9]{1,2})", block)
@@ -439,8 +452,7 @@ def parse_available_months(html, season_start_date):
 def parse_active_player_links(html):
     # Match both ./detail.asp and player/detail.asp patterns
     links = re.findall(
-        r"<a[^>]+href=\"([^\"]*detail\.asp[^\"]+)\"[^>]*>(.*?)</a>",
-        html, re.S
+        r"<a[^>]+href=\"([^\"]*detail\.asp[^\"]+)\"[^>]*>(.*?)</a>", html, re.S
     )
     players = []
     for href, content in links:
@@ -477,12 +489,14 @@ def parse_active_player_links(html):
         else:
             url = "https://www.wkbl.or.kr/player/" + href
 
-        players.append({
-            "name": name,
-            "team": team,
-            "pno": pno,
-            "url": url,
-        })
+        players.append(
+            {
+                "name": name,
+                "team": team,
+                "pno": pno,
+                "url": url,
+            }
+        )
 
     uniq = {}
     for p in players:
@@ -594,7 +608,9 @@ def _compute_averages(entry, active_info):
     ast_total = entry["ast_total"]
 
     pos = active_info.get("pos") or entry["pos"] if active_info else entry["pos"]
-    height = active_info.get("height") or entry["height"] if active_info else entry["height"]
+    height = (
+        active_info.get("height") or entry["height"] if active_info else entry["height"]
+    )
     player_id = active_info.get("pno") or entry["id"] if active_info else entry["id"]
 
     # Primary stats (per game)
@@ -634,9 +650,19 @@ def _compute_averages(entry, active_info):
     # PIR (Performance Index Rating) - European efficiency metric
     # PIR = (PTS + REB + AST + STL + BLK + FGM + FTM) - (FGA-FGM) - (FTA-FTM) - TO
     pir_total = (
-        pts_total + entry["reb_total"] + ast_total +
-        entry["stl_total"] + entry["blk_total"] + fgm + ftm
-    ) - (fga - fgm) - (fta - ftm) - to_total
+        (
+            pts_total
+            + entry["reb_total"]
+            + ast_total
+            + entry["stl_total"]
+            + entry["blk_total"]
+            + fgm
+            + ftm
+        )
+        - (fga - fgm)
+        - (fta - ftm)
+        - to_total
+    )
     pir = round(pir_total / gp, 1)
 
     # Double-double potential (average 10+ in two categories)
@@ -714,13 +740,17 @@ def _resolve_season_params(args):
     if args.auto:
         logger.info(f"Auto-discovering season parameters for {args.season_label}")
         meta = get_season_meta(
-            args.cache_dir, args.season_label,
-            use_cache=not args.no_cache, delay=args.delay
+            args.cache_dir,
+            args.season_label,
+            use_cache=not args.no_cache,
+            delay=args.delay,
         )
         args.first_game_date = meta["firstGameDate"]
         args.selected_id = meta["selectedId"]
         args.selected_game_date = meta["selectedGameDate"]
-        logger.info(f"Season params: first={args.first_game_date}, id={args.selected_id}")
+        logger.info(
+            f"Season params: first={args.first_game_date}, id={args.selected_id}"
+        )
 
     if not (args.first_game_date and args.selected_id and args.selected_game_date):
         raise SystemExit(
@@ -740,7 +770,9 @@ def fetch_post(url, data, cache_dir, use_cache=True, delay=0.0):
         os.makedirs(cache_dir, exist_ok=True)
         # Include POST data in cache key
         cache_data = url + "|" + "&".join(f"{k}={v}" for k, v in sorted(data.items()))
-        key = hashlib.sha1(cache_data.encode("utf-8")).hexdigest()
+        key = hashlib.sha1(
+            cache_data.encode("utf-8"), usedforsecurity=False
+        ).hexdigest()  # nosec B324
         path = os.path.join(cache_dir, key + ".html")
         if use_cache and os.path.exists(path):
             logger.debug(f"Cache hit: {url}")
@@ -755,11 +787,15 @@ def fetch_post(url, data, cache_dir, use_cache=True, delay=0.0):
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            req = Request(url, data=post_data, headers={
-                "User-Agent": USER_AGENT,
-                "Content-Type": "application/x-www-form-urlencoded",
-            })
-            with urlopen(req, timeout=TIMEOUT) as resp:
+            req = Request(
+                url,
+                data=post_data,
+                headers={
+                    "User-Agent": USER_AGENT,
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+            )
+            with urlopen(req, timeout=TIMEOUT) as resp:  # nosec B310
                 content = resp.read()
                 text = content.decode("utf-8", errors="ignore")
             if cache_dir:
@@ -769,16 +805,20 @@ def fetch_post(url, data, cache_dir, use_cache=True, delay=0.0):
             return text
         except HTTPError as e:
             last_error = e
-            logger.warning(f"HTTP error {e.code} on attempt {attempt}/{MAX_RETRIES}: {url}")
+            logger.warning(
+                f"HTTP error {e.code} on attempt {attempt}/{MAX_RETRIES}: {url}"
+            )
         except URLError as e:
             last_error = e
-            logger.warning(f"URL error on attempt {attempt}/{MAX_RETRIES}: {url} - {e.reason}")
+            logger.warning(
+                f"URL error on attempt {attempt}/{MAX_RETRIES}: {url} - {e.reason}"
+            )
         except socket.timeout as e:
             last_error = e
             logger.warning(f"Timeout on attempt {attempt}/{MAX_RETRIES}: {url}")
 
         if attempt < MAX_RETRIES:
-            backoff = RETRY_BACKOFF ** attempt
+            backoff = RETRY_BACKOFF**attempt
             logger.info(f"Retrying in {backoff:.1f}s...")
             time.sleep(backoff)
 
@@ -804,7 +844,9 @@ def fetch_team_standings(cache_dir, season_code, gun="1", use_cache=True, delay=
         "gun": gun,
     }
 
-    html = fetch_post(TEAM_STANDINGS_URL, data, cache_dir, use_cache=use_cache, delay=delay)
+    html = fetch_post(
+        TEAM_STANDINGS_URL, data, cache_dir, use_cache=use_cache, delay=delay
+    )
     return parse_standings_html(html, season_code)
 
 
@@ -908,27 +950,31 @@ def parse_standings_html(html, season_code):
         streak_text = strip_tags(cells[10]).strip()
         streak = streak_text if streak_text and streak_text != "-" else None
 
-        standings.append({
-            "team_id": team_id,
-            "team_name": team_name,
-            "rank": rank,
-            "games_played": games_played,
-            "wins": wins,
-            "losses": losses,
-            "win_pct": round(win_pct, 3),
-            "games_behind": games_behind,
-            "home_wins": home_wins,
-            "home_losses": home_losses,
-            "away_wins": away_wins,
-            "away_losses": away_losses,
-            "streak": streak,
-            "last10": last10,
-        })
+        standings.append(
+            {
+                "team_id": team_id,
+                "team_name": team_name,
+                "rank": rank,
+                "games_played": games_played,
+                "wins": wins,
+                "losses": losses,
+                "win_pct": round(win_pct, 3),
+                "games_behind": games_behind,
+                "home_wins": home_wins,
+                "home_losses": home_losses,
+                "away_wins": away_wins,
+                "away_losses": away_losses,
+                "streak": streak,
+                "last10": last10,
+            }
+        )
 
     return standings
 
 
-def _fetch_schedule_from_wkbl(cache_dir, season_code, use_cache=True, delay=0.0, game_types=None):
+def _fetch_schedule_from_wkbl(
+    cache_dir, season_code, use_cache=True, delay=0.0, game_types=None
+):
     """Fetch game schedule from WKBL official site.
 
     Args:
@@ -988,8 +1034,12 @@ def _fetch_schedule_from_wkbl(cache_dir, season_code, use_cache=True, delay=0.0,
                     game_match = re.search(r"game_no=(\d+)", row)
 
                     # Get teams - away and home from data-kr attributes
-                    away_match = re.search(r"info_team away.*?data-kr=\"([^\"]+)\"", row, re.S)
-                    home_match = re.search(r"info_team home.*?data-kr=\"([^\"]+)\"", row, re.S)
+                    away_match = re.search(
+                        r"info_team away.*?data-kr=\"([^\"]+)\"", row, re.S
+                    )
+                    home_match = re.search(
+                        r"info_team home.*?data-kr=\"([^\"]+)\"", row, re.S
+                    )
 
                     if date_match and game_match:
                         month = int(date_match.group(1))
@@ -1042,9 +1092,11 @@ def _get_games_to_process(args, end_date, existing_game_ids=None, game_types=Non
 
     # Fetch schedule from WKBL official site
     schedule_info = _fetch_schedule_from_wkbl(
-        args.cache_dir, season_code,
-        use_cache=not args.no_cache, delay=args.delay,
-        game_types=game_types
+        args.cache_dir,
+        season_code,
+        use_cache=not args.no_cache,
+        delay=args.delay,
+        game_types=game_types,
     )
 
     logger.info(f"Found {len(schedule_info)} games in schedule")
@@ -1065,7 +1117,9 @@ def _get_games_to_process(args, end_date, existing_game_ids=None, game_types=Non
         filtered_items.append((game_id, date))
 
     if existing_game_ids:
-        future_games = sum(1 for info in schedule_info.values() if info["date"] > end_date)
+        future_games = sum(
+            1 for info in schedule_info.values() if info["date"] > end_date
+        )
         skipped = len(schedule_info) - len(filtered_items) - future_games
         if skipped > 0:
             logger.info(f"Skipping {skipped} games already in database")
@@ -1073,7 +1127,9 @@ def _get_games_to_process(args, end_date, existing_game_ids=None, game_types=Non
     return filtered_items, schedule_info
 
 
-def _fetch_game_records(args, end_date, fetch_team_stats=False, existing_game_ids=None, game_types=None):
+def _fetch_game_records(
+    args, end_date, fetch_team_stats=False, existing_game_ids=None, game_types=None
+):
     """Fetch and parse game records up to end_date.
 
     Args:
@@ -1091,7 +1147,9 @@ def _fetch_game_records(args, end_date, fetch_team_stats=False, existing_game_id
             - schedule_info: dict with game schedule including home/away teams
     """
     # Get games from WKBL schedule API
-    filtered_items, schedule_info = _get_games_to_process(args, end_date, existing_game_ids, game_types=game_types)
+    filtered_items, schedule_info = _get_games_to_process(
+        args, end_date, existing_game_ids, game_types=game_types
+    )
 
     if not filtered_items:
         logger.info("No new games to process")
@@ -1103,7 +1161,9 @@ def _fetch_game_records(args, end_date, fetch_team_stats=False, existing_game_id
     team_records = []
     for i, (game_id, date) in enumerate(filtered_items, 1):
         wrapper_url = f"{PLAYER_RECORD_WRAPPER}?menu=playerRecord&selectedId={game_id}"
-        wrapper = fetch(wrapper_url, args.cache_dir, use_cache=not args.no_cache, delay=args.delay)
+        wrapper = fetch(
+            wrapper_url, args.cache_dir, use_cache=not args.no_cache, delay=args.delay
+        )
 
         # Fetch player records
         iframe_src = parse_iframe_src(wrapper)
@@ -1112,7 +1172,9 @@ def _fetch_game_records(args, end_date, fetch_team_stats=False, existing_game_id
             continue
         if iframe_src.startswith("/"):
             iframe_src = BASE_URL + iframe_src
-        record_html = fetch(iframe_src, args.cache_dir, use_cache=not args.no_cache, delay=args.delay)
+        record_html = fetch(
+            iframe_src, args.cache_dir, use_cache=not args.no_cache, delay=args.delay
+        )
         game_records = parse_player_tables(record_html)
         # Tag each record with game_id for DB storage
         for rec in game_records:
@@ -1121,13 +1183,25 @@ def _fetch_game_records(args, end_date, fetch_team_stats=False, existing_game_id
 
         # Fetch team records if requested (from separate teamRecord page)
         if fetch_team_stats:
-            team_wrapper_url = f"{BASE_URL}/teamRecord?menu=teamRecord&selectedId={game_id}"
-            team_wrapper = fetch(team_wrapper_url, args.cache_dir, use_cache=not args.no_cache, delay=args.delay)
+            team_wrapper_url = (
+                f"{BASE_URL}/teamRecord?menu=teamRecord&selectedId={game_id}"
+            )
+            team_wrapper = fetch(
+                team_wrapper_url,
+                args.cache_dir,
+                use_cache=not args.no_cache,
+                delay=args.delay,
+            )
             team_iframe_src = parse_team_iframe_src(team_wrapper)
             if team_iframe_src:
                 if team_iframe_src.startswith("/"):
                     team_iframe_src = BASE_URL + team_iframe_src
-                team_html = fetch(team_iframe_src, args.cache_dir, use_cache=not args.no_cache, delay=args.delay)
+                team_html = fetch(
+                    team_iframe_src,
+                    args.cache_dir,
+                    use_cache=not args.no_cache,
+                    delay=args.delay,
+                )
                 game_team_records = parse_team_record(team_html)
                 for rec in game_team_records:
                     rec["_game_id"] = game_id
@@ -1171,7 +1245,9 @@ def _convert_db_stats_to_players(db_stats, season_label, active_players):
         ts_pct = round(total_pts / tsa, 3) if tsa else 0
 
         # eFG% (Effective FG %)
-        efg_pct = round((total_fgm + 0.5 * total_tpm) / total_fga, 3) if total_fga else 0
+        efg_pct = (
+            round((total_fgm + 0.5 * total_tpm) / total_fga, 3) if total_fga else 0
+        )
 
         # Per-game averages
         pts = round(row.get("pts", 0) or 0, 1)
@@ -1193,10 +1269,19 @@ def _convert_db_stats_to_players(db_stats, season_label, active_players):
 
         # PIR (Performance Index Rating)
         pir_per_game = (
-            pts + reb + ast + round(row.get("stl", 0) or 0, 1) +
-            round(row.get("blk", 0) or 0, 1) +
-            (total_fgm / gp) + (total_ftm / gp)
-        ) - ((total_fga - total_fgm) / gp) - ((total_fta - total_ftm) / gp) - tov
+            (
+                pts
+                + reb
+                + ast
+                + round(row.get("stl", 0) or 0, 1)
+                + round(row.get("blk", 0) or 0, 1)
+                + (total_fgm / gp)
+                + (total_ftm / gp)
+            )
+            - ((total_fga - total_fgm) / gp)
+            - ((total_fta - total_ftm) / gp)
+            - tov
+        )
         pir = round(pir_per_game, 1)
 
         # Double-double potential
@@ -1206,33 +1291,35 @@ def _convert_db_stats_to_players(db_stats, season_label, active_players):
         key = f"{row['name']}|{row['team']}"
         active_info = active_map.get(key, {})
 
-        players.append({
-            "id": row.get("id") or active_info.get("pno") or key,
-            "name": row["name"],
-            "team": row["team"],
-            "pos": row.get("pos") or active_info.get("pos") or "-",
-            "height": row.get("height") or active_info.get("height") or "-",
-            "season": season_label,
-            "gp": gp,
-            "min": round(row.get("min", 0) or 0, 1),
-            "pts": pts,
-            "reb": reb,
-            "ast": ast,
-            "stl": round(row.get("stl", 0) or 0, 1),
-            "blk": round(row.get("blk", 0) or 0, 1),
-            "tov": tov,
-            "fgp": fgp,
-            "tpp": tpp,
-            "ftp": ftp,
-            "ts_pct": ts_pct,
-            "efg_pct": efg_pct,
-            "ast_to": ast_to,
-            "pts36": pts36,
-            "reb36": reb36,
-            "ast36": ast36,
-            "pir": pir,
-            "dd_cats": dd_cats,
-        })
+        players.append(
+            {
+                "id": row.get("id") or active_info.get("pno") or key,
+                "name": row["name"],
+                "team": row["team"],
+                "pos": row.get("pos") or active_info.get("pos") or "-",
+                "height": row.get("height") or active_info.get("height") or "-",
+                "season": season_label,
+                "gp": gp,
+                "min": round(row.get("min", 0) or 0, 1),
+                "pts": pts,
+                "reb": reb,
+                "ast": ast,
+                "stl": round(row.get("stl", 0) or 0, 1),
+                "blk": round(row.get("blk", 0) or 0, 1),
+                "tov": tov,
+                "fgp": fgp,
+                "tpp": tpp,
+                "ftp": ftp,
+                "ts_pct": ts_pct,
+                "efg_pct": efg_pct,
+                "ast_to": ast_to,
+                "pts36": pts36,
+                "reb36": reb36,
+                "ast36": ast36,
+                "pir": pir,
+                "dd_cats": dd_cats,
+            }
+        )
 
     return players
 
@@ -1241,7 +1328,7 @@ def _write_output(args, players):
     """Write player data to output JSON file."""
     payload = {
         "defaultSeason": args.season_label,
-        "players": sorted(players, key=lambda p: (-p["pts"], p["name"]))
+        "players": sorted(players, key=lambda p: (-p["pts"], p["name"])),
     }
 
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
@@ -1251,7 +1338,9 @@ def _write_output(args, players):
     logger.info(f"Wrote {len(players)} players to {args.output}")
 
 
-def _save_to_db(args, game_records, team_records, active_players, game_items, schedule_info=None):
+def _save_to_db(
+    args, game_records, team_records, active_players, game_items, schedule_info=None
+):
     """Save game records to SQLite database."""
     logger.info("Initializing database...")
     database.init_db()
@@ -1329,8 +1418,16 @@ def _save_to_db(args, game_records, team_records, active_players, game_items, sc
                 continue
 
         # Calculate scores
-        home_score = sum(int(r["pts"] or 0) for r in records if get_team_id(r["team"]) == home_team_id)
-        away_score = sum(int(r["pts"] or 0) for r in records if get_team_id(r["team"]) == away_team_id)
+        home_score = sum(
+            int(r["pts"] or 0)
+            for r in records
+            if get_team_id(r["team"]) == home_team_id
+        )
+        away_score = sum(
+            int(r["pts"] or 0)
+            for r in records
+            if get_team_id(r["team"]) == away_team_id
+        )
 
         # Auto-detect game type from game_id
         game_type = parse_game_type(game_id)
@@ -1356,29 +1453,31 @@ def _save_to_db(args, game_records, team_records, active_players, game_items, sc
             three_m, three_a = parse_made_attempt(record["three_pm_a"])
             ft_m, ft_a = parse_made_attempt(record["ftm_a"])
 
-            db_records.append({
-                "game_id": game_id,
-                "player_id": player_id,
-                "team_id": team_id,
-                "minutes": record["min"],
-                "pts": int(record["pts"] or 0),
-                "off_reb": int(record.get("off") or 0),
-                "def_reb": int(record.get("def") or 0),
-                "reb": int(record["reb"] or 0),
-                "ast": int(record["ast"] or 0),
-                "stl": int(record["stl"] or 0),
-                "blk": int(record["blk"] or 0),
-                "tov": int(record["to"] or 0),
-                "pf": int(record["pf"] or 0),
-                "fgm": two_m + three_m,
-                "fga": two_a + three_a,
-                "tpm": three_m,
-                "tpa": three_a,
-                "ftm": ft_m,
-                "fta": ft_a,
-                "two_pm": two_m,
-                "two_pa": two_a,
-            })
+            db_records.append(
+                {
+                    "game_id": game_id,
+                    "player_id": player_id,
+                    "team_id": team_id,
+                    "minutes": record["min"],
+                    "pts": int(record["pts"] or 0),
+                    "off_reb": int(record.get("off") or 0),
+                    "def_reb": int(record.get("def") or 0),
+                    "reb": int(record["reb"] or 0),
+                    "ast": int(record["ast"] or 0),
+                    "stl": int(record["stl"] or 0),
+                    "blk": int(record["blk"] or 0),
+                    "tov": int(record["to"] or 0),
+                    "pf": int(record["pf"] or 0),
+                    "fgm": two_m + three_m,
+                    "fga": two_a + three_a,
+                    "tpm": three_m,
+                    "tpa": three_a,
+                    "ftm": ft_m,
+                    "fta": ft_a,
+                    "two_pm": two_m,
+                    "two_pa": two_a,
+                }
+            )
 
     logger.info(f"Saved {games_inserted} games")
     if db_records:
@@ -1466,24 +1565,33 @@ def _ingest_single_season(args, season_code, season_label, active_players, game_
             logger.info(f"Found {len(existing_game_ids)} existing games in database")
 
     records, team_records, game_items, schedule_info = _fetch_game_records(
-        args, end_date, fetch_team_stats=args.fetch_team_stats,
-        existing_game_ids=existing_game_ids, game_types=game_types
+        args,
+        end_date,
+        fetch_team_stats=args.fetch_team_stats,
+        existing_game_ids=existing_game_ids,
+        game_types=game_types,
     )
 
     # Save to database if requested
     if args.save_db and game_items:
-        _save_to_db(args, records, team_records, active_players, game_items, schedule_info)
+        _save_to_db(
+            args, records, team_records, active_players, game_items, schedule_info
+        )
 
     # Fetch and save standings if requested
-    if getattr(args, 'fetch_standings', False) and args.save_db:
+    if getattr(args, "fetch_standings", False) and args.save_db:
         try:
             standings = fetch_team_standings(
-                args.cache_dir, season_code,
-                use_cache=not args.no_cache, delay=args.delay
+                args.cache_dir,
+                season_code,
+                use_cache=not args.no_cache,
+                delay=args.delay,
             )
             if standings:
                 database.bulk_insert_team_standings(season_code, standings)
-                logger.info(f"Saved {len(standings)} team standings for season {season_label}")
+                logger.info(
+                    f"Saved {len(standings)} team standings for season {season_label}"
+                )
         except Exception as e:
             logger.warning(f"Failed to fetch standings for {season_label}: {e}")
 
@@ -1507,7 +1615,9 @@ def _ingest_multiple_seasons(args):
     # Validate season codes
     for code in season_codes:
         if code not in SEASON_CODES:
-            raise SystemExit(f"Unknown season code: {code}. Valid codes: {list(SEASON_CODES.keys())}")
+            raise SystemExit(
+                f"Unknown season code: {code}. Valid codes: {list(SEASON_CODES.keys())}"
+            )
 
     # Convert game_type argument to game_types list
     game_type_mapping = {
@@ -1540,7 +1650,9 @@ def _ingest_multiple_seasons(args):
             logger.error(f"Failed to process season {season_label}: {e}")
             continue
 
-    logger.info(f"Multi-season ingest complete: {total_games} total new games across {len(season_codes)} seasons")
+    logger.info(
+        f"Multi-season ingest complete: {total_games} total new games across {len(season_codes)} seasons"
+    )
 
 
 def main():
@@ -1548,25 +1660,51 @@ def main():
     parser.add_argument("--first-game-date", help="e.g. 20241027")
     parser.add_argument("--selected-id", help="e.g. 04601055")
     parser.add_argument("--selected-game-date", help="e.g. 20260126")
-    parser.add_argument("--season-label", help="e.g. 2024-25 (required unless --all-seasons or --seasons)")
+    parser.add_argument(
+        "--season-label",
+        help="e.g. 2024-25 (required unless --all-seasons or --seasons)",
+    )
     parser.add_argument("--cache-dir", default="data/cache", help="cache dir")
     parser.add_argument("--no-cache", action="store_true")
     parser.add_argument("--delay", type=float, default=DELAY)
     parser.add_argument("--output", default="data/season-output.json")
-    parser.add_argument("--active-only", action="store_true", help="include only current active players")
-    parser.add_argument("--auto", action="store_true", help="derive season params from Data Lab home")
+    parser.add_argument(
+        "--active-only", action="store_true", help="include only current active players"
+    )
+    parser.add_argument(
+        "--auto", action="store_true", help="derive season params from Data Lab home"
+    )
     parser.add_argument("--end-date", help="YYYYMMDD (default: today)")
-    parser.add_argument("--save-db", action="store_true", help="save raw records to SQLite database")
-    parser.add_argument("--fetch-team-stats", action="store_true", help="also fetch team statistics")
-    parser.add_argument("--force-refresh", action="store_true", help="ignore existing data and re-fetch all games")
-    parser.add_argument("--game-type", choices=["regular", "playoff", "all"],
-                        default="regular", help="game type to collect (default: regular)")
-    parser.add_argument("--all-seasons", action="store_true",
-                        help="collect all historical seasons (2020-21 ~ current)")
-    parser.add_argument("--seasons", nargs="+",
-                        help="specific season codes to collect (e.g., 044 045)")
-    parser.add_argument("--fetch-standings", action="store_true",
-                        help="also fetch team standings/rankings")
+    parser.add_argument(
+        "--save-db", action="store_true", help="save raw records to SQLite database"
+    )
+    parser.add_argument(
+        "--fetch-team-stats", action="store_true", help="also fetch team statistics"
+    )
+    parser.add_argument(
+        "--force-refresh",
+        action="store_true",
+        help="ignore existing data and re-fetch all games",
+    )
+    parser.add_argument(
+        "--game-type",
+        choices=["regular", "playoff", "all"],
+        default="regular",
+        help="game type to collect (default: regular)",
+    )
+    parser.add_argument(
+        "--all-seasons",
+        action="store_true",
+        help="collect all historical seasons (2020-21 ~ current)",
+    )
+    parser.add_argument(
+        "--seasons", nargs="+", help="specific season codes to collect (e.g., 044 045)"
+    )
+    parser.add_argument(
+        "--fetch-standings",
+        action="store_true",
+        help="also fetch team standings/rankings",
+    )
 
     args = parser.parse_args()
 
@@ -1577,7 +1715,9 @@ def main():
 
     # Single season mode requires --season-label
     if not args.season_label:
-        parser.error("--season-label is required (unless using --all-seasons or --seasons)")
+        parser.error(
+            "--season-label is required (unless using --all-seasons or --seasons)"
+        )
 
     logger.info(f"Starting ingest for season {args.season_label}")
 
@@ -1590,7 +1730,9 @@ def main():
         if season_code:
             existing_game_ids = database.get_existing_game_ids(season_code)
             if existing_game_ids:
-                logger.info(f"Found {len(existing_game_ids)} existing games in database")
+                logger.info(
+                    f"Found {len(existing_game_ids)} existing games in database"
+                )
 
     # Convert game_type argument to game_types list
     game_type_mapping = {
@@ -1601,8 +1743,11 @@ def main():
     game_types = game_type_mapping.get(args.game_type, ["01"])
 
     records, team_records, game_items, schedule_info = _fetch_game_records(
-        args, end_date, fetch_team_stats=args.fetch_team_stats,
-        existing_game_ids=existing_game_ids, game_types=game_types
+        args,
+        end_date,
+        fetch_team_stats=args.fetch_team_stats,
+        existing_game_ids=existing_game_ids,
+        game_types=game_types,
     )
 
     active_players = load_active_players(
@@ -1611,7 +1756,9 @@ def main():
 
     # Save to database if requested (only new games)
     if args.save_db and game_items:
-        _save_to_db(args, records, team_records, active_players, game_items, schedule_info)
+        _save_to_db(
+            args, records, team_records, active_players, game_items, schedule_info
+        )
 
     # Aggregate stats - use DB if available, otherwise use fetched records
     if args.save_db and existing_game_ids:
@@ -1622,11 +1769,16 @@ def main():
 
         if db_stats:
             # Convert DB stats to player format
-            players = _convert_db_stats_to_players(db_stats, args.season_label, active_players)
+            players = _convert_db_stats_to_players(
+                db_stats, args.season_label, active_players
+            )
         else:
             # Fallback to fetched records
             players = aggregate_players(
-                records, args.season_label, active_players=active_players, include_zero=True
+                records,
+                args.season_label,
+                active_players=active_players,
+                include_zero=True,
             )
     else:
         players = aggregate_players(
@@ -1634,8 +1786,14 @@ def main():
         )
 
     if args.active_only:
-        active_keys = {f"{p['name']}|{normalize_team(p['team'])}" for p in active_players}
-        players = [p for p in players if f"{p['name']}|{normalize_team(p['team'])}" in active_keys]
+        active_keys = {
+            f"{p['name']}|{normalize_team(p['team'])}" for p in active_players
+        }
+        players = [
+            p
+            for p in players
+            if f"{p['name']}|{normalize_team(p['team'])}" in active_keys
+        ]
         logger.info(f"Filtered to {len(players)} active players")
 
     _write_output(args, players)
@@ -1646,8 +1804,10 @@ def main():
         logger.info(f"Fetching team standings for season {season_code}")
         try:
             standings = fetch_team_standings(
-                args.cache_dir, season_code,
-                use_cache=not args.no_cache, delay=args.delay
+                args.cache_dir,
+                season_code,
+                use_cache=not args.no_cache,
+                delay=args.delay,
             )
             if standings:
                 logger.info(f"Fetched {len(standings)} team standings")
@@ -1655,7 +1815,9 @@ def main():
                     database.bulk_insert_team_standings(season_code, standings)
                 # Log standings summary
                 for s in standings:
-                    logger.info(f"  {s['rank']}. {s['team_name']}: {s['wins']}-{s['losses']} ({s['win_pct']:.3f})")
+                    logger.info(
+                        f"  {s['rank']}. {s['team_name']}: {s['wins']}-{s['losses']} ({s['win_pct']:.3f})"
+                    )
             else:
                 logger.warning("No standings data found")
         except Exception as e:

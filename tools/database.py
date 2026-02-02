@@ -5,10 +5,9 @@ SQLite database schema and operations for storing game-by-game player statistics
 """
 
 import sqlite3
-import logging
-from pathlib import Path
 from contextlib import contextmanager
-from typing import Optional, List, Dict, Any
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from config import DB_PATH, setup_logging
 
@@ -181,21 +180,18 @@ META_DESCRIPTIONS = [
     ("player_games", "", "경기별 선수 기록 (핵심 테이블)"),
     ("team_games", "", "경기별 팀 기록"),
     ("team_standings", "", "시즌 팀 순위"),
-
     # seasons 컬럼
     ("seasons", "id", "WKBL 시즌 코드 (예: 046)"),
     ("seasons", "label", "시즌 라벨 (예: 2025-26)"),
     ("seasons", "start_date", "시즌 시작일 (YYYY-MM-DD)"),
     ("seasons", "end_date", "시즌 종료일 (YYYY-MM-DD)"),
     ("seasons", "is_playoff", "플레이오프 여부 (0: 정규, 1: 플레이오프)"),
-
     # teams 컬럼
     ("teams", "id", "팀 ID (예: samsung, kb)"),
     ("teams", "name", "팀 정식 명칭 (예: 삼성생명)"),
     ("teams", "short_name", "팀 약칭 (예: 삼성)"),
     ("teams", "logo_url", "팀 로고 URL"),
     ("teams", "founded_year", "창단 연도"),
-
     # players 컬럼
     ("players", "id", "WKBL 선수 번호 (pno)"),
     ("players", "name", "선수명"),
@@ -204,7 +200,6 @@ META_DESCRIPTIONS = [
     ("players", "position", "포지션 (G/F/C)"),
     ("players", "team_id", "현재 소속팀 ID"),
     ("players", "is_active", "현역 여부 (1: 현역, 0: 은퇴)"),
-
     # games 컬럼
     ("games", "id", "WKBL game_id (예: 04601055)"),
     ("games", "season_id", "시즌 코드"),
@@ -214,7 +209,6 @@ META_DESCRIPTIONS = [
     ("games", "home_score", "홈팀 점수"),
     ("games", "away_score", "원정팀 점수"),
     ("games", "game_type", "경기 유형 (regular/playoff/allstar)"),
-
     # player_games 컬럼
     ("player_games", "id", "자동 증가 PK"),
     ("player_games", "game_id", "경기 ID"),
@@ -238,7 +232,6 @@ META_DESCRIPTIONS = [
     ("player_games", "fta", "자유투 시도"),
     ("player_games", "two_pm", "2점슛 성공"),
     ("player_games", "two_pa", "2점슛 시도"),
-
     # team_games 컬럼
     ("team_games", "id", "자동 증가 PK"),
     ("team_games", "game_id", "경기 ID"),
@@ -254,7 +247,6 @@ META_DESCRIPTIONS = [
     ("team_games", "blk", "블록"),
     ("team_games", "tov", "턴오버"),
     ("team_games", "pf", "파울"),
-
     # team_standings 컬럼
     ("team_standings", "id", "자동 증가 PK"),
     ("team_standings", "season_id", "시즌 코드"),
@@ -309,50 +301,67 @@ def init_db():
         cursor.executemany(
             """INSERT OR IGNORE INTO teams (id, name, short_name, logo_url, founded_year)
                VALUES (?, ?, ?, ?, ?)""",
-            TEAMS_DATA
+            TEAMS_DATA,
         )
 
         # Insert meta descriptions
         cursor.executemany(
             """INSERT OR REPLACE INTO _meta_descriptions (table_name, column_name, description)
                VALUES (?, ?, ?)""",
-            META_DESCRIPTIONS
+            META_DESCRIPTIONS,
         )
 
         conn.commit()
         logger.info(f"Database initialized at {DB_PATH}")
 
 
-def insert_season(season_id: str, label: str, start_date: str = None,
-                  end_date: str = None, is_playoff: int = 0):
+def insert_season(
+    season_id: str,
+    label: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    is_playoff: int = 0,
+):
     """Insert or update a season."""
     with get_connection() as conn:
         conn.execute(
             """INSERT OR REPLACE INTO seasons (id, label, start_date, end_date, is_playoff)
                VALUES (?, ?, ?, ?, ?)""",
-            (season_id, label, start_date, end_date, is_playoff)
+            (season_id, label, start_date, end_date, is_playoff),
         )
         conn.commit()
 
 
-def insert_player(player_id: str, name: str, team_id: str = None,
-                  position: str = None, height: str = None,
-                  birth_date: str = None, is_active: int = 1):
+def insert_player(
+    player_id: str,
+    name: str,
+    team_id: Optional[str] = None,
+    position: Optional[str] = None,
+    height: Optional[str] = None,
+    birth_date: Optional[str] = None,
+    is_active: int = 1,
+):
     """Insert or update a player."""
     with get_connection() as conn:
         conn.execute(
             """INSERT OR REPLACE INTO players
                (id, name, team_id, position, height, birth_date, is_active)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (player_id, name, team_id, position, height, birth_date, is_active)
+            (player_id, name, team_id, position, height, birth_date, is_active),
         )
         conn.commit()
 
 
-def insert_game(game_id: str, season_id: str, game_date: str,
-                home_team_id: str, away_team_id: str,
-                home_score: int = None, away_score: int = None,
-                game_type: str = "regular"):
+def insert_game(
+    game_id: str,
+    season_id: str,
+    game_date: str,
+    home_team_id: str,
+    away_team_id: str,
+    home_score: Optional[int] = None,
+    away_score: Optional[int] = None,
+    game_type: str = "regular",
+):
     """Insert or update a game."""
     with get_connection() as conn:
         conn.execute(
@@ -360,13 +369,23 @@ def insert_game(game_id: str, season_id: str, game_date: str,
                (id, season_id, game_date, home_team_id, away_team_id,
                 home_score, away_score, game_type)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (game_id, season_id, game_date, home_team_id, away_team_id,
-             home_score, away_score, game_type)
+            (
+                game_id,
+                season_id,
+                game_date,
+                home_team_id,
+                away_team_id,
+                home_score,
+                away_score,
+                game_type,
+            ),
         )
         conn.commit()
 
 
-def insert_player_game(game_id: str, player_id: str, team_id: str, stats: Dict[str, Any]):
+def insert_player_game(
+    game_id: str, player_id: str, team_id: str, stats: Dict[str, Any]
+):
     """Insert a player's game stats."""
     with get_connection() as conn:
         conn.execute(
@@ -375,7 +394,9 @@ def insert_player_game(game_id: str, player_id: str, team_id: str, stats: Dict[s
                 ast, stl, blk, tov, pf, fgm, fga, tpm, tpa, ftm, fta, two_pm, two_pa)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                game_id, player_id, team_id,
+                game_id,
+                player_id,
+                team_id,
                 stats.get("minutes", 0),
                 stats.get("pts", 0),
                 stats.get("off_reb", 0),
@@ -394,7 +415,7 @@ def insert_player_game(game_id: str, player_id: str, team_id: str, stats: Dict[s
                 stats.get("fta", 0),
                 stats.get("two_pm", 0),
                 stats.get("two_pa", 0),
-            )
+            ),
         )
         conn.commit()
 
@@ -409,7 +430,7 @@ def bulk_insert_player_games(records: List[Dict[str, Any]]):
                VALUES (:game_id, :player_id, :team_id, :minutes, :pts, :off_reb,
                        :def_reb, :reb, :ast, :stl, :blk, :tov, :pf, :fgm, :fga,
                        :tpm, :tpa, :ftm, :fta, :two_pm, :two_pa)""",
-            records
+            records,
         )
         conn.commit()
         logger.info(f"Inserted {len(records)} player game records")
@@ -424,7 +445,9 @@ def insert_team_game(game_id: str, team_id: str, is_home: int, stats: Dict[str, 
                 two_pts, three_pts, reb, ast, stl, blk, tov, pf)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                game_id, team_id, is_home,
+                game_id,
+                team_id,
+                is_home,
                 stats.get("fast_break", 0),
                 stats.get("paint_pts", 0),
                 stats.get("two_pts", 0),
@@ -435,7 +458,7 @@ def insert_team_game(game_id: str, team_id: str, is_home: int, stats: Dict[str, 
                 stats.get("blk", 0),
                 stats.get("tov", 0),
                 stats.get("pf", 0),
-            )
+            ),
         )
         conn.commit()
 
@@ -460,7 +483,7 @@ def get_team_season_stats(team_id: str, season_id: str) -> Optional[Dict]:
             JOIN teams t ON tg.team_id = t.id
             WHERE tg.team_id = ? AND g.season_id = ?
             GROUP BY tg.team_id""",
-            (team_id, season_id)
+            (team_id, season_id),
         ).fetchone()
 
         if row:
@@ -497,7 +520,7 @@ def get_player_season_stats(player_id: str, season_id: str) -> Optional[Dict]:
             JOIN teams t ON pg.team_id = t.id
             WHERE pg.player_id = ? AND g.season_id = ?
             GROUP BY pg.player_id""",
-            (player_id, season_id)
+            (player_id, season_id),
         ).fetchone()
 
         if row:
@@ -507,11 +530,7 @@ def get_player_season_stats(player_id: str, season_id: str) -> Optional[Dict]:
 
 def get_all_season_stats(season_id: str, active_only: bool = True) -> List[Dict]:
     """Get aggregated stats for all players in a season."""
-    active_filter = "AND p.is_active = 1" if active_only else ""
-
-    with get_connection() as conn:
-        rows = conn.execute(
-            f"""SELECT
+    base_query = """SELECT
                 p.id,
                 p.name,
                 p.position as pos,
@@ -537,16 +556,22 @@ def get_all_season_stats(season_id: str, active_only: bool = True) -> List[Dict]
             JOIN games g ON pg.game_id = g.id
             JOIN players p ON pg.player_id = p.id
             JOIN teams t ON pg.team_id = t.id
-            WHERE g.season_id = ? {active_filter}
-            GROUP BY pg.player_id
-            ORDER BY AVG(pg.pts) DESC""",
-            (season_id,)
-        ).fetchall()
+            WHERE g.season_id = ?"""
 
+    if active_only:
+        query = (
+            base_query
+            + " AND p.is_active = 1 GROUP BY pg.player_id ORDER BY AVG(pg.pts) DESC"
+        )
+    else:
+        query = base_query + " GROUP BY pg.player_id ORDER BY AVG(pg.pts) DESC"
+
+    with get_connection() as conn:
+        rows = conn.execute(query, (season_id,)).fetchall()
         return [dict(row) for row in rows]
 
 
-def get_game_boxscore(game_id: str) -> Dict:
+def get_game_boxscore(game_id: str) -> Optional[Dict[str, Any]]:
     """Get full boxscore for a game."""
     with get_connection() as conn:
         game = conn.execute(
@@ -557,7 +582,7 @@ def get_game_boxscore(game_id: str) -> Dict:
                JOIN teams ht ON g.home_team_id = ht.id
                JOIN teams at ON g.away_team_id = at.id
                WHERE g.id = ?""",
-            (game_id,)
+            (game_id,),
         ).fetchone()
 
         if not game:
@@ -570,13 +595,10 @@ def get_game_boxscore(game_id: str) -> Dict:
                JOIN teams t ON pg.team_id = t.id
                WHERE pg.game_id = ?
                ORDER BY t.id, pg.minutes DESC""",
-            (game_id,)
+            (game_id,),
         ).fetchall()
 
-        return {
-            "game": dict(game),
-            "players": [dict(p) for p in players]
-        }
+        return {"game": dict(game), "players": [dict(p) for p in players]}
 
 
 def get_games_in_season(season_id: str) -> List[Dict]:
@@ -591,13 +613,13 @@ def get_games_in_season(season_id: str) -> List[Dict]:
                JOIN teams at ON g.away_team_id = at.id
                WHERE g.season_id = ?
                ORDER BY g.game_date""",
-            (season_id,)
+            (season_id,),
         ).fetchall()
 
         return [dict(row) for row in rows]
 
 
-def get_existing_game_ids(season_id: str = None) -> set:
+def get_existing_game_ids(season_id: Optional[str] = None) -> set:
     """Get set of game IDs already in database.
 
     Args:
@@ -609,8 +631,7 @@ def get_existing_game_ids(season_id: str = None) -> set:
     with get_connection() as conn:
         if season_id:
             rows = conn.execute(
-                "SELECT id FROM games WHERE season_id = ?",
-                (season_id,)
+                "SELECT id FROM games WHERE season_id = ?", (season_id,)
             ).fetchall()
         else:
             rows = conn.execute("SELECT id FROM games").fetchall()
@@ -629,7 +650,7 @@ def get_last_game_date(season_id: str) -> Optional[str]:
             """SELECT MAX(game_date) as last_date
                FROM games
                WHERE season_id = ?""",
-            (season_id,)
+            (season_id,),
         ).fetchone()
 
         return row["last_date"] if row and row["last_date"] else None
@@ -665,7 +686,7 @@ def insert_team_standing(season_id: str, team_id: str, standing: Dict[str, Any])
                 standing.get("away_losses", 0),
                 standing.get("streak"),
                 standing.get("last10"),
-            )
+            ),
         )
         conn.commit()
 
@@ -700,7 +721,7 @@ def bulk_insert_team_standings(season_id: str, standings: List[Dict[str, Any]]):
                     standing.get("away_losses", 0),
                     standing.get("streak"),
                     standing.get("last10"),
-                )
+                ),
             )
         conn.commit()
         logger.info(f"Inserted {len(standings)} team standings for season {season_id}")
@@ -722,7 +743,7 @@ def get_team_standings(season_id: str) -> List[Dict]:
                JOIN teams t ON ts.team_id = t.id
                WHERE ts.season_id = ?
                ORDER BY ts.rank""",
-            (season_id,)
+            (season_id,),
         ).fetchall()
 
         return [dict(row) for row in rows]
@@ -734,7 +755,7 @@ def get_table_description(table_name: str) -> Optional[str]:
         row = conn.execute(
             """SELECT description FROM _meta_descriptions
                WHERE table_name = ? AND column_name = ''""",
-            (table_name,)
+            (table_name,),
         ).fetchone()
         return row["description"] if row else None
 
@@ -745,7 +766,7 @@ def get_column_descriptions(table_name: str) -> Dict[str, str]:
         rows = conn.execute(
             """SELECT column_name, description FROM _meta_descriptions
                WHERE table_name = ? AND column_name != ''""",
-            (table_name,)
+            (table_name,),
         ).fetchall()
         return {row["column_name"]: row["description"] for row in rows}
 
@@ -763,7 +784,7 @@ def get_all_descriptions() -> Dict[str, Dict]:
             "SELECT table_name, column_name, description FROM _meta_descriptions"
         ).fetchall()
 
-    result = {}
+    result: Dict[str, Dict[str, Any]] = {}
     for row in rows:
         table = row["table_name"]
         if table not in result:

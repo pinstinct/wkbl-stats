@@ -35,6 +35,17 @@ python3 tools/ingest_wkbl.py \
   --output data/wkbl-active.json
 ```
 
+**Full historical data** (all seasons, all game types, all players):
+```bash
+python3 tools/ingest_wkbl.py \
+  --auto \
+  --save-db \
+  --all-seasons \
+  --game-type all \
+  --fetch-team-stats \
+  --fetch-standings
+```
+
 ### Ingest Options
 
 | Option | Description |
@@ -195,6 +206,11 @@ pre-commit run --all-files
 | ruff-format | Formatting |
 | mypy | Type checking |
 | bandit | Security analysis |
+
+## Known Limitations
+
+- **Playoff data unavailable**: WKBL Data Lab does not provide boxscore data for playoff games. Game IDs with type code "04" (e.g., `04604010`) return empty player records. Only regular season and all-star games have detailed statistics.
+- **All-star games**: Game number "001" is always treated as all-star regardless of type code.
 
 ## Notes
 
