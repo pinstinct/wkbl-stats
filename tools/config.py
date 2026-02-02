@@ -9,6 +9,8 @@ BASE_URL = "https://datalab.wkbl.or.kr"
 PLAYER_RECORD_WRAPPER = BASE_URL + "/playerRecord"
 GAME_LIST_MONTH = BASE_URL + "/game/list/month"
 PLAYER_LIST = "https://www.wkbl.or.kr/player/player_list.asp"
+PLAYER_LIST_RETIRED = "https://www.wkbl.or.kr/player/player_list.asp?player_group=11"
+PLAYER_LIST_FOREIGN = "https://www.wkbl.or.kr/player/player_list.asp?player_group=F11"
 TEAM_STANDINGS_URL = "https://www.wkbl.or.kr/game/ajax/ajax_team_rank.asp"
 
 # Server Settings

@@ -17,6 +17,8 @@ from config import (
     DELAY,
     MAX_RETRIES,
     PLAYER_LIST,
+    PLAYER_LIST_FOREIGN,
+    PLAYER_LIST_RETIRED,
     PLAYER_RECORD_WRAPPER,
     RETRY_BACKOFF,
     SEASON_CODES,
@@ -450,9 +452,9 @@ def parse_available_months(html, season_start_date):
 
 
 def parse_active_player_links(html):
-    # Match both ./detail.asp and player/detail.asp patterns
+    # Match detail.asp, detail2.asp, and various path patterns
     links = re.findall(
-        r"<a[^>]+href=\"([^\"]*detail\.asp[^\"]+)\"[^>]*>(.*?)</a>", html, re.S
+        r"<a[^>]+href=\"([^\"]*detail2?\.asp[^\"]+)\"[^>]*>(.*?)</a>", html, re.S
     )
     players = []
     for href, content in links:
@@ -543,6 +545,73 @@ def load_active_players(cache_dir, use_cache=True, delay=0.0):
         if birth_date:
             player["birth_date"] = birth_date
     return players
+
+
+def load_all_players(cache_dir, use_cache=True, delay=0.0, fetch_profiles=False):
+    """Load all players (active + retired + foreign) from WKBL roster.
+
+    Args:
+        cache_dir: Cache directory for HTTP responses
+        use_cache: Whether to use cached responses
+        delay: Delay between requests
+        fetch_profiles: Whether to fetch individual player profiles (slower)
+
+    Returns:
+        dict: {pno: player_info} for all players
+    """
+    all_players = {}
+
+    # Load active players (player_group=12, default)
+    logger.info("Loading active players...")
+    html = fetch(PLAYER_LIST, cache_dir, use_cache=use_cache, delay=delay)
+    active_players = parse_active_player_links(html)
+    for p in active_players:
+        if p.get("pno"):
+            all_players[p["pno"]] = {**p, "is_active": 1, "player_group": "active"}
+    logger.info(f"Found {len(active_players)} active players")
+
+    # Load retired players (player_group=11)
+    logger.info("Loading retired players...")
+    html = fetch(PLAYER_LIST_RETIRED, cache_dir, use_cache=use_cache, delay=delay)
+    retired_players = parse_active_player_links(html)
+    for p in retired_players:
+        if p.get("pno") and p["pno"] not in all_players:
+            all_players[p["pno"]] = {**p, "is_active": 0, "player_group": "retired"}
+    logger.info(f"Found {len(retired_players)} retired players")
+
+    # Load foreign players (player_group=F11)
+    logger.info("Loading foreign players...")
+    html = fetch(PLAYER_LIST_FOREIGN, cache_dir, use_cache=use_cache, delay=delay)
+    foreign_players = parse_active_player_links(html)
+    for p in foreign_players:
+        if p.get("pno") and p["pno"] not in all_players:
+            all_players[p["pno"]] = {**p, "is_active": 0, "player_group": "foreign"}
+    logger.info(f"Found {len(foreign_players)} foreign players")
+
+    # Optionally fetch individual profiles for position/height
+    if fetch_profiles:
+        logger.info("Fetching player profiles...")
+        for i, (pno, player) in enumerate(all_players.items()):
+            if not player.get("url"):
+                continue
+            try:
+                detail_html = fetch(
+                    player["url"], cache_dir, use_cache=use_cache, delay=delay
+                )
+                pos, height, birth_date = parse_player_profile(detail_html)
+                if pos:
+                    player["pos"] = pos
+                if height:
+                    player["height"] = height
+                if birth_date:
+                    player["birth_date"] = birth_date
+            except Exception as e:
+                logger.warning(f"Failed to fetch profile for {player['name']}: {e}")
+            if (i + 1) % 50 == 0:
+                logger.info(f"Fetched {i + 1}/{len(all_players)} profiles...")
+
+    logger.info(f"Total players loaded: {len(all_players)}")
+    return all_players
 
 
 def _create_empty_player_entry(player_id, name, team, pos, height, season_label):
@@ -1359,14 +1428,22 @@ def _save_to_db(
     )
     logger.info(f"Saved season {args.season_label} (code: {season_code})")
 
-    # Build player_id lookup from active players (pno available)
+    # Build player_id lookups from all loaded players
     player_id_map = {}  # name|team -> player_id
+    player_id_by_name = {}  # name -> [player_ids] (for fallback matching)
     active_keys = set()
     for p in active_players:
         key = f"{p['name']}|{normalize_team(p['team'])}"
         player_id = p.get("pno") or key.replace("|", "_").replace(" ", "_")
         player_id_map[key] = player_id
-        active_keys.add(key)
+        if p.get("is_active") == 1:
+            active_keys.add(key)
+        # Build name-only lookup for team transfer matching
+        name = p["name"]
+        if name not in player_id_by_name:
+            player_id_by_name[name] = []
+        if player_id not in player_id_by_name[name]:
+            player_id_by_name[name].append(player_id)
 
     # Extract all players from game records (includes retired players)
     all_players = {}  # key -> {name, team, pos}
@@ -1382,8 +1459,17 @@ def _save_to_db(
     # Insert all players (from game records + active players)
     players_inserted = 0
     for key, info in all_players.items():
-        # Use pno from active_players if available, otherwise generate ID
-        player_id = player_id_map.get(key) or key.replace("|", "_").replace(" ", "_")
+        # Try to find pno: 1) exact name|team match, 2) name-only match if unique
+        player_id = player_id_map.get(key)
+        if not player_id:
+            name = info["name"]
+            name_matches = player_id_by_name.get(name, [])
+            if len(name_matches) == 1:
+                # Unique name match - use this pno (handles team transfers)
+                player_id = name_matches[0]
+            else:
+                # No match or ambiguous - generate ID
+                player_id = key.replace("|", "_").replace(" ", "_")
         player_id_map[key] = player_id
         team_id = get_team_id(info["team"])
         is_active = 1 if key in active_keys else 0
@@ -1480,9 +1566,15 @@ def _save_to_db(
 
         for record in records:
             key = f"{record['name']}|{normalize_team(record['team'])}"
-            player_id = player_id_map.get(key) or key.replace("|", "_").replace(
-                " ", "_"
-            )
+            # Try exact match first, then name-only match for team transfers
+            player_id = player_id_map.get(key)
+            if not player_id:
+                name = record["name"]
+                name_matches = player_id_by_name.get(name, [])
+                if len(name_matches) == 1:
+                    player_id = name_matches[0]
+                else:
+                    player_id = key.replace("|", "_").replace(" ", "_")
             team_id = get_team_id(record["team"])
 
             two_m, two_a = parse_made_attempt(record["two_pm_a"])
@@ -1663,10 +1755,20 @@ def _ingest_multiple_seasons(args):
     }
     game_types = game_type_mapping.get(args.game_type, ["01"])
 
-    # Load active players once for all seasons
-    active_players = load_active_players(
-        args.cache_dir, use_cache=not args.no_cache, delay=args.delay
-    )
+    # Load players once for all seasons
+    if getattr(args, "load_all_players", False):
+        all_players_db = load_all_players(
+            args.cache_dir, use_cache=not args.no_cache, delay=args.delay
+        )
+        # Convert to list format for compatibility
+        active_players = [{**p, "pno": pno} for pno, p in all_players_db.items()]
+        logger.info(
+            f"Loaded {len(active_players)} players (active + retired + foreign)"
+        )
+    else:
+        active_players = load_active_players(
+            args.cache_dir, use_cache=not args.no_cache, delay=args.delay
+        )
 
     # Initialize database
     if args.save_db:
@@ -1740,6 +1842,11 @@ def main():
         "--fetch-standings",
         action="store_true",
         help="also fetch team standings/rankings",
+    )
+    parser.add_argument(
+        "--load-all-players",
+        action="store_true",
+        help="load all players (active + retired + foreign) for correct pno mapping",
     )
 
     args = parser.parse_args()

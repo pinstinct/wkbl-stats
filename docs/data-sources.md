@@ -205,21 +205,43 @@ GET https://www.wkbl.or.kr/game/sch/inc_list_1_new.asp?season_gu=046&ym=202501&v
 
 **응답:** HTML 테이블 (날짜, 원정팀, 홈팀, game_no)
 
-### 6. 현역 선수 목록 (WKBL 공식 사이트)
+### 6. 선수 목록 (WKBL 공식 사이트)
 
-**선수 목록:**
+**현역 선수 목록:**
 ```
 https://www.wkbl.or.kr/player/player_list.asp
+https://www.wkbl.or.kr/player/player_list.asp?player_group=12  # 동일
 ```
 
-**선수 상세 (포지션, 신장):**
+**은퇴 선수 목록:**
 ```
-https://www.wkbl.or.kr/player/detail.asp?player_group=12&pno=095778
+https://www.wkbl.or.kr/player/player_list.asp?player_group=11
+```
+
+**외국인 선수 목록:**
+```
+https://www.wkbl.or.kr/player/player_list.asp?player_group=F11
+```
+
+**선수 상세 - 현역 (포지션, 신장, 생년월일):**
+```
+https://www.wkbl.or.kr/player/detail.asp?pno=095778
+```
+
+**선수 상세 - 은퇴/외국인:**
+```
+https://www.wkbl.or.kr/player/detail2.asp?pno=095035
 ```
 
 상세 페이지에서 파싱하는 정보:
 - 포지션: `포지션</span> - G`
 - 신장: `신장</span> - 175 cm`
+- 생년월일: `생년월일</span> - 1990.02.27`
+
+**선수 ID (pno):**
+- 6자리 숫자 (예: 095778, 095035)
+- 시즌/팀 이동과 무관하게 고유한 선수 식별자
+- `--load-all-players` 옵션으로 현역+은퇴+외국인 선수 전체 로드 가능
 
 ---
 
@@ -232,8 +254,11 @@ https://www.wkbl.or.kr/player/detail.asp?player_group=12&pno=095778
 | 경기 목록 | `datalab.wkbl.or.kr/game/list/month` | game_id 수집 |
 | 경기 일정 | `wkbl.or.kr/game/sch/inc_list_1_new.asp` | 홈/원정 팀, 날짜 |
 | 팀 순위 | `wkbl.or.kr/game/ajax/ajax_team_rank.asp` | 시즌 순위표 (POST) |
-| 현역 선수 명단 | `wkbl.or.kr/player/player_list.asp` | 현역 필터링 |
-| 선수 프로필 | `wkbl.or.kr/player/detail.asp` | 포지션, 신장 |
+| 현역 선수 명단 | `wkbl.or.kr/player/player_list.asp` | 현역 선수 pno 수집 |
+| 은퇴 선수 명단 | `wkbl.or.kr/player/player_list.asp?player_group=11` | 은퇴 선수 pno 수집 |
+| 외국인 선수 명단 | `wkbl.or.kr/player/player_list.asp?player_group=F11` | 외국인 선수 pno 수집 |
+| 선수 프로필 (현역) | `wkbl.or.kr/player/detail.asp` | 포지션, 신장, 생년월일 |
+| 선수 프로필 (은퇴) | `wkbl.or.kr/player/detail2.asp` | 포지션, 신장, 생년월일 |
 
 ---
 
@@ -255,7 +280,7 @@ players ─┘
 |--------|------|
 | `seasons` | 시즌 정보 (label, 시작일, 종료일) |
 | `teams` | 팀 정보 (이름, 약칭) |
-| `players` | 선수 정보 (이름, 팀, 포지션, 신장) |
+| `players` | 선수 정보 (pno, 이름, 팀, 포지션, 신장, 생년월일) |
 | `games` | 경기 정보 (날짜, 홈/원정팀, 점수, game_type) |
 | `player_games` | 경기별 선수 기록 (MIN, PTS, REB, AST, 슈팅 등) |
 | `team_games` | 경기별 팀 기록 (속공, 페인트존 득점 등) |
@@ -318,6 +343,20 @@ players ─┘
 | `home_score` | INTEGER | 홈팀 점수 |
 | `away_score` | INTEGER | 원정팀 점수 |
 | `game_type` | TEXT | 경기 유형 (regular/playoff/allstar) |
+
+#### players (선수)
+
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| `id` | TEXT | PK, 선수 ID (pno, 예: 095778) |
+| `name` | TEXT | 선수 이름 |
+| `birth_date` | TEXT | 생년월일 (YYYY-MM-DD) |
+| `height` | TEXT | 신장 (예: 180 cm) |
+| `position` | TEXT | 포지션 (G/F/C) |
+| `team_id` | TEXT | 현재 소속팀 ID (FK → teams.id) |
+| `is_active` | INTEGER | 현역 여부 (1: 현역, 0: 은퇴/외국인) |
+
+**참고:** `id`(pno)는 WKBL 공식 사이트에서 부여하는 고유 선수 번호입니다. 팀 이동이나 시즌과 무관하게 동일한 값을 유지하므로, 선수의 커리어 기록 추적에 활용됩니다.
 
 #### player_games (경기별 선수 기록)
 

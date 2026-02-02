@@ -20,6 +20,7 @@ python3 tools/ingest_wkbl.py \
   --season-label 2025-26 \
   --auto \
   --save-db \
+  --load-all-players \
   --active-only \
   --output data/wkbl-active.json
 ```
@@ -30,6 +31,7 @@ python3 tools/ingest_wkbl.py \
   --season-label 2025-26 \
   --auto \
   --save-db \
+  --load-all-players \
   --force-refresh \
   --active-only \
   --output data/wkbl-active.json
@@ -40,6 +42,7 @@ python3 tools/ingest_wkbl.py \
 python3 tools/ingest_wkbl.py \
   --auto \
   --save-db \
+  --load-all-players \
   --all-seasons \
   --game-type all \
   --fetch-team-stats \
@@ -53,6 +56,7 @@ python3 tools/ingest_wkbl.py \
 | `--auto` | Auto-discover season start date and game IDs from Data Lab |
 | `--end-date YYYYMMDD` | Aggregate stats up to this date (default: today) |
 | `--active-only` | Filter to current active players only |
+| `--load-all-players` | Load all players (active + retired + foreign) for correct pno mapping |
 | `--save-db` | Save game records to SQLite database |
 | `--force-refresh` | Ignore existing data, re-fetch all games |
 | `--fetch-team-stats` | Also collect team statistics |
@@ -133,7 +137,7 @@ External endpoints (documented in `docs/data-sources.md`):
 
 ```json
 {
-  "id": "wkbl-001",
+  "id": "095123",
   "name": "선수명",
   "team": "팀명",
   "pos": "G/F/C",
@@ -217,3 +221,5 @@ pre-commit run --all-files
 - Incremental updates: only fetches games not already in database
 - HTTP responses are cached in `data/cache/` to avoid redundant network requests
 - Frontend falls back to `data/sample.json` if `wkbl-active.json` unavailable
+- **Player ID tracking**: Use `--load-all-players` to load all 700+ players (active, retired, foreign) and correctly map player IDs (pno). Without this flag, retired players in historical data may get incorrect placeholder IDs.
+- Player IDs (pno) are consistent across seasons, enabling tracking of player career stats and team transfer history.
