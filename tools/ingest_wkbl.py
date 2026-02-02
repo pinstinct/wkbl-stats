@@ -1359,23 +1359,57 @@ def _save_to_db(
     )
     logger.info(f"Saved season {args.season_label} (code: {season_code})")
 
-    # Insert active players and build lookup map
+    # Build player_id lookup from active players (pno available)
     player_id_map = {}  # name|team -> player_id
+    active_keys = set()
     for p in active_players:
-        player_id = p.get("pno") or f"unknown_{p['name']}"
-        team_id = get_team_id(p["team"])
+        key = f"{p['name']}|{normalize_team(p['team'])}"
+        player_id = p.get("pno") or key.replace("|", "_").replace(" ", "_")
+        player_id_map[key] = player_id
+        active_keys.add(key)
+
+    # Extract all players from game records (includes retired players)
+    all_players = {}  # key -> {name, team, pos}
+    for record in game_records:
+        key = f"{record['name']}|{normalize_team(record['team'])}"
+        if key not in all_players:
+            all_players[key] = {
+                "name": record["name"],
+                "team": normalize_team(record["team"]),
+                "pos": record.get("pos"),
+            }
+
+    # Insert all players (from game records + active players)
+    players_inserted = 0
+    for key, info in all_players.items():
+        # Use pno from active_players if available, otherwise generate ID
+        player_id = player_id_map.get(key) or key.replace("|", "_").replace(" ", "_")
+        player_id_map[key] = player_id
+        team_id = get_team_id(info["team"])
+        is_active = 1 if key in active_keys else 0
+
+        # Get additional info from active_players if available
+        active_info = next(
+            (
+                p
+                for p in active_players
+                if f"{p['name']}|{normalize_team(p['team'])}" == key
+            ),
+            None,
+        )
+
         database.insert_player(
             player_id=player_id,
-            name=p["name"],
+            name=info["name"],
             team_id=team_id,
-            position=p.get("pos"),
-            height=p.get("height"),
-            birth_date=p.get("birth_date"),
-            is_active=1,
+            position=active_info.get("pos") if active_info else info.get("pos"),
+            height=active_info.get("height") if active_info else None,
+            birth_date=active_info.get("birth_date") if active_info else None,
+            is_active=is_active,
         )
-        key = f"{p['name']}|{normalize_team(p['team'])}"
-        player_id_map[key] = player_id
-    logger.info(f"Saved {len(active_players)} players")
+        players_inserted += 1
+
+    logger.info(f"Saved {players_inserted} players ({len(active_keys)} active)")
 
     # Build game_id -> date mapping
     game_date_map = {game_id: date for game_id, date in game_items}
@@ -1446,7 +1480,9 @@ def _save_to_db(
 
         for record in records:
             key = f"{record['name']}|{normalize_team(record['team'])}"
-            player_id = player_id_map.get(key) or f"unknown_{record['name']}"
+            player_id = player_id_map.get(key) or key.replace("|", "_").replace(
+                " ", "_"
+            )
             team_id = get_team_id(record["team"])
 
             two_m, two_a = parse_made_attempt(record["two_pm_a"])
