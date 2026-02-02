@@ -200,10 +200,8 @@ pre-commit run --all-files
 
 | Hook | Purpose |
 |------|---------|
-| black | Code formatting |
-| isort | Import sorting |
-| ruff-check | Linting |
-| ruff-format | Formatting |
+| ruff-check | Linting (includes import sorting) |
+| ruff-format | Code formatting (replaces black) |
 | mypy | Type checking |
 | bandit | Security analysis |
 
