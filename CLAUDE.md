@@ -68,39 +68,49 @@ python3 tools/ingest_wkbl.py \
 | `--all-seasons` | Collect all historical seasons (2020-21 ~ current) |
 | `--seasons 044 045` | Collect specific seasons by code |
 
+## Frontend Pages (SPA)
+
+Hash-based routing system for single-page application.
+
+| URL | Page | Description |
+|-----|------|-------------|
+| `#/` | Home | Player list with filters, sorting, search |
+| `#/players/{id}` | Player Detail | Career summary, season stats, game log |
+| `#/teams` | Teams | Standings table (rank, W-L, home/away) |
+| `#/teams/{id}` | Team Detail | Roster, recent games |
+| `#/games` | Games | Game cards with scores |
+| `#/games/{id}` | Boxscore | Full box score (home/away player stats) |
+| `#/leaders` | Leaders | Top 5 in PTS/REB/AST/STL/BLK |
+
 ## Architecture
 
 ```
-server.py → runs daily ingest check → tools/ingest_wkbl.py
-    ↓
-Fetches game IDs from datalab.wkbl.or.kr/game/list/month
-    ↓
-Checks SQLite DB for existing games (skip if already stored)
-    ↓
-Scrapes boxscores from record_player.asp for NEW games only
-    ↓
-Saves to SQLite database (data/wkbl.db)
-    ↓
-Aggregates into season averages (from DB)
-    ↓
-Enriches with player profiles (position, height) from wkbl.or.kr
-    ↓
-Outputs data/wkbl-active.json
-    ↓
-Frontend (src/app.js) loads JSON and renders interactive table
+server.py (FastAPI) ─┬─ /api/* → tools/api.py (REST API)
+                     └─ /* → Static files (index.html, src/, data/)
+                           ↓
+                     Frontend SPA (src/app.js)
+                           ↓
+                     Hash-based routing → API calls → Render views
+
+Data Pipeline:
+tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.json)
 ```
 
 ## Key Files
 
 - `server.py` - FastAPI server + daily ingest orchestration
+- `index.html` - SPA with all view templates
+- `src/app.js` - Frontend: routing, API calls, view rendering
+- `src/styles.css` - Responsive styles for all pages
 - `tools/api.py` - REST API endpoints
 - `tools/ingest_wkbl.py` - Web scraper and data aggregation pipeline
 - `tools/database.py` - SQLite schema and database operations
 - `tools/config.py` - Centralized configuration (URLs, paths, settings)
-- `src/app.js` - Frontend state management, filtering, sorting, rendering
 - `data/wkbl.db` - SQLite database (game-by-game records)
-- `data/wkbl-active.json` - Generated player stats (primary data file for frontend)
+- `data/wkbl-active.json` - Generated player stats (fallback for frontend)
 - `data/cache/` - HTTP response cache (reduces network requests)
+- `pyproject.toml` - Project dependencies (managed by uv)
+- `uv.lock` - Locked dependency versions
 
 ## REST API
 
