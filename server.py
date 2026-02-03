@@ -1,15 +1,28 @@
 #!/usr/bin/env python3
+"""
+WKBL Stats Server
+
+Combined server providing:
+- REST API endpoints (/api/*)
+- Static file serving for the frontend
+- Automatic daily data ingest
+"""
+
 import datetime
 import json
 import os
 import subprocess  # nosec B404
 import sys
-from http.server import SimpleHTTPRequestHandler
-from socketserver import TCPServer
 
+# Add tools directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools"))
 
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
 from config import CURRENT_SEASON, HOST, OUTPUT_PATH, PORT, STATUS_PATH, setup_logging
+from api import app as api_app
 
 logger = setup_logging("server")
 
@@ -54,6 +67,8 @@ def run_ingest_if_needed():
         "--auto",
         "--end-date",
         today,
+        "--save-db",
+        "--load-all-players",
         "--active-only",
         "--output",
         OUTPUT_PATH,
@@ -84,22 +99,64 @@ def run_ingest_if_needed():
         return False
 
 
-def main():
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+# Create main app that includes API routes
+app = FastAPI(
+    title="WKBL Stats",
+    description="Korean Women's Basketball League Statistics",
+    version="1.0.0",
+)
 
+# Mount API routes
+app.mount("/api", api_app)
+
+# Get the base directory for static files
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+@app.get("/")
+async def serve_index():
+    """Serve the main index.html file."""
+    return FileResponse(os.path.join(BASE_DIR, "index.html"))
+
+
+@app.get("/favicon.ico")
+async def serve_favicon():
+    """Serve favicon if exists."""
+    favicon_path = os.path.join(BASE_DIR, "favicon.ico")
+    if os.path.exists(favicon_path):
+        return FileResponse(favicon_path)
+    return FileResponse(os.path.join(BASE_DIR, "index.html"), status_code=404)
+
+
+# Mount static directories (only if they exist)
+for static_dir in ["src", "data", "styles"]:
+    dir_path = os.path.join(BASE_DIR, static_dir)
+    if os.path.isdir(dir_path):
+        app.mount(f"/{static_dir}", StaticFiles(directory=dir_path), name=static_dir)
+
+
+def main():
+    """Main entry point."""
+    import uvicorn
+
+    os.chdir(BASE_DIR)
+
+    # Run ingest if needed before starting server
     try:
         run_ingest_if_needed()
     except Exception as exc:
         logger.warning(f"Ingest failed, serving existing data: {exc}")
 
-    handler = SimpleHTTPRequestHandler
+    # Start the server
+    logger.info(f"Starting server on http://localhost:{PORT}")
+    logger.info("API docs available at http://localhost:{PORT}/api/docs")
 
-    with TCPServer((HOST, PORT), handler) as httpd:
-        logger.info(f"Serving on http://localhost:{PORT}")
-        try:
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            logger.info("Server stopped")
+    uvicorn.run(
+        app,
+        host=HOST or "0.0.0.0",  # nosec B104 - intentional for dev server
+        port=PORT,
+        log_level="info",
+    )
 
 
 if __name__ == "__main__":

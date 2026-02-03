@@ -9,7 +9,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 |------|------|------|
 | Phase 1 | ✅ 완료 | SQLite DB 기반 구축, 증분 업데이트 |
 | Phase 2 | ✅ 완료 | 팀 순위, 역대 시즌, 플레이오프 분리 |
-| Phase 3 | ⬜ 미시작 | REST API 서버 구축 |
+| Phase 3 | ✅ 완료 | REST API 서버 구축 |
 | Phase 4 | 🔄 진행 중 | 모바일 반응형 완료, 상세 페이지 예정 |
 | Phase 5 | ⬜ 미시작 | 고급 기능 (선수 비교, 트렌드 차트) |
 
@@ -149,12 +149,14 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - team_games: 슈팅 시도 횟수가 아닌 득점(two_pts, three_pts)만 제공
 - team_standings: 최근 10경기가 아닌 5경기(last5) 데이터 제공
 
-### Phase 3: API 서버 구축 (2주)
-- [ ] FastAPI 또는 Flask로 REST API 구현
-- [ ] 선수 조회 API (`/players`, `/players/{id}`)
-- [ ] 팀 조회 API (`/teams`, `/teams/{id}`)
-- [ ] 경기 조회 API (`/games`, `/games/{id}`)
-- [ ] 시즌 스탯 집계 API
+### Phase 3: API 서버 구축 ✅ 완료
+- [x] FastAPI로 REST API 구현 (`tools/api.py`)
+- [x] 선수 조회 API (`/api/players`, `/api/players/{id}`, `/api/players/{id}/gamelog`)
+- [x] 팀 조회 API (`/api/teams`, `/api/teams/{id}`)
+- [x] 경기 조회 API (`/api/games`, `/api/games/{id}`)
+- [x] 시즌 스탯 집계 API (`/api/seasons/{id}/standings`)
+- [x] 리더보드 API (`/api/leaders`, `/api/leaders/all`)
+- [x] OpenAPI 자동 문서화 (`/api/docs`, `/api/redoc`)
 
 ### Phase 4: 프론트엔드 확장
 - [x] 모바일 반응형 테이블 (선수명 고정 + 가로 스크롤)

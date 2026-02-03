@@ -10,9 +10,12 @@ WKBL Player Stats dashboard - displays Korean Women's Basketball League data in 
 
 **Start server** (auto-ingests daily data):
 ```bash
+pip install -r requirements.txt  # first time only
 python3 server.py
 ```
-Access at http://localhost:8000
+- Frontend: http://localhost:8000
+- API: http://localhost:8000/api/
+- API Docs: http://localhost:8000/api/docs
 
 **Manual data ingest** (incremental - only fetches new games):
 ```bash
@@ -89,7 +92,8 @@ Frontend (src/app.js) loads JSON and renders interactive table
 
 ## Key Files
 
-- `server.py` - HTTP server + daily ingest orchestration
+- `server.py` - FastAPI server + daily ingest orchestration
+- `tools/api.py` - REST API endpoints
 - `tools/ingest_wkbl.py` - Web scraper and data aggregation pipeline
 - `tools/database.py` - SQLite schema and database operations
 - `tools/config.py` - Centralized configuration (URLs, paths, settings)
@@ -97,6 +101,31 @@ Frontend (src/app.js) loads JSON and renders interactive table
 - `data/wkbl.db` - SQLite database (game-by-game records)
 - `data/wkbl-active.json` - Generated player stats (primary data file for frontend)
 - `data/cache/` - HTTP response cache (reduces network requests)
+
+## REST API
+
+API documentation available at `/api/docs` (Swagger UI) or `/api/redoc` (ReDoc).
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/players` | All players with season stats |
+| `GET /api/players/{id}` | Player detail with career stats |
+| `GET /api/players/{id}/gamelog` | Player's game log |
+| `GET /api/teams` | All teams |
+| `GET /api/teams/{id}` | Team detail with roster |
+| `GET /api/games` | Game list |
+| `GET /api/games/{id}` | Full game boxscore |
+| `GET /api/seasons` | All seasons |
+| `GET /api/seasons/{id}/standings` | Team standings |
+| `GET /api/leaders` | Statistical leaders |
+| `GET /api/leaders/all` | Leaders for all categories |
+| `GET /api/health` | Health check |
+
+Query parameters:
+- `season`: Season code (e.g., `046` for 2025-26)
+- `team`: Team ID filter (e.g., `kb`, `samsung`)
+- `category`: Leader category (`pts`, `reb`, `ast`, `stl`, `blk`, `fgp`, `tpp`, `ftp`)
+- `limit`, `offset`: Pagination
 
 ## Database Schema
 
@@ -216,7 +245,7 @@ pre-commit run --all-files
 
 ## Notes
 
-- No external dependencies for runtime - uses Python 3 standard library only
+- Runtime dependencies: FastAPI, uvicorn, pydantic (install with `pip install -r requirements.txt`)
 - Ingest script adds 0.15s delays between requests to be respectful to WKBL servers
 - Incremental updates: only fetches games not already in database
 - HTTP responses are cached in `data/cache/` to avoid redundant network requests

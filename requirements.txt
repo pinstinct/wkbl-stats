@@ -1,0 +1,12 @@
+# WKBL Stats Dependencies
+
+# API Server
+fastapi>=0.109.0
+uvicorn>=0.27.0
+pydantic>=2.0.0
+
+# Development
+pre-commit>=3.6.0
+ruff>=0.1.0
+mypy>=1.8.0
+bandit>=1.7.0
