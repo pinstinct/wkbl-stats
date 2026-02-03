@@ -10,8 +10,8 @@ WKBL Player Stats dashboard - displays Korean Women's Basketball League data in 
 
 **Start server** (auto-ingests daily data):
 ```bash
-pip install -r requirements.txt  # first time only
-python3 server.py
+uv sync        # first time only
+uv run python3 server.py
 ```
 - Frontend: http://localhost:8000
 - API: http://localhost:8000/api/
@@ -220,13 +220,13 @@ This project uses pre-commit for code quality checks. Hooks run automatically on
 
 **Setup:**
 ```bash
-pip install pre-commit
-pre-commit install
+uv sync
+uv run pre-commit install
 ```
 
 **Manual run:**
 ```bash
-pre-commit run --all-files
+uv run pre-commit run --all-files
 ```
 
 **Configured hooks:**
@@ -245,7 +245,7 @@ pre-commit run --all-files
 
 ## Notes
 
-- Runtime dependencies: FastAPI, uvicorn, pydantic (install with `pip install -r requirements.txt`)
+- Dependencies managed with uv (`uv sync` to install)
 - Ingest script adds 0.15s delays between requests to be respectful to WKBL servers
 - Incremental updates: only fetches games not already in database
 - HTTP responses are cached in `data/cache/` to avoid redundant network requests

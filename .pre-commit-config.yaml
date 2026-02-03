@@ -13,4 +13,3 @@ repos:
       rev: 1.9.3
       hooks:
         - id: bandit
-          args: ["-s", "B608"]  # Skip SQL injection check - we use whitelisted values

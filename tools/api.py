@@ -651,34 +651,18 @@ def get_standings(season_id: str) -> list[dict]:
         return result
 
 
-def get_leaders(season_id: str, category: str = "pts", limit: int = 10) -> list[dict]:
-    """Get statistical leaders for a category."""
-    valid_categories = {
-        "pts": "AVG(pg.pts)",
-        "reb": "AVG(pg.reb)",
-        "ast": "AVG(pg.ast)",
-        "stl": "AVG(pg.stl)",
-        "blk": "AVG(pg.blk)",
-        "min": "AVG(pg.minutes)",
-        "fgp": "CASE WHEN SUM(pg.fga) > 0 THEN SUM(pg.fgm) * 1.0 / SUM(pg.fga) ELSE 0 END",
-        "tpp": "CASE WHEN SUM(pg.tpa) > 0 THEN SUM(pg.tpm) * 1.0 / SUM(pg.tpa) ELSE 0 END",
-        "ftp": "CASE WHEN SUM(pg.fta) > 0 THEN SUM(pg.ftm) * 1.0 / SUM(pg.fta) ELSE 0 END",
-    }
+def _get_leaders_query(category: str) -> tuple[str, int]:
+    """Return hardcoded SQL query and min_games for a category.
 
-    if category not in valid_categories:
-        category = "pts"
-
-    # Minimum games for percentage categories
-    min_games = 10 if category in ["fgp", "tpp", "ftp"] else 1
-
-    # Build query with whitelisted aggregate function
-    agg_func = valid_categories[category]
-    query = (  # nosec B608
+    All queries are fully hardcoded to avoid SQL injection concerns.
+    Returns (query_string, min_games_threshold).
+    """
+    base = (
         "SELECT p.id as player_id, p.name as player_name, "
         "t.name as team_name, t.id as team_id, COUNT(*) as gp, "
-        + agg_func
-        + " as value "
-        "FROM player_games pg "
+    )
+    joins = (
+        " FROM player_games pg "
         "JOIN games g ON pg.game_id = g.id "
         "JOIN players p ON pg.player_id = p.id "
         "JOIN teams t ON pg.team_id = t.id "
@@ -687,6 +671,45 @@ def get_leaders(season_id: str, category: str = "pts", limit: int = 10) -> list[
         "HAVING COUNT(*) >= ? "
         "ORDER BY value DESC LIMIT ?"
     )
+
+    queries = {
+        "pts": (base + "AVG(pg.pts) as value" + joins, 1),
+        "reb": (base + "AVG(pg.reb) as value" + joins, 1),
+        "ast": (base + "AVG(pg.ast) as value" + joins, 1),
+        "stl": (base + "AVG(pg.stl) as value" + joins, 1),
+        "blk": (base + "AVG(pg.blk) as value" + joins, 1),
+        "min": (base + "AVG(pg.minutes) as value" + joins, 1),
+        "fgp": (
+            base
+            + "CASE WHEN SUM(pg.fga) > 0 THEN SUM(pg.fgm) * 1.0 / SUM(pg.fga) ELSE 0 END as value"
+            + joins,
+            10,
+        ),
+        "tpp": (
+            base
+            + "CASE WHEN SUM(pg.tpa) > 0 THEN SUM(pg.tpm) * 1.0 / SUM(pg.tpa) ELSE 0 END as value"
+            + joins,
+            10,
+        ),
+        "ftp": (
+            base
+            + "CASE WHEN SUM(pg.fta) > 0 THEN SUM(pg.ftm) * 1.0 / SUM(pg.fta) ELSE 0 END as value"
+            + joins,
+            10,
+        ),
+    }
+
+    return queries.get(category, queries["pts"])
+
+
+def get_leaders(season_id: str, category: str = "pts", limit: int = 10) -> list[dict]:
+    """Get statistical leaders for a category."""
+    valid_categories = {"pts", "reb", "ast", "stl", "blk", "min", "fgp", "tpp", "ftp"}
+
+    if category not in valid_categories:
+        category = "pts"
+
+    query, min_games = _get_leaders_query(category)
 
     with get_connection() as conn:
         rows = conn.execute(query, (season_id, min_games, limit)).fetchall()
