@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WKBL Player Stats</title>
+    <title>WKBL Stats</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet" />
@@ -13,83 +13,332 @@
     <div class="bg-grid"></div>
     <header class="site-header">
       <div class="brand">
-        <span class="badge">WKBL DATA LAB</span>
-        <h1>Player Stats Explorer</h1>
+        <a href="#/" class="brand-link">
+          <span class="badge">WKBL DATA LAB</span>
+          <h1>Stats Explorer</h1>
+        </a>
       </div>
-      <div class="controls">
-        <label class="control">
-          시즌
-          <select id="seasonSelect"></select>
-        </label>
-        <label class="control">
-          팀
-          <select id="teamSelect">
-            <option value="all">전체</option>
-          </select>
-        </label>
-        <label class="control">
-          포지션
-          <select id="posSelect">
-            <option value="all">전체</option>
-            <option value="G">G</option>
-            <option value="F">F</option>
-            <option value="C">C</option>
-          </select>
-        </label>
-        <label class="control search">
-          검색
-          <input id="searchInput" type="text" placeholder="선수 이름" />
-        </label>
-      </div>
+      <nav class="nav-links">
+        <a href="#/" class="nav-link">선수</a>
+        <a href="#/teams" class="nav-link">팀</a>
+        <a href="#/games" class="nav-link">경기</a>
+        <a href="#/leaders" class="nav-link">리더</a>
+      </nav>
     </header>
 
     <main class="content">
-      <section class="player-card">
-        <div class="player-head">
-          <div>
-            <span id="playerTeam" class="player-team">-</span>
-            <h2 id="playerName">선수를 선택하세요</h2>
-            <div class="player-meta">
-              <span id="playerPos">-</span>
-              <span id="playerHeight">-</span>
-              <span id="playerGp">-</span>
+      <!-- Home / Players List View -->
+      <section id="view-home" class="view">
+        <div class="controls">
+          <label class="control">
+            시즌
+            <select id="seasonSelect"></select>
+          </label>
+          <label class="control">
+            팀
+            <select id="teamSelect">
+              <option value="all">전체</option>
+            </select>
+          </label>
+          <label class="control">
+            포지션
+            <select id="posSelect">
+              <option value="all">전체</option>
+              <option value="G">G</option>
+              <option value="F">F</option>
+              <option value="C">C</option>
+            </select>
+          </label>
+          <label class="control search">
+            검색
+            <input id="searchInput" type="text" placeholder="선수 이름" />
+          </label>
+        </div>
+
+        <section class="player-card">
+          <div class="player-head">
+            <div>
+              <span id="playerTeam" class="player-team">-</span>
+              <h2 id="playerName">선수를 선택하세요</h2>
+              <div class="player-meta">
+                <span id="playerPos">-</span>
+                <span id="playerHeight">-</span>
+                <span id="playerGp">-</span>
+              </div>
+            </div>
+          </div>
+          <div class="stat-grid" id="playerStatGrid"></div>
+        </section>
+
+        <section class="table-section">
+          <div class="table-head">
+            <h3>선수 스탯</h3>
+            <div class="legend">정렬: 스탯 헤더 클릭</div>
+          </div>
+          <div class="table-wrap">
+            <table id="statsTable">
+              <thead>
+                <tr>
+                  <th data-key="name">선수</th>
+                  <th data-key="team" class="hide-mobile">팀</th>
+                  <th data-key="pos" class="hide-mobile" title="포지션 (G: 가드, F: 포워드, C: 센터)">POS</th>
+                  <th data-key="gp" class="hide-tablet" title="Games Played - 출전 경기 수">GP</th>
+                  <th data-key="min" class="hide-tablet" title="Minutes - 경기당 평균 출전 시간">MIN</th>
+                  <th data-key="pts" title="Points - 경기당 평균 득점">PTS</th>
+                  <th data-key="reb" title="Rebounds - 경기당 평균 리바운드">REB</th>
+                  <th data-key="ast" title="Assists - 경기당 평균 어시스트">AST</th>
+                  <th data-key="stl" class="hide-mobile" title="Steals - 경기당 평균 스틸">STL</th>
+                  <th data-key="blk" class="hide-mobile" title="Blocks - 경기당 평균 블록">BLK</th>
+                  <th data-key="tov" class="hide-tablet" title="Turnovers - 경기당 평균 턴오버">TOV</th>
+                  <th data-key="fgp" class="hide-tablet" title="Field Goal % - 야투 성공률 (2점+3점)">FG%</th>
+                  <th data-key="tpp" class="hide-tablet" title="3-Point % - 3점슛 성공률">3P%</th>
+                  <th data-key="ftp" class="hide-tablet" title="Free Throw % - 자유투 성공률">FT%</th>
+                  <th data-key="ts_pct" class="hide-mobile" title="True Shooting % - 모든 슛 시도(2점, 3점, 자유투)를 고려한 실제 슈팅 효율">TS%</th>
+                  <th data-key="efg_pct" class="hide-mobile" title="Effective FG% - 3점슛의 추가 가치를 반영한 야투율">eFG%</th>
+                  <th data-key="pir" class="hide-tablet" title="Performance Index Rating - 종합 퍼포먼스 지수 (유럽식 효율 지표)">PIR</th>
+                </tr>
+              </thead>
+              <tbody id="statsBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <!-- Player Detail View -->
+      <section id="view-player" class="view" style="display: none;">
+        <div class="page-header">
+          <a href="#/" class="back-link">&larr; 선수 목록</a>
+        </div>
+        <div class="player-detail">
+          <div class="player-info-card">
+            <div class="player-info-main">
+              <span id="detailPlayerTeam" class="player-team">-</span>
+              <h2 id="detailPlayerName">-</h2>
+              <div class="player-meta">
+                <span id="detailPlayerPos">-</span>
+                <span id="detailPlayerHeight">-</span>
+                <span id="detailPlayerBirth">-</span>
+              </div>
+            </div>
+            <div class="player-career-summary" id="playerCareerSummary"></div>
+          </div>
+
+          <div class="detail-section">
+            <h3>시즌별 기록</h3>
+            <div class="table-wrap">
+              <table class="detail-table" id="playerSeasonTable">
+                <thead>
+                  <tr>
+                    <th>시즌</th>
+                    <th>팀</th>
+                    <th>GP</th>
+                    <th>MIN</th>
+                    <th>PTS</th>
+                    <th>REB</th>
+                    <th>AST</th>
+                    <th>STL</th>
+                    <th>BLK</th>
+                    <th>FG%</th>
+                    <th>3P%</th>
+                    <th>FT%</th>
+                  </tr>
+                </thead>
+                <tbody id="playerSeasonBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <h3>최근 경기</h3>
+            <div class="table-wrap">
+              <table class="detail-table" id="playerGameLogTable">
+                <thead>
+                  <tr>
+                    <th>날짜</th>
+                    <th>상대</th>
+                    <th>결과</th>
+                    <th>MIN</th>
+                    <th>PTS</th>
+                    <th>REB</th>
+                    <th>AST</th>
+                    <th>STL</th>
+                    <th>BLK</th>
+                    <th>FG</th>
+                    <th>3P</th>
+                    <th>FT</th>
+                  </tr>
+                </thead>
+                <tbody id="playerGameLogBody"></tbody>
+              </table>
             </div>
           </div>
         </div>
-        <div class="stat-grid" id="playerStatGrid"></div>
       </section>
 
-      <section class="table-section">
-        <div class="table-head">
-          <h3>선수 스탯</h3>
-          <div class="legend">정렬: 스탯 헤더 클릭</div>
+      <!-- Teams List View -->
+      <section id="view-teams" class="view" style="display: none;">
+        <div class="page-header">
+          <h2>팀 순위</h2>
+          <select id="teamsSeasonSelect" class="season-select"></select>
         </div>
-        <div class="table-wrap">
-          <table id="statsTable">
-            <thead>
-              <tr>
-                <th data-key="name">선수</th>
-                <th data-key="team" class="hide-mobile">팀</th>
-                <th data-key="pos" class="hide-mobile" title="포지션 (G: 가드, F: 포워드, C: 센터)">POS</th>
-                <th data-key="gp" class="hide-tablet" title="Games Played - 출전 경기 수">GP</th>
-                <th data-key="min" class="hide-tablet" title="Minutes - 경기당 평균 출전 시간">MIN</th>
-                <th data-key="pts" title="Points - 경기당 평균 득점">PTS</th>
-                <th data-key="reb" title="Rebounds - 경기당 평균 리바운드">REB</th>
-                <th data-key="ast" title="Assists - 경기당 평균 어시스트">AST</th>
-                <th data-key="stl" class="hide-mobile" title="Steals - 경기당 평균 스틸">STL</th>
-                <th data-key="blk" class="hide-mobile" title="Blocks - 경기당 평균 블록">BLK</th>
-                <th data-key="tov" class="hide-tablet" title="Turnovers - 경기당 평균 턴오버">TOV</th>
-                <th data-key="fgp" class="hide-tablet" title="Field Goal % - 야투 성공률 (2점+3점)">FG%</th>
-                <th data-key="tpp" class="hide-tablet" title="3-Point % - 3점슛 성공률">3P%</th>
-                <th data-key="ftp" class="hide-tablet" title="Free Throw % - 자유투 성공률">FT%</th>
-                <th data-key="ts_pct" class="hide-mobile" title="True Shooting % - 모든 슛 시도(2점, 3점, 자유투)를 고려한 실제 슈팅 효율">TS%</th>
-                <th data-key="efg_pct" class="hide-mobile" title="Effective FG% - 3점슛의 추가 가치를 반영한 야투율">eFG%</th>
-                <th data-key="pir" class="hide-tablet" title="Performance Index Rating - 종합 퍼포먼스 지수 (유럽식 효율 지표)">PIR</th>
-              </tr>
-            </thead>
-            <tbody id="statsBody"></tbody>
-          </table>
+        <div class="standings-section">
+          <div class="table-wrap">
+            <table class="detail-table" id="standingsTable">
+              <thead>
+                <tr>
+                  <th>순위</th>
+                  <th>팀</th>
+                  <th>경기</th>
+                  <th>승</th>
+                  <th>패</th>
+                  <th>승률</th>
+                  <th>게임차</th>
+                  <th class="hide-mobile">홈</th>
+                  <th class="hide-mobile">원정</th>
+                  <th class="hide-tablet">연속</th>
+                  <th class="hide-tablet">최근5</th>
+                </tr>
+              </thead>
+              <tbody id="standingsBody"></tbody>
+            </table>
+          </div>
         </div>
+      </section>
+
+      <!-- Team Detail View -->
+      <section id="view-team" class="view" style="display: none;">
+        <div class="page-header">
+          <a href="#/teams" class="back-link">&larr; 팀 순위</a>
+        </div>
+        <div class="team-detail">
+          <div class="team-info-card">
+            <h2 id="teamDetailName">-</h2>
+            <div id="teamDetailStanding" class="team-standing-badge"></div>
+          </div>
+
+          <div class="detail-section">
+            <h3>로스터</h3>
+            <div class="table-wrap">
+              <table class="detail-table" id="teamRosterTable">
+                <thead>
+                  <tr>
+                    <th>선수</th>
+                    <th>포지션</th>
+                    <th>신장</th>
+                  </tr>
+                </thead>
+                <tbody id="teamRosterBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <h3>최근 경기</h3>
+            <div class="table-wrap">
+              <table class="detail-table" id="teamGamesTable">
+                <thead>
+                  <tr>
+                    <th>날짜</th>
+                    <th>상대</th>
+                    <th>홈/원정</th>
+                    <th>결과</th>
+                    <th>점수</th>
+                  </tr>
+                </thead>
+                <tbody id="teamGamesBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Games List View -->
+      <section id="view-games" class="view" style="display: none;">
+        <div class="page-header">
+          <h2>경기 일정</h2>
+          <select id="gamesSeasonSelect" class="season-select"></select>
+        </div>
+        <div class="games-list" id="gamesList"></div>
+      </section>
+
+      <!-- Game Detail View (Boxscore) -->
+      <section id="view-game" class="view" style="display: none;">
+        <div class="page-header">
+          <a href="#/games" class="back-link">&larr; 경기 목록</a>
+        </div>
+        <div class="boxscore">
+          <div class="boxscore-header">
+            <div class="boxscore-team away">
+              <span id="boxscoreAwayTeam" class="team-name">-</span>
+              <span id="boxscoreAwayScore" class="team-score">-</span>
+            </div>
+            <div class="boxscore-vs">
+              <span id="boxscoreDate">-</span>
+              <span class="vs-text">VS</span>
+            </div>
+            <div class="boxscore-team home">
+              <span id="boxscoreHomeTeam" class="team-name">-</span>
+              <span id="boxscoreHomeScore" class="team-score">-</span>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <h3 id="boxscoreAwayTeamName">원정팀</h3>
+            <div class="table-wrap">
+              <table class="detail-table boxscore-table">
+                <thead>
+                  <tr>
+                    <th>선수</th>
+                    <th>MIN</th>
+                    <th>PTS</th>
+                    <th>REB</th>
+                    <th>AST</th>
+                    <th>STL</th>
+                    <th>BLK</th>
+                    <th class="hide-mobile">TO</th>
+                    <th class="hide-mobile">FG</th>
+                    <th class="hide-tablet">3P</th>
+                    <th class="hide-tablet">FT</th>
+                  </tr>
+                </thead>
+                <tbody id="boxscoreAwayBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <h3 id="boxscoreHomeTeamName">홈팀</h3>
+            <div class="table-wrap">
+              <table class="detail-table boxscore-table">
+                <thead>
+                  <tr>
+                    <th>선수</th>
+                    <th>MIN</th>
+                    <th>PTS</th>
+                    <th>REB</th>
+                    <th>AST</th>
+                    <th>STL</th>
+                    <th>BLK</th>
+                    <th class="hide-mobile">TO</th>
+                    <th class="hide-mobile">FG</th>
+                    <th class="hide-tablet">3P</th>
+                    <th class="hide-tablet">FT</th>
+                  </tr>
+                </thead>
+                <tbody id="boxscoreHomeBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Leaders View -->
+      <section id="view-leaders" class="view" style="display: none;">
+        <div class="page-header">
+          <h2>리더보드</h2>
+          <select id="leadersSeasonSelect" class="season-select"></select>
+        </div>
+        <div class="leaders-grid" id="leadersGrid"></div>
       </section>
     </main>
 

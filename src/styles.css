@@ -508,3 +508,501 @@ body {
     font-size: 18px;
   }
 }
+
+/* =============================================================================
+   Navigation & Layout
+   ============================================================================= */
+
+.brand-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 8px;
+}
+
+.nav-link {
+  padding: 8px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--ink);
+  font-weight: 500;
+  font-size: 14px;
+  transition: background 0.15s;
+}
+
+.nav-link:hover {
+  background: rgba(217, 79, 49, 0.1);
+}
+
+.nav-link.active {
+  background: var(--accent);
+  color: white;
+}
+
+.view {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* =============================================================================
+   Page Header & Back Link
+   ============================================================================= */
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.page-header h2 {
+  margin: 0;
+  font-size: clamp(20px, 4vw, 28px);
+}
+
+.back-link {
+  color: var(--accent-2);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.season-select {
+  padding: 8px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 14px;
+}
+
+/* =============================================================================
+   Detail Tables
+   ============================================================================= */
+
+.detail-section {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: clamp(16px, 3vw, 24px);
+  margin-bottom: 20px;
+}
+
+.detail-section h3 {
+  margin: 0 0 16px;
+  font-size: 16px;
+  color: rgba(27, 28, 31, 0.8);
+}
+
+.detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.detail-table th,
+.detail-table td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.detail-table th {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(27, 28, 31, 0.6);
+  text-transform: uppercase;
+  background: var(--surface-2);
+}
+
+.detail-table tbody tr:hover {
+  background: rgba(217, 79, 49, 0.04);
+}
+
+.detail-table a {
+  color: var(--accent-2);
+  text-decoration: none;
+}
+
+.detail-table a:hover {
+  text-decoration: underline;
+}
+
+/* =============================================================================
+   Player Detail Page
+   ============================================================================= */
+
+.player-info-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: clamp(20px, 4vw, 32px);
+  margin-bottom: 24px;
+  display: grid;
+  gap: 24px;
+}
+
+.player-info-main h2 {
+  margin: 8px 0 0;
+  font-size: clamp(24px, 5vw, 36px);
+}
+
+.player-career-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 16px;
+}
+
+.career-stat {
+  text-align: center;
+  padding: 16px;
+  background: var(--surface-2);
+  border-radius: 12px;
+}
+
+.career-stat-label {
+  font-size: 11px;
+  color: rgba(27, 28, 31, 0.6);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.career-stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+/* =============================================================================
+   Team Detail Page
+   ============================================================================= */
+
+.team-info-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: clamp(20px, 4vw, 32px);
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.team-info-card h2 {
+  margin: 0;
+  font-size: clamp(24px, 5vw, 36px);
+}
+
+.team-standing-badge {
+  padding: 8px 16px;
+  background: var(--accent);
+  color: white;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+/* =============================================================================
+   Boxscore Page
+   ============================================================================= */
+
+.boxscore-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 24px;
+  padding: 32px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.boxscore-team {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.boxscore-team.home {
+  text-align: right;
+  align-items: flex-end;
+}
+
+.boxscore-team.away {
+  text-align: left;
+  align-items: flex-start;
+}
+
+.boxscore-team .team-name {
+  font-size: 14px;
+  color: rgba(27, 28, 31, 0.7);
+}
+
+.boxscore-team .team-score {
+  font-size: 48px;
+  font-weight: 700;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.boxscore-vs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.boxscore-vs .vs-text {
+  font-size: 12px;
+  color: rgba(27, 28, 31, 0.4);
+}
+
+.boxscore-table tbody tr:first-child td {
+  font-weight: 600;
+}
+
+/* =============================================================================
+   Games List Page
+   ============================================================================= */
+
+.games-list {
+  display: grid;
+  gap: 12px;
+}
+
+.game-card {
+  display: grid;
+  grid-template-columns: 80px 1fr 80px;
+  align-items: center;
+  padding: 16px 20px;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.game-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.game-card-date {
+  font-size: 13px;
+  color: rgba(27, 28, 31, 0.6);
+}
+
+.game-card-matchup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  font-weight: 600;
+}
+
+.game-card-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-card-team.away {
+  flex-direction: row-reverse;
+}
+
+.game-card-score {
+  font-size: 20px;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.game-card-result {
+  text-align: right;
+  font-size: 13px;
+}
+
+.game-card-result .final {
+  color: rgba(27, 28, 31, 0.5);
+}
+
+/* =============================================================================
+   Leaders Page
+   ============================================================================= */
+
+.leaders-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.leader-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+
+.leader-card h3 {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: rgba(27, 28, 31, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.leader-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.leader-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.leader-item:last-child {
+  border-bottom: none;
+}
+
+.leader-rank {
+  width: 24px;
+  font-weight: 600;
+  color: rgba(27, 28, 31, 0.5);
+}
+
+.leader-item:first-child .leader-rank {
+  color: var(--accent);
+}
+
+.leader-info {
+  flex: 1;
+}
+
+.leader-name {
+  font-weight: 500;
+}
+
+.leader-name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.leader-name a:hover {
+  color: var(--accent-2);
+}
+
+.leader-team {
+  font-size: 12px;
+  color: rgba(27, 28, 31, 0.5);
+}
+
+.leader-value {
+  font-size: 18px;
+  font-weight: 600;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+/* =============================================================================
+   Mobile Responsive for New Pages
+   ============================================================================= */
+
+@media (max-width: 720px) {
+  .site-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .nav-links {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .nav-link {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .boxscore-header {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .boxscore-team {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center !important;
+    text-align: left !important;
+  }
+
+  .boxscore-team .team-score {
+    font-size: 32px;
+  }
+
+  .game-card {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .game-card-date {
+    order: -1;
+  }
+
+  .game-card-result {
+    text-align: center;
+  }
+
+  .leaders-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .player-career-summary {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .career-stat {
+    padding: 12px 8px;
+  }
+
+  .career-stat-value {
+    font-size: 18px;
+  }
+
+  .detail-table .hide-mobile {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-link {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .detail-table .hide-tablet {
+    display: none;
+  }
+}

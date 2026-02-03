@@ -10,7 +10,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 | Phase 1 | ✅ 완료 | SQLite DB 기반 구축, 증분 업데이트 |
 | Phase 2 | ✅ 완료 | 팀 순위, 역대 시즌, 플레이오프 분리 |
 | Phase 3 | ✅ 완료 | REST API 서버 구축 |
-| Phase 4 | 🔄 진행 중 | 모바일 반응형 완료, 상세 페이지 예정 |
+| Phase 4 | ✅ 완료 | 선수/팀/경기 상세 페이지, 리더보드 |
 | Phase 5 | ⬜ 미시작 | 고급 기능 (선수 비교, 트렌드 차트) |
 
 ---
@@ -158,16 +158,17 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] 리더보드 API (`/api/leaders`, `/api/leaders/all`)
 - [x] OpenAPI 자동 문서화 (`/api/docs`, `/api/redoc`)
 
-### Phase 4: 프론트엔드 확장
+### Phase 4: 프론트엔드 확장 ✅ 완료
 - [x] 모바일 반응형 테이블 (선수명 고정 + 가로 스크롤)
 - [x] 선수 카드에 GP(출전 경기 수) 표시
 - [x] 2차 지표 섹션 추가 (TS%, eFG%, AST/TO, PIR, PER36)
 - [x] Double-Double/Triple-Double 평균 배지
-- [ ] 선수 상세 페이지 (경기별 기록, 시즌별 평균, 커리어 통계)
-- [ ] 팀 페이지 (로스터, 팀 스탯, 경기 일정)
-- [ ] 경기 상세 페이지 (박스스코어)
-- [ ] 리더보드 (부문별 랭킹)
-- [ ] 시즌 비교
+- [x] SPA 라우팅 시스템 (hash-based)
+- [x] 선수 상세 페이지 (`#/players/{id}` - 시즌별 기록, 최근 경기 로그)
+- [x] 팀 페이지 (`#/teams`, `#/teams/{id}` - 순위표, 로스터, 최근 경기)
+- [x] 경기 상세 페이지 (`#/games/{id}` - 박스스코어)
+- [x] 리더보드 (`#/leaders` - 득점/리바운드/어시스트/스틸/블록 부문별 Top 5)
+- [ ] 시즌 비교 (Phase 5로 이동)
 
 ### Phase 5: 고급 기능 (선택)
 - [ ] 선수 비교 도구
