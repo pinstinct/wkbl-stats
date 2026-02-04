@@ -141,11 +141,16 @@ def main():
 
     os.chdir(BASE_DIR)
 
-    # Run ingest if needed before starting server
-    try:
-        run_ingest_if_needed()
-    except Exception as exc:
-        logger.warning(f"Ingest failed, serving existing data: {exc}")
+    # Ensure data directory exists
+    os.makedirs("data", exist_ok=True)
+    os.makedirs("data/cache", exist_ok=True)
+
+    # Run ingest if needed before starting server (skip if SKIP_INGEST is set)
+    if not os.getenv("SKIP_INGEST"):
+        try:
+            run_ingest_if_needed()
+        except Exception as exc:
+            logger.warning(f"Ingest failed, serving existing data: {exc}")
 
     # Start the server
     logger.info(f"Starting server on http://localhost:{PORT}")
