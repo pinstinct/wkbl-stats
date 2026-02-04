@@ -147,7 +147,9 @@ class LeaderCategory(BaseModel):
 
 
 def get_players(
-    season_id: str, team_id: Optional[str] = None, active_only: bool = True
+    season_id: Optional[str] = None,
+    team_id: Optional[str] = None,
+    active_only: bool = True,
 ) -> list[dict]:
     """Get all players with their season stats."""
     query = """
@@ -177,9 +179,13 @@ def get_players(
         JOIN games g ON pg.game_id = g.id
         JOIN players p ON pg.player_id = p.id
         JOIN teams t ON pg.team_id = t.id
-        WHERE g.season_id = ?
+        WHERE 1=1
     """
-    params: list[Any] = [season_id]
+    params: list[Any] = []
+
+    if season_id:
+        query += " AND g.season_id = ?"
+        params.append(season_id)
 
     if active_only:
         query += " AND p.is_active = 1"
@@ -838,16 +844,23 @@ app.add_middleware(
 
 @app.get("/players")
 def api_get_players(
-    season: str = Query(default=None, description="Season code (e.g., 046)"),
+    season: str = Query(
+        default=None, description="Season code (e.g., 046) or 'all' for all seasons"
+    ),
     team: str = Query(default=None, description="Team ID filter"),
     active_only: bool = Query(default=True, description="Only active players"),
 ):
     """Get all players with their season statistics."""
-    season_id = season or max(SEASON_CODES.keys())
+    if season == "all":
+        season_id = None
+        season_label = "전체"
+    else:
+        season_id = season or max(SEASON_CODES.keys())
+        season_label = SEASON_CODES.get(season_id, season_id)
     players = get_players(season_id, team_id=team, active_only=active_only)
     return {
-        "season": season_id,
-        "season_label": SEASON_CODES.get(season_id, season_id),
+        "season": season_id or "all",
+        "season_label": season_label,
         "count": len(players),
         "players": players,
     }

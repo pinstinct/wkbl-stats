@@ -92,7 +92,8 @@
   async function fetchPlayers(season) {
     if (state.useApi) {
       try {
-        const data = await apiGet(`/players?season=${season}`);
+        const activeOnly = season !== "all";
+        const data = await apiGet(`/players?season=${season}&active_only=${activeOnly}`);
         return data.players;
       } catch (e) {
         console.warn("API failed, falling back to JSON:", e.message);
@@ -268,7 +269,7 @@
   ];
 
   async function loadHomePage() {
-    populateSeasonSelect($("seasonSelect"));
+    populateSeasonSelect($("seasonSelect"), true);
 
     try {
       state.players = await fetchPlayers(state.currentSeason);
@@ -280,16 +281,26 @@
     }
   }
 
-  function populateSeasonSelect(select) {
-    if (!select || select.options.length > 1) return;
-    select.innerHTML = "";
-    Object.entries(SEASONS).sort((a, b) => b[0].localeCompare(a[0])).forEach(([code, label]) => {
-      const option = document.createElement("option");
-      option.value = code;
-      option.textContent = label;
-      select.appendChild(option);
-    });
-    select.value = state.currentSeason;
+  function populateSeasonSelect(select, includeAll = false) {
+    if (!select) return;
+    // Only populate options once
+    if (select.options.length <= 1) {
+      select.innerHTML = "";
+      if (includeAll) {
+        const allOption = document.createElement("option");
+        allOption.value = "all";
+        allOption.textContent = "전체";
+        select.appendChild(allOption);
+      }
+      Object.entries(SEASONS).sort((a, b) => b[0].localeCompare(a[0])).forEach(([code, label]) => {
+        const option = document.createElement("option");
+        option.value = code;
+        option.textContent = label;
+        select.appendChild(option);
+      });
+      // Set default to current season (not "all")
+      select.value = state.currentSeason;
+    }
   }
 
   function populateTeamSelect(players) {

@@ -138,7 +138,7 @@ API documentation available at `/api/docs` (Swagger UI) or `/api/redoc` (ReDoc).
 | `GET /api/health` | Health check |
 
 Query parameters:
-- `season`: Season code (e.g., `046` for 2025-26)
+- `season`: Season code (e.g., `046` for 2025-26) or `all` for all seasons
 - `team`: Team ID filter (e.g., `kb`, `samsung`)
 - `category`: Leader category (`pts`, `reb`, `ast`, `stl`, `blk`, `fgp`, `tpp`, `ftp`)
 - `ids`: Comma-separated player IDs (for compare)
