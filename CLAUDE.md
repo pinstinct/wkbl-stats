@@ -232,6 +232,20 @@ Format: `SSSTTGGG` (e.g., `04601055`)
 
 ## Development
 
+### GitHub Actions
+
+| Workflow | Trigger | Description |
+|----------|---------|-------------|
+| `deploy.yml` | Push to main | Deploy static files to GitHub Pages |
+| `update-data.yml` | Daily (6AM, 10PM KST) | Update current season data (active players only) |
+| `update-data-full.yml` | Manual only | Fetch all seasons including retired players |
+
+**Run full history update**: GitHub → Actions → "Update WKBL Data (Full History)" → Run workflow
+
+Use the full history workflow when:
+- "전체" season filter shows incomplete data on deployed site
+- Need to include retired players in historical data
+
 ### Pre-commit Hooks
 
 This project uses pre-commit for code quality checks. Hooks run automatically on every commit.
