@@ -1,0 +1,22 @@
+# Ignore data files to force fresh ingest on deployment
+data/wkbl-active.json
+data/wkbl.db
+data/cache/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+
+# Git
+.git/
+.gitignore
+
+# Docs
+*.md
+docs/
