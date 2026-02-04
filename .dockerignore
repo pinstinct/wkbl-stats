@@ -1,6 +1,4 @@
-# Ignore data files to force fresh ingest on deployment
-data/wkbl-active.json
-data/wkbl.db
+# Only ignore cache, keep data files as fallback
 data/cache/
 
 # Python
@@ -15,8 +13,3 @@ venv/
 
 # Git
 .git/
-.gitignore
-
-# Docs
-*.md
-docs/
