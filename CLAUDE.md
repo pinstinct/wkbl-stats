@@ -114,6 +114,10 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.jso
 - `data/cache/` - HTTP response cache (reduces network requests)
 - `pyproject.toml` - Project dependencies (managed by uv)
 - `uv.lock` - Locked dependency versions
+- `Dockerfile` - Docker build for Render deployment
+- `render.yaml` - Render service configuration
+- `requirements.txt` - Python dependencies for Docker/Render
+- `.dockerignore` - Files excluded from Docker build
 
 ## REST API
 
@@ -232,25 +236,31 @@ Format: `SSSTTGGG` (e.g., `04601055`)
 
 ## Development
 
-### Railway Deployment (Recommended)
+### Render Deployment (Recommended)
 
-Railway provides full server functionality including API endpoints.
+Render provides full server functionality including API endpoints with a free tier.
 
 **Setup:**
-1. Go to [railway.app](https://railway.app) and connect GitHub repo
-2. Railway auto-detects Python and deploys using `Procfile`
-3. Server starts on Railway-provided `PORT` environment variable
+1. Go to [render.com](https://render.com) and connect GitHub repo
+2. Create **New Web Service** → Select repo
+3. Settings: Runtime = Docker, Instance Type = Free
+4. Deploy
 
-**Files for Railway:**
-- `Procfile` - Defines start command (`web: python server.py`)
-- `requirements.txt` - Python dependencies
-- `tools/config.py` - Reads `PORT` from environment
+**Deployment Files:**
+- `Dockerfile` - Docker build configuration (Python 3.12 + uvicorn)
+- `render.yaml` - Render service configuration
+- `requirements.txt` - Python dependencies (fastapi, uvicorn)
+- `.dockerignore` - Excludes cache files from Docker build
+- `tools/config.py` - Reads `PORT` from environment variable
 
-**Features available on Railway (not on GitHub Pages):**
-- All API endpoints (`/api/*`)
-- Player detail, game log, box scores
-- Team standings, game list
-- Search, compare, leaders
+**Free Tier Limitations:**
+- Server sleeps after 15 minutes of inactivity
+- First request after sleep takes 10-30 seconds (cold start)
+- Data persists in Docker image (from repo), not runtime changes
+
+**Updating Data on Render:**
+1. Run GitHub Action to update repo data (see below)
+2. Render auto-redeploys on push, or manually trigger deploy
 
 ### GitHub Actions (Data Updates)
 
@@ -259,12 +269,16 @@ Railway provides full server functionality including API endpoints.
 | `update-data.yml` | Daily (6AM, 10PM KST) | Update current season data (active players only) |
 | `update-data-full.yml` | Manual only | Fetch all seasons including retired players |
 
-**Run full history update**: GitHub → Actions → "Update WKBL Data (Full History)" → Run workflow
+**Run data update**: GitHub → Actions → Select workflow → "Run workflow"
+
+Data files committed by Actions:
+- `data/wkbl-active.json` - Player season averages
+- `data/wkbl.db` - SQLite database with game-by-game records
 
 ### GitHub Pages (Static Hosting - Limited)
 
-GitHub Pages only serves static files. Only the main player list works (with JSON fallback).
-For full functionality, use Railway deployment instead.
+GitHub Pages only serves static files. Only the main player list works (JSON fallback).
+For full functionality (game logs, box scores, etc.), use Render deployment.
 
 ### Pre-commit Hooks
 
