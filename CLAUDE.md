@@ -232,19 +232,39 @@ Format: `SSSTTGGG` (e.g., `04601055`)
 
 ## Development
 
-### GitHub Actions
+### Railway Deployment (Recommended)
+
+Railway provides full server functionality including API endpoints.
+
+**Setup:**
+1. Go to [railway.app](https://railway.app) and connect GitHub repo
+2. Railway auto-detects Python and deploys using `Procfile`
+3. Server starts on Railway-provided `PORT` environment variable
+
+**Files for Railway:**
+- `Procfile` - Defines start command (`web: python server.py`)
+- `requirements.txt` - Python dependencies
+- `tools/config.py` - Reads `PORT` from environment
+
+**Features available on Railway (not on GitHub Pages):**
+- All API endpoints (`/api/*`)
+- Player detail, game log, box scores
+- Team standings, game list
+- Search, compare, leaders
+
+### GitHub Actions (Data Updates)
 
 | Workflow | Trigger | Description |
 |----------|---------|-------------|
-| `deploy.yml` | Push to main | Deploy static files to GitHub Pages |
 | `update-data.yml` | Daily (6AM, 10PM KST) | Update current season data (active players only) |
 | `update-data-full.yml` | Manual only | Fetch all seasons including retired players |
 
 **Run full history update**: GitHub → Actions → "Update WKBL Data (Full History)" → Run workflow
 
-Use the full history workflow when:
-- "전체" season filter shows incomplete data on deployed site
-- Need to include retired players in historical data
+### GitHub Pages (Static Hosting - Limited)
+
+GitHub Pages only serves static files. Only the main player list works (with JSON fallback).
+For full functionality, use Railway deployment instead.
 
 ### Pre-commit Hooks
 

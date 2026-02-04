@@ -14,8 +14,8 @@ PLAYER_LIST_FOREIGN = "https://www.wkbl.or.kr/player/player_list.asp?player_grou
 TEAM_STANDINGS_URL = "https://www.wkbl.or.kr/game/ajax/ajax_team_rank.asp"
 
 # Server Settings
-HOST = ""
-PORT = 8000
+HOST = os.getenv("HOST", "")
+PORT = int(os.getenv("PORT", "8000"))
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
