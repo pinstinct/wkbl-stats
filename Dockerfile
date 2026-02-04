@@ -10,7 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Railway provides PORT env var
-EXPOSE ${PORT:-8000}
+# Skip ingest on startup for faster boot
+ENV SKIP_INGEST=1
 
-CMD ["python", "server.py"]
+# Use uvicorn directly with PORT from Railway
+CMD uvicorn server:app --host 0.0.0.0 --port ${PORT:-8000}
