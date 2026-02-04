@@ -355,7 +355,11 @@
         <td class="hide-tablet">${formatPct(player.ftp)}</td>
         <td class="hide-mobile">${formatPct(player.ts_pct)}</td>
         <td class="hide-mobile">${formatPct(player.efg_pct)}</td>
+        <td class="hide-tablet">${formatNumber(player.ast_to)}</td>
         <td class="hide-tablet">${formatNumber(player.pir)}</td>
+        <td class="hide-tablet">${formatNumber(player.pts36)}</td>
+        <td class="hide-tablet">${formatNumber(player.reb36)}</td>
+        <td class="hide-tablet">${formatNumber(player.ast36)}</td>
       </tr>
     `).join("");
 
@@ -444,6 +448,13 @@
           <td>${formatPct(s.fgp)}</td>
           <td>${formatPct(s.tpp)}</td>
           <td>${formatPct(s.ftp)}</td>
+          <td>${formatPct(s.ts_pct)}</td>
+          <td>${formatPct(s.efg_pct)}</td>
+          <td>${formatNumber(s.ast_to)}</td>
+          <td>${formatNumber(s.pir)}</td>
+          <td>${formatNumber(s.pts36)}</td>
+          <td>${formatNumber(s.reb36)}</td>
+          <td>${formatNumber(s.ast36)}</td>
         </tr>
       `).join("");
 
@@ -456,7 +467,7 @@
       gameLogBody.innerHTML = games.map((g) => `
         <tr>
           <td>${formatDate(g.game_date)}</td>
-          <td>${g.is_home ? "vs" : "@"} ${g.opponent}</td>
+          <td>vs ${g.opponent}</td>
           <td>${g.result}</td>
           <td>${formatNumber(g.minutes, 0)}</td>
           <td>${g.pts}</td>
@@ -660,7 +671,7 @@
               <span>${g.away_team_short || g.away_team_name}</span>
               <span class="game-card-score">${g.away_score || "-"}</span>
             </div>
-            <span>@</span>
+            <span>vs</span>
             <div class="game-card-team home">
               <span class="game-card-score">${g.home_score || "-"}</span>
               <span>${g.home_team_short || g.home_team_name}</span>

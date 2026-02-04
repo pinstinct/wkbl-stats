@@ -209,6 +209,40 @@ def get_players(
             # Round averages
             for key in ["min", "pts", "reb", "ast", "stl", "blk", "tov"]:
                 d[key] = round(d[key], 1) if d[key] else 0.0
+
+            # Advanced stats
+            pts = d["pts"] * d["gp"]
+            fga = d["total_fga"] or 0
+            fta = d["total_fta"] or 0
+            fgm = d["total_fgm"] or 0
+            tpm = d["total_tpm"] or 0
+            ftm = d["total_ftm"] or 0
+
+            # TS% = PTS / (2 × (FGA + 0.44 × FTA))
+            tsa = 2 * (fga + 0.44 * fta)
+            d["ts_pct"] = round(pts / tsa, 3) if tsa > 0 else 0.0
+
+            # eFG% = (FGM + 0.5 × 3PM) / FGA
+            d["efg_pct"] = round((fgm + 0.5 * tpm) / fga, 3) if fga > 0 else 0.0
+
+            # PIR = (PTS + REB + AST + STL + BLK - TO - (FGA-FGM) - (FTA-FTM)) / GP
+            reb = d["reb"] * d["gp"]
+            ast = d["ast"] * d["gp"]
+            stl = d["stl"] * d["gp"]
+            blk = d["blk"] * d["gp"]
+            tov = d["tov"] * d["gp"]
+            pir_total = pts + reb + ast + stl + blk - tov - (fga - fgm) - (fta - ftm)
+            d["pir"] = round(pir_total / d["gp"], 1) if d["gp"] > 0 else 0.0
+
+            # AST/TO ratio
+            d["ast_to"] = round(d["ast"] / d["tov"], 2) if d["tov"] > 0 else 0.0
+
+            # Per 36 minutes stats
+            min_avg = d["min"] if d["min"] > 0 else 1
+            d["pts36"] = round(d["pts"] * 36 / min_avg, 1)
+            d["reb36"] = round(d["reb"] * 36 / min_avg, 1)
+            d["ast36"] = round(d["ast"] * 36 / min_avg, 1)
+
             result.append(d)
 
         return result
@@ -275,6 +309,40 @@ def get_player_detail(player_id: str) -> Optional[dict]:
             )
             for key in ["min", "pts", "reb", "ast", "stl", "blk", "tov"]:
                 d[key] = round(d[key], 1) if d[key] else 0.0
+
+            # Advanced stats
+            pts = d["pts"] * d["gp"]
+            fga = d["total_fga"] or 0
+            fta = d["total_fta"] or 0
+            fgm = d["total_fgm"] or 0
+            tpm = d["total_tpm"] or 0
+            ftm = d["total_ftm"] or 0
+
+            # TS% = PTS / (2 × (FGA + 0.44 × FTA))
+            tsa = 2 * (fga + 0.44 * fta)
+            d["ts_pct"] = round(pts / tsa, 3) if tsa > 0 else 0.0
+
+            # eFG% = (FGM + 0.5 × 3PM) / FGA
+            d["efg_pct"] = round((fgm + 0.5 * tpm) / fga, 3) if fga > 0 else 0.0
+
+            # PIR = (PTS + REB + AST + STL + BLK - TO - (FGA-FGM) - (FTA-FTM)) / GP
+            reb = d["reb"] * d["gp"]
+            ast = d["ast"] * d["gp"]
+            stl = d["stl"] * d["gp"]
+            blk = d["blk"] * d["gp"]
+            tov = d["tov"] * d["gp"]
+            pir_total = pts + reb + ast + stl + blk - tov - (fga - fgm) - (fta - ftm)
+            d["pir"] = round(pir_total / d["gp"], 1) if d["gp"] > 0 else 0.0
+
+            # AST/TO ratio
+            d["ast_to"] = round(d["ast"] / d["tov"], 2) if d["tov"] > 0 else 0.0
+
+            # Per 36 minutes stats
+            min_avg = d["min"] if d["min"] > 0 else 1
+            d["pts36"] = round(d["pts"] * 36 / min_avg, 1)
+            d["reb36"] = round(d["reb"] * 36 / min_avg, 1)
+            d["ast36"] = round(d["ast"] * 36 / min_avg, 1)
+
             result["seasons"][d["season_id"]] = d
 
         # Recent game log (last 10 games)
