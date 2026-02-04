@@ -1,0 +1,42 @@
+name: Update WKBL Data (Full History)
+
+on:
+  workflow_dispatch: # 수동 실행 전용
+
+jobs:
+  update-full:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run full data ingest
+        run: |
+          python3 tools/ingest_wkbl.py \
+            --all-seasons \
+            --auto \
+            --no-cache \
+            --load-all-players \
+            --output data/wkbl-active.json
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git diff --quiet data/wkbl-active.json || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push if changed
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/wkbl-active.json
+          git commit -m "chore: update player stats data (full history)"
+          git push
