@@ -87,6 +87,16 @@ Hash-based routing system for single-page application.
 
 ## Architecture
 
+**GitHub Pages (Static Hosting) - Default:**
+```
+Frontend SPA (src/app.js)
+       ↓
+   src/db.js
+       ↓
+sql.js (WASM) ← fetch(data/wkbl.db)
+```
+
+**Server Mode (Render/Local):**
 ```
 server.py (FastAPI) ─┬─ /api/* → tools/api.py (REST API)
                      └─ /* → Static files (index.html, src/, data/)
@@ -94,23 +104,33 @@ server.py (FastAPI) ─┬─ /api/* → tools/api.py (REST API)
                      Frontend SPA (src/app.js)
                            ↓
                      Hash-based routing → API calls → Render views
+```
 
-Data Pipeline:
+**Fallback Priority:** Local DB (sql.js) → Server API → JSON file
+
+**Data Pipeline:**
+```
 tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.json)
 ```
 
 ## Key Files
 
-- `server.py` - FastAPI server + daily ingest orchestration
-- `index.html` - SPA with all view templates (includes Chart.js CDN)
-- `src/app.js` - Frontend: routing, API calls, view rendering, charts
+**Frontend (Static Hosting):**
+- `index.html` - SPA with all view templates (includes Chart.js, sql.js CDN)
+- `src/app.js` - Frontend: routing, data fetching, view rendering, charts
+- `src/db.js` - Browser SQLite module (sql.js wrapper for client-side queries)
 - `src/styles.css` - Responsive styles for all pages
+- `data/wkbl.db` - SQLite database (fetched by browser for static hosting)
+- `data/wkbl-active.json` - Generated player stats (JSON fallback)
+
+**Backend (Server Mode):**
+- `server.py` - FastAPI server + daily ingest orchestration
 - `tools/api.py` - REST API endpoints (players, teams, games, compare, search)
 - `tools/ingest_wkbl.py` - Web scraper and data aggregation pipeline
 - `tools/database.py` - SQLite schema and database operations
 - `tools/config.py` - Centralized configuration (URLs, paths, settings)
-- `data/wkbl.db` - SQLite database (game-by-game records)
-- `data/wkbl-active.json` - Generated player stats (fallback for frontend)
+
+**Data & Config:**
 - `data/cache/` - HTTP response cache (reduces network requests)
 - `pyproject.toml` - Project dependencies (managed by uv)
 - `uv.lock` - Locked dependency versions
@@ -236,9 +256,9 @@ Format: `SSSTTGGG` (e.g., `04601055`)
 
 ## Development
 
-### Render Deployment (Recommended)
+### Render Deployment (Server Mode)
 
-Render provides full server functionality including API endpoints with a free tier.
+Render provides server-based API with FastAPI. Use this for server-side features or if you prefer traditional API architecture.
 
 **Setup:**
 1. Go to [render.com](https://render.com) and connect GitHub repo
@@ -275,10 +295,27 @@ Data files committed by Actions:
 - `data/wkbl-active.json` - Player season averages
 - `data/wkbl.db` - SQLite database with game-by-game records
 
-### GitHub Pages (Static Hosting - Limited)
+### GitHub Pages (Static Hosting - Recommended)
 
-GitHub Pages only serves static files. Only the main player list works (JSON fallback).
-For full functionality (game logs, box scores, etc.), use Render deployment.
+GitHub Pages now provides **full functionality** using sql.js (WebAssembly SQLite).
+The browser fetches `data/wkbl.db` and runs all queries client-side.
+
+**How it works:**
+1. `sql.js` WASM module loaded from CDN
+2. `data/wkbl.db` fetched via HTTP
+3. All queries run in browser (no server needed)
+
+**Setup:**
+1. GitHub → Settings → Pages → Source: Deploy from branch (main)
+2. Push to main branch triggers automatic deployment
+
+**Local testing (simulates GitHub Pages):**
+```bash
+python3 -m http.server 8000
+# Open http://localhost:8000
+```
+
+**All features work:** Player stats, game logs, box scores, standings, leaders, search, comparison.
 
 ### Pre-commit Hooks
 
@@ -304,6 +341,13 @@ uv run pre-commit run --all-files
 | mypy | Type checking |
 | bandit | Security analysis |
 
+## Branches
+
+| Branch | Description |
+|--------|-------------|
+| `main` | Static hosting with sql.js (GitHub Pages compatible) |
+| `server-api` | Server-based API version (FastAPI + REST endpoints) |
+
 ## Known Limitations
 
 - **Playoff data unavailable**: WKBL Data Lab does not provide boxscore data for playoff games. Game IDs with type code "04" (e.g., `04604010`) return empty player records. Only regular season and all-star games have detailed statistics.
@@ -315,6 +359,8 @@ uv run pre-commit run --all-files
 - Ingest script adds 0.15s delays between requests to be respectful to WKBL servers
 - Incremental updates: only fetches games not already in database
 - HTTP responses are cached in `data/cache/` to avoid redundant network requests
+- **Static hosting**: Uses sql.js (WebAssembly) to run SQLite queries in browser
+- **Fallback chain**: Local DB (sql.js) → Server API → JSON file
 - Frontend falls back to `data/sample.json` if `wkbl-active.json` unavailable
 - **Player ID tracking**: Use `--load-all-players` to load all 700+ players (active, retired, foreign) and correctly map player IDs (pno). Without this flag, retired players in historical data may get incorrect placeholder IDs.
 - Player IDs (pno) are consistent across seasons, enabling tracking of player career stats and team transfer history.
