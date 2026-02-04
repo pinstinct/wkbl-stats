@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="./src/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   </head>
   <body>
     <div class="bg-grid"></div>
@@ -23,8 +24,28 @@
         <a href="#/teams" class="nav-link">팀</a>
         <a href="#/games" class="nav-link">경기</a>
         <a href="#/leaders" class="nav-link">리더</a>
+        <a href="#/compare" class="nav-link">비교</a>
+        <button id="globalSearchBtn" class="nav-search-btn" title="검색 (Ctrl+K)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+        </button>
       </nav>
     </header>
+
+    <!-- Global Search Modal -->
+    <div id="searchModal" class="search-modal" style="display: none;">
+      <div class="search-modal-backdrop"></div>
+      <div class="search-modal-content">
+        <input type="text" id="globalSearchInput" class="search-modal-input" placeholder="선수 또는 팀 검색..." autocomplete="off" />
+        <div class="search-modal-results" id="globalSearchResults"></div>
+        <div class="search-modal-footer">
+          <span><kbd>↑↓</kbd> 이동</span>
+          <span><kbd>Enter</kbd> 선택</span>
+          <span><kbd>Esc</kbd> 닫기</span>
+        </div>
+      </div>
+    </div>
 
     <main class="content">
       <!-- Home / Players List View -->
@@ -121,6 +142,13 @@
               </div>
             </div>
             <div class="player-career-summary" id="playerCareerSummary"></div>
+          </div>
+
+          <div class="detail-section chart-section">
+            <h3>시즌별 추이</h3>
+            <div class="chart-container">
+              <canvas id="playerTrendChart"></canvas>
+            </div>
           </div>
 
           <div class="detail-section">
@@ -339,6 +367,42 @@
           <select id="leadersSeasonSelect" class="season-select"></select>
         </div>
         <div class="leaders-grid" id="leadersGrid"></div>
+      </section>
+
+      <!-- Compare View -->
+      <section id="view-compare" class="view" style="display: none;">
+        <div class="page-header">
+          <h2>선수 비교</h2>
+          <select id="compareSeasonSelect" class="season-select"></select>
+        </div>
+
+        <div class="compare-search">
+          <div class="compare-search-box">
+            <input type="text" id="compareSearchInput" placeholder="선수 검색..." autocomplete="off" />
+            <div class="compare-suggestions" id="compareSuggestions"></div>
+          </div>
+          <div class="compare-selected" id="compareSelected"></div>
+          <button id="compareBtn" class="compare-btn" disabled>비교하기</button>
+        </div>
+
+        <div class="compare-result" id="compareResult" style="display: none;">
+          <div class="compare-cards" id="compareCards"></div>
+
+          <div class="compare-chart-section">
+            <h3>스탯 비교</h3>
+            <div class="compare-bars" id="compareBars"></div>
+          </div>
+
+          <div class="detail-section">
+            <h3>상세 스탯</h3>
+            <div class="table-wrap">
+              <table class="detail-table compare-table" id="compareTable">
+                <thead id="compareTableHead"></thead>
+                <tbody id="compareTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </section>
     </main>
 

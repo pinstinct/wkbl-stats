@@ -75,12 +75,15 @@ Hash-based routing system for single-page application.
 | URL | Page | Description |
 |-----|------|-------------|
 | `#/` | Home | Player list with filters, sorting, search |
-| `#/players/{id}` | Player Detail | Career summary, season stats, game log |
+| `#/players/{id}` | Player Detail | Career summary, season stats, trend chart, game log |
 | `#/teams` | Teams | Standings table (rank, W-L, home/away) |
 | `#/teams/{id}` | Team Detail | Roster, recent games |
 | `#/games` | Games | Game cards with scores |
 | `#/games/{id}` | Boxscore | Full box score (home/away player stats) |
 | `#/leaders` | Leaders | Top 5 in PTS/REB/AST/STL/BLK |
+| `#/compare` | Compare | Player comparison tool (up to 4 players) |
+
+**Global Search**: Press `Ctrl+K` (or `Cmd+K` on Mac) to open global search modal.
 
 ## Architecture
 
@@ -99,10 +102,10 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.jso
 ## Key Files
 
 - `server.py` - FastAPI server + daily ingest orchestration
-- `index.html` - SPA with all view templates
-- `src/app.js` - Frontend: routing, API calls, view rendering
+- `index.html` - SPA with all view templates (includes Chart.js CDN)
+- `src/app.js` - Frontend: routing, API calls, view rendering, charts
 - `src/styles.css` - Responsive styles for all pages
-- `tools/api.py` - REST API endpoints
+- `tools/api.py` - REST API endpoints (players, teams, games, compare, search)
 - `tools/ingest_wkbl.py` - Web scraper and data aggregation pipeline
 - `tools/database.py` - SQLite schema and database operations
 - `tools/config.py` - Centralized configuration (URLs, paths, settings)
@@ -119,8 +122,10 @@ API documentation available at `/api/docs` (Swagger UI) or `/api/redoc` (ReDoc).
 | Endpoint | Description |
 |----------|-------------|
 | `GET /api/players` | All players with season stats |
+| `GET /api/players/compare` | Compare 2-4 players (ids param) |
 | `GET /api/players/{id}` | Player detail with career stats |
 | `GET /api/players/{id}/gamelog` | Player's game log |
+| `GET /api/players/{id}/highlights` | Career/season highlights |
 | `GET /api/teams` | All teams |
 | `GET /api/teams/{id}` | Team detail with roster |
 | `GET /api/games` | Game list |
@@ -129,12 +134,15 @@ API documentation available at `/api/docs` (Swagger UI) or `/api/redoc` (ReDoc).
 | `GET /api/seasons/{id}/standings` | Team standings |
 | `GET /api/leaders` | Statistical leaders |
 | `GET /api/leaders/all` | Leaders for all categories |
+| `GET /api/search` | Global search (players, teams) |
 | `GET /api/health` | Health check |
 
 Query parameters:
 - `season`: Season code (e.g., `046` for 2025-26)
 - `team`: Team ID filter (e.g., `kb`, `samsung`)
 - `category`: Leader category (`pts`, `reb`, `ast`, `stl`, `blk`, `fgp`, `tpp`, `ftp`)
+- `ids`: Comma-separated player IDs (for compare)
+- `q`: Search query (for search)
 - `limit`, `offset`: Pagination
 
 ## Database Schema

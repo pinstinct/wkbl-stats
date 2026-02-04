@@ -7,10 +7,12 @@ WKBL(한국여자농구연맹) 통계를 Basketball Reference 스타일로 보�
 ## 주요 기능
 
 - 선수별 경기당 평균 스탯 조회 (2020-21 ~ 현재)
-- 선수 상세 페이지 (커리어 스탯, 시즌별 기록, 최근 경기 로그)
+- 선수 상세 페이지 (커리어 스탯, 시즌별 기록, 최근 경기 로그, 트렌드 차트)
 - 팀 페이지 (순위표, 로스터, 최근 경기)
 - 경기 박스스코어
 - 부문별 리더보드 (득점/리바운드/어시스트/스틸/블록)
+- **선수 비교 도구** (최대 4명 비교, 바 차트 시각화)
+- **전역 검색** (Ctrl+K 단축키, 선수/팀 통합 검색)
 - 시즌/팀/포지션 필터링 및 선수 검색
 - 반응형 디자인 (모바일/태블릿/데스크톱)
 - REST API 제공 (`/api/docs`에서 Swagger UI 확인)
@@ -21,12 +23,13 @@ WKBL(한국여자농구연맹) 통계를 Basketball Reference 스타일로 보�
 | URL | 페이지 | 설명 |
 |-----|--------|------|
 | `#/` | 홈 | 선수 목록 + 필터/정렬/검색 |
-| `#/players/{id}` | 선수 상세 | 커리어 요약, 시즌별 기록, 최근 경기 |
+| `#/players/{id}` | 선수 상세 | 커리어 요약, 시즌별 기록, 트렌드 차트, 최근 경기 |
 | `#/teams` | 팀 순위 | 순위표 (승률, 홈/원정, 연속기록) |
 | `#/teams/{id}` | 팀 상세 | 로스터, 최근 경기 |
 | `#/games` | 경기 목록 | 경기 카드 (날짜, 팀, 점수) |
 | `#/games/{id}` | 박스스코어 | 양팀 선수별 스탯 |
 | `#/leaders` | 리더보드 | 부문별 Top 5 |
+| `#/compare` | 선수 비교 | 최대 4명 선수 스탯 비교 |
 
 ## 스탯 지표
 
@@ -72,17 +75,20 @@ uv run python3 server.py
 | Endpoint | Description |
 |----------|-------------|
 | `GET /api/players` | 선수 목록 + 시즌 스탯 |
+| `GET /api/players/compare` | 선수 비교 (ids 파라미터로 2-4명) |
 | `GET /api/players/{id}` | 선수 상세 (커리어 스탯) |
 | `GET /api/players/{id}/gamelog` | 선수 경기 로그 |
+| `GET /api/players/{id}/highlights` | 선수 하이라이트 (커리어 하이) |
 | `GET /api/teams` | 팀 목록 |
 | `GET /api/teams/{id}` | 팀 상세 (로스터) |
 | `GET /api/games` | 경기 목록 |
 | `GET /api/games/{id}` | 박스스코어 |
 | `GET /api/seasons/{id}/standings` | 팀 순위 |
 | `GET /api/leaders` | 리더보드 |
+| `GET /api/search` | 통합 검색 (선수/팀) |
 | `GET /api/health` | 헬스 체크 |
 
-Query parameters: `season`, `team`, `category`, `limit`, `offset`
+Query parameters: `season`, `team`, `category`, `limit`, `offset`, `q` (검색어), `ids` (비교용)
 
 ## 데이터 수집
 

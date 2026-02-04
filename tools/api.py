@@ -785,6 +785,30 @@ def api_get_players(
     }
 
 
+@app.get("/players/compare")
+def api_compare_players(
+    ids: str = Query(
+        ..., description="Comma-separated player IDs (e.g., 095533,095104)"
+    ),
+    season: str = Query(default=None, description="Season code"),
+):
+    """Compare multiple players' stats."""
+    season_id = season or max(SEASON_CODES.keys())
+    player_ids = [pid.strip() for pid in ids.split(",") if pid.strip()]
+
+    if len(player_ids) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 player IDs required")
+    if len(player_ids) > 4:
+        raise HTTPException(status_code=400, detail="Maximum 4 players allowed")
+
+    players = get_player_comparison(player_ids, season_id)
+    return {
+        "season": season_id,
+        "season_label": SEASON_CODES.get(season_id, season_id),
+        "players": players,
+    }
+
+
 @app.get("/players/{player_id}")
 def api_get_player(player_id: str):
     """Get detailed player information with career stats."""
@@ -915,6 +939,197 @@ def api_get_all_leaders(
         "season": season_id,
         "season_label": SEASON_CODES.get(season_id, season_id),
         "categories": categories_data,
+    }
+
+
+# =============================================================================
+# Player Comparison
+# =============================================================================
+
+
+def _get_comparison_query(player_count: int) -> str:
+    """Return hardcoded comparison query for 2-4 players."""
+    base = """
+        SELECT
+            p.id, p.name, p.position, p.height,
+            t.name as team,
+            COUNT(*) as gp,
+            AVG(pg.minutes) as min,
+            AVG(pg.pts) as pts,
+            AVG(pg.reb) as reb,
+            AVG(pg.ast) as ast,
+            AVG(pg.stl) as stl,
+            AVG(pg.blk) as blk,
+            AVG(pg.tov) as tov,
+            SUM(pg.fgm) as total_fgm,
+            SUM(pg.fga) as total_fga,
+            SUM(pg.tpm) as total_tpm,
+            SUM(pg.tpa) as total_tpa,
+            SUM(pg.ftm) as total_ftm,
+            SUM(pg.fta) as total_fta
+        FROM player_games pg
+        JOIN games g ON pg.game_id = g.id
+        JOIN players p ON pg.player_id = p.id
+        JOIN teams t ON pg.team_id = t.id
+        WHERE pg.player_id IN ({placeholders}) AND g.season_id = ?
+        GROUP BY pg.player_id
+    """
+    # Return query with hardcoded placeholder count (safe from injection)
+    if player_count == 2:
+        return base.format(placeholders="?,?")
+    elif player_count == 3:
+        return base.format(placeholders="?,?,?")
+    elif player_count == 4:
+        return base.format(placeholders="?,?,?,?")
+    raise ValueError("Player count must be 2-4")
+
+
+def get_player_comparison(player_ids: list[str], season_id: str) -> list[dict]:
+    """Get stats for multiple players for comparison."""
+    if not player_ids or len(player_ids) < 2 or len(player_ids) > 4:
+        return []
+
+    query = _get_comparison_query(len(player_ids))
+
+    with get_connection() as conn:
+        rows = conn.execute(query, (*player_ids, season_id)).fetchall()
+
+        result = []
+        for row in rows:
+            d = dict(row)
+            d["fgp"] = (
+                round(d["total_fgm"] / d["total_fga"], 3) if d["total_fga"] else 0
+            )
+            d["tpp"] = (
+                round(d["total_tpm"] / d["total_tpa"], 3) if d["total_tpa"] else 0
+            )
+            d["ftp"] = (
+                round(d["total_ftm"] / d["total_fta"], 3) if d["total_fta"] else 0
+            )
+            for key in ["min", "pts", "reb", "ast", "stl", "blk", "tov"]:
+                d[key] = round(d[key], 1) if d[key] else 0
+
+            # Advanced stats
+            pts = d["pts"] * d["gp"]
+            fga = d["total_fga"] or 0
+            fta = d["total_fta"] or 0
+            fgm = d["total_fgm"] or 0
+            tpm = d["total_tpm"] or 0
+
+            # TS% = PTS / (2 × (FGA + 0.44 × FTA))
+            tsa = 2 * (fga + 0.44 * fta)
+            d["ts_pct"] = round(pts / tsa, 3) if tsa > 0 else 0
+
+            # eFG% = (FGM + 0.5 × 3PM) / FGA
+            d["efg_pct"] = round((fgm + 0.5 * tpm) / fga, 3) if fga > 0 else 0
+
+            # PIR = (PTS + REB + AST + STL + BLK - TO - (FGA-FGM) - (FTA-FTM)) / GP
+            ftm = d["total_ftm"] or 0
+            reb = d["reb"] * d["gp"]
+            ast = d["ast"] * d["gp"]
+            stl = d["stl"] * d["gp"]
+            blk = d["blk"] * d["gp"]
+            tov = d["tov"] * d["gp"]
+            pir_total = pts + reb + ast + stl + blk - tov - (fga - fgm) - (fta - ftm)
+            d["pir"] = round(pir_total / d["gp"], 1) if d["gp"] > 0 else 0
+
+            # Clean up internal fields
+            for key in [
+                "total_fgm",
+                "total_fga",
+                "total_tpm",
+                "total_tpa",
+                "total_ftm",
+                "total_fta",
+            ]:
+                del d[key]
+
+            result.append(d)
+        return result
+
+
+# =============================================================================
+# Player Highlights
+# =============================================================================
+
+
+def get_player_highlights(player_id: str) -> dict:
+    """Get career and season highlights for a player."""
+    with get_connection() as conn:
+        # Career highs (single game)
+        career_highs = conn.execute(
+            """SELECT
+                MAX(pts) as pts, MAX(reb) as reb, MAX(ast) as ast,
+                MAX(stl) as stl, MAX(blk) as blk, MAX(minutes) as min
+            FROM player_games WHERE player_id = ?""",
+            (player_id,),
+        ).fetchone()
+
+        # Season averages
+        seasons = conn.execute(
+            """SELECT
+                g.season_id, s.label as season_label,
+                AVG(pg.pts) as pts, AVG(pg.reb) as reb, AVG(pg.ast) as ast
+            FROM player_games pg
+            JOIN games g ON pg.game_id = g.id
+            JOIN seasons s ON g.season_id = s.id
+            WHERE pg.player_id = ?
+            GROUP BY g.season_id
+            ORDER BY g.season_id""",
+            (player_id,),
+        ).fetchall()
+
+        # Best season (by points)
+        best_season = max(seasons, key=lambda x: x["pts"]) if seasons else None
+
+        return {
+            "career_highs": dict(career_highs) if career_highs else {},
+            "seasons": [dict(s) for s in seasons],
+            "best_season": dict(best_season) if best_season else None,
+        }
+
+
+@app.get("/players/{player_id}/highlights")
+def api_get_player_highlights(player_id: str):
+    """Get player's career and season highlights."""
+    highlights = get_player_highlights(player_id)
+    if not highlights["seasons"]:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return {"player_id": player_id, **highlights}
+
+
+# =============================================================================
+# Search
+# =============================================================================
+
+
+@app.get("/search")
+def api_search(
+    q: str = Query(..., min_length=1, description="Search query"),
+    limit: int = Query(default=10, le=20, description="Max results per category"),
+):
+    """Search players and teams."""
+    query = f"%{q}%"
+
+    with get_connection() as conn:
+        # Search players
+        players = conn.execute(
+            """SELECT id, name, position, team_id,
+                      (SELECT name FROM teams WHERE id = players.team_id) as team
+               FROM players WHERE name LIKE ? LIMIT ?""",
+            (query, limit),
+        ).fetchall()
+
+        # Search teams
+        teams = conn.execute(
+            "SELECT id, name, short_name FROM teams WHERE name LIKE ? OR short_name LIKE ? LIMIT ?",
+            (query, query, limit),
+        ).fetchall()
+
+    return {
+        "query": q,
+        "players": [dict(p) for p in players],
+        "teams": [dict(t) for t in teams],
     }
 
 

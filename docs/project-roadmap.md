@@ -3,7 +3,7 @@
 ## 목표
 Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 
-## 현재 상태 (2026-01-30)
+## 현재 상태 (2026-02-04)
 
 | 단계 | 상태 | 설명 |
 |------|------|------|
@@ -11,7 +11,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 | Phase 2 | ✅ 완료 | 팀 순위, 역대 시즌, 플레이오프 분리 |
 | Phase 3 | ✅ 완료 | REST API 서버 구축 |
 | Phase 4 | ✅ 완료 | 선수/팀/경기 상세 페이지, 리더보드 |
-| Phase 5 | ⬜ 미시작 | 고급 기능 (선수 비교, 트렌드 차트) |
+| Phase 5 | ✅ 완료 | 고급 기능 (선수 비교, 트렌드 차트, 전역 검색) |
 
 ---
 
@@ -168,25 +168,28 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] 팀 페이지 (`#/teams`, `#/teams/{id}` - 순위표, 로스터, 최근 경기)
 - [x] 경기 상세 페이지 (`#/games/{id}` - 박스스코어)
 - [x] 리더보드 (`#/leaders` - 득점/리바운드/어시스트/스틸/블록 부문별 Top 5)
-- [ ] 시즌 비교 (Phase 5로 이동)
 
-### Phase 5: 고급 기능 (선택)
-- [ ] 선수 비교 도구
-- [ ] 트렌드 차트
-- [ ] 검색 기능 강화
-- [ ] 시즌/커리어 하이라이트 자동 계산
+### Phase 5: 고급 기능 ✅ 완료
+- [x] 선수 비교 도구 (`#/compare` - 최대 4명 선수 비교, 바 차트 시각화)
+- [x] 트렌드 차트 (Chart.js 기반 시즌별 득점/리바운드/어시스트 추이)
+- [x] 검색 기능 강화 (전역 검색 모달, Ctrl+K 단축키, 선수/팀 통합 검색)
+- [x] 시즌/커리어 하이라이트 API (`/players/{id}/highlights`)
+- [x] 선수 비교 API (`/players/compare`)
+- [x] 통합 검색 API (`/search`)
 
 ---
 
-## 4. 기술 스택 제안
+## 4. 기술 스택
 
-| 영역 | 현재 | 제안 |
+| 영역 | 기술 | 비고 |
 |------|------|------|
-| **DB** | JSON 파일 | SQLite → PostgreSQL (확장 시) |
-| **Backend** | Python 스크립트 | FastAPI |
-| **Frontend** | Vanilla JS | 유지 또는 React/Vue |
-| **Hosting** | GitHub Pages | Vercel/Railway (API 서버 필요 시) |
-| **Data Update** | GitHub Actions | 유지 |
+| **DB** | SQLite | `data/wkbl.db` |
+| **Backend** | FastAPI + uvicorn | REST API + 정적 파일 서빙 |
+| **Frontend** | Vanilla JS + Chart.js | SPA (hash-based routing) |
+| **Package Manager** | uv | `pyproject.toml` + `uv.lock` |
+| **Code Quality** | pre-commit (ruff, mypy, bandit) | 자동 린팅/포맷팅 |
+| **Hosting** | GitHub Pages | 정적 프론트엔드 |
+| **Data Update** | GitHub Actions | 매일 자동 업데이트 |
 
 ---
 
@@ -206,3 +209,16 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [Basketball Reference](https://www.basketball-reference.com/) - 목표 레퍼런스
 - [WKBL Data Lab](https://datalab.wkbl.or.kr/) - 데이터 소스
 - [WKBL 공식 사이트](https://www.wkbl.or.kr/) - 선수 프로필
+
+---
+
+## 7. 향후 개선 아이디어
+
+| 기능 | 설명 | 우선순위 |
+|------|------|----------|
+| 시즌 비교 | 두 시즌의 팀/선수 스탯 비교 | 낮음 |
+| 고급 지표 추가 | PER, WS, VORP 등 NBA 고급 지표 | 중간 |
+| PWA 지원 | 오프라인 접근, 앱 설치 | 낮음 |
+| 알림 기능 | 경기 결과, 선수 하이라이트 알림 | 낮음 |
+| 다크 모드 | 테마 전환 지원 | 낮음 |
+| i18n | 영어 지원 | 낮음 |
