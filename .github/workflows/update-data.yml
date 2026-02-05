@@ -29,6 +29,7 @@ jobs:
             --no-cache \
             --save-db \
             --load-all-players \
+            --include-future \
             --end-date $(date +%Y%m%d) \
             --active-only \
             --output data/wkbl-active.json
