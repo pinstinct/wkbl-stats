@@ -301,9 +301,17 @@ GitHub Pages now provides **full functionality** using sql.js (WebAssembly SQLit
 The browser fetches `data/wkbl.db` and runs all queries client-side.
 
 **How it works:**
-1. `sql.js` WASM module loaded from CDN
+1. `sql.js` WASM module loaded from CDN (jsdelivr)
 2. `data/wkbl.db` fetched via HTTP
 3. All queries run in browser (no server needed)
+
+**CDN Dependencies:**
+```html
+<!-- Chart.js for trend charts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<!-- sql.js for browser SQLite -->
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js"></script>
+```
 
 **Setup:**
 1. GitHub → Settings → Pages → Source: Deploy from branch (main)
@@ -316,6 +324,8 @@ python3 -m http.server 8000
 ```
 
 **All features work:** Player stats, game logs, box scores, standings, leaders, search, comparison.
+
+**Troubleshooting:** See `docs/static-hosting-troubleshooting.md` for common issues and solutions.
 
 ### Pre-commit Hooks
 
@@ -352,6 +362,7 @@ uv run pre-commit run --all-files
 
 - **Playoff data unavailable**: WKBL Data Lab does not provide boxscore data for playoff games. Game IDs with type code "04" (e.g., `04604010`) return empty player records. Only regular season and all-star games have detailed statistics.
 - **All-star games**: Game number "001" is always treated as all-star regardless of type code.
+- **is_active field maintenance**: The `players.is_active` field must be updated when data is refreshed. Players who played in the current season should have `is_active=1`. If the field is incorrect, the player list will appear empty on GitHub Pages (static hosting).
 
 ## Notes
 
@@ -364,3 +375,11 @@ uv run pre-commit run --all-files
 - Frontend falls back to `data/sample.json` if `wkbl-active.json` unavailable
 - **Player ID tracking**: Use `--load-all-players` to load all 700+ players (active, retired, foreign) and correctly map player IDs (pno). Without this flag, retired players in historical data may get incorrect placeholder IDs.
 - Player IDs (pno) are consistent across seasons, enabling tracking of player career stats and team transfer history.
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| `docs/data-sources.md` | WKBL Data Lab API endpoints and data schemas |
+| `docs/project-roadmap.md` | Feature roadmap and development plans |
+| `docs/static-hosting-troubleshooting.md` | GitHub Pages issues and solutions (sql.js, CDN, is_active) |
