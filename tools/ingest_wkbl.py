@@ -2236,9 +2236,19 @@ def main():
         game_types=game_types,
     )
 
-    active_players = load_active_players(
-        args.cache_dir, use_cache=not args.no_cache, delay=args.delay
-    )
+    # Load players - use load_all_players if --load-all-players is set
+    if args.load_all_players:
+        all_players_dict = load_all_players(
+            args.cache_dir, use_cache=not args.no_cache, delay=args.delay
+        )
+        active_players = [{**p, "pno": pno} for pno, p in all_players_dict.items()]
+        logger.info(
+            f"Loaded {len(active_players)} players (active + retired + foreign)"
+        )
+    else:
+        active_players = load_active_players(
+            args.cache_dir, use_cache=not args.no_cache, delay=args.delay
+        )
 
     # Save to database if requested (only new games)
     if args.save_db and game_items:
