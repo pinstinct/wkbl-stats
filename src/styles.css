@@ -2167,6 +2167,54 @@ body {
   font-family: "Space Grotesk", sans-serif;
 }
 
+.prediction-explanation {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 16px 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+
+.prediction-explanation details {
+  cursor: pointer;
+}
+
+.prediction-explanation summary {
+  font-weight: 500;
+  color: var(--accent-2);
+  font-size: 14px;
+  padding: 4px 0;
+  list-style: none;
+}
+
+.prediction-explanation summary::-webkit-details-marker {
+  display: none;
+}
+
+.prediction-explanation summary::before {
+  content: "ℹ️ ";
+}
+
+.prediction-explanation[open] summary {
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+
+.explanation-content {
+  font-size: 13px;
+  color: rgba(27, 28, 31, 0.75);
+  line-height: 1.6;
+}
+
+.explanation-content p {
+  margin: 8px 0;
+}
+
+.explanation-content strong {
+  color: var(--ink);
+}
+
 .main-links {
   display: flex;
   justify-content: center;

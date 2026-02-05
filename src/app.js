@@ -644,6 +644,7 @@
       mainGameCard.style.display = "none";
       mainLineupGrid.style.display = "none";
       mainNoGame.style.display = "block";
+      $("predictionExplanation").style.display = "none";
       $("mainPredictionDate").textContent = "";
       return;
     }
@@ -652,6 +653,7 @@
     mainNoGame.style.display = "none";
     mainGameCard.style.display = "block";
     mainLineupGrid.style.display = "grid";
+    $("predictionExplanation").style.display = "block";
 
     // Get team standings for records
     const standings = state.dbInitialized && typeof WKBLDatabase !== "undefined"
@@ -712,6 +714,7 @@
       if (homeLineup.length === 0 && awayLineup.length === 0) {
         console.warn("No lineup data available");
         mainLineupGrid.style.display = "none";
+        $("predictionExplanation").style.display = "none";
         return;
       }
 
@@ -744,6 +747,7 @@
     } catch (error) {
       console.error("Error generating lineup predictions:", error);
       mainLineupGrid.style.display = "none";
+      $("predictionExplanation").style.display = "none";
     }
   }
 
