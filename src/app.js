@@ -341,7 +341,8 @@
       try {
         await initLocalDb();
         if (state.dbInitialized) {
-          return WKBLDatabase.getGames(season, null, null, 50, 0);
+          // Exclude future games (home_score IS NULL)
+          return WKBLDatabase.getGames(season, null, null, 50, 0, true);
         }
       } catch (e) {
         console.warn("Local DB fetchGames failed:", e.message);
@@ -352,13 +353,14 @@
     if (state.useApi) {
       try {
         const data = await apiGet(`/games?season=${season}&limit=50`);
-        return data.games;
+        // Filter out future games (no scores)
+        return (data.games || []).filter(g => g.home_score !== null && g.away_score !== null);
       } catch (e) {
         console.warn("API fetchGames failed:", e.message);
         state.useApi = false;
         await initLocalDb();
         if (state.dbInitialized) {
-          return WKBLDatabase.getGames(season, null, null, 50, 0);
+          return WKBLDatabase.getGames(season, null, null, 50, 0, true);
         }
       }
     }
@@ -1090,6 +1092,18 @@
     $("playerTeam").textContent = player.team;
     $("playerPos").textContent = player.pos || "-";
     $("playerHeight").textContent = player.height || "-";
+
+    // Birth date with age
+    const birthEl = $("playerBirth");
+    if (birthEl) {
+      if (player.birth_date) {
+        const age = calculateAge(player.birth_date);
+        birthEl.textContent = age !== null ? `만 ${age}세` : player.birth_date;
+      } else {
+        birthEl.textContent = "-";
+      }
+    }
+
     $("playerGp").textContent = `${player.gp}경기 출전`;
 
     const grid = $("playerStatGrid");
@@ -2460,7 +2474,7 @@
       recentGames = WKBLDatabase.getRecentGames(state.currentSeason, teamId, 10);
     }
 
-    // Render next game highlight
+    // Render next game highlight with prediction
     const nextGameCard = $("nextGameCard");
     if (upcomingGames.length > 0) {
       const next = upcomingGames[0];
@@ -2486,28 +2500,75 @@
       nextGameCard.style.display = "none";
     }
 
-    // Render upcoming games list
+    // Render upcoming games list with predictions
     const upcomingList = $("upcomingGamesList");
     if (upcomingGames.length > 0) {
-      upcomingList.innerHTML = upcomingGames.map((g) => `
-        <div class="schedule-item upcoming">
-          <div class="schedule-item-date">${formatFullDate(g.game_date)}</div>
-          <div class="schedule-item-matchup">
-            <span class="schedule-team away">${g.away_team_short || g.away_team_name}</span>
-            <span class="schedule-vs">@</span>
-            <span class="schedule-team home">${g.home_team_short || g.home_team_name}</span>
-          </div>
-        </div>
-      `).join("");
+      upcomingList.innerHTML = upcomingGames.map((g) => {
+        // Get predictions for this game
+        let predHtml = "";
+        if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
+          const pred = WKBLDatabase.getGamePredictions(g.id);
+          if (pred.team) {
+            const awayProb = pred.team.away_win_prob?.toFixed(0) || "-";
+            const homeProb = pred.team.home_win_prob?.toFixed(0) || "-";
+            const awayPts = pred.team.away_predicted_pts?.toFixed(0) || "-";
+            const homePts = pred.team.home_predicted_pts?.toFixed(0) || "-";
+            predHtml = `
+              <div class="schedule-prediction">
+                <div class="schedule-pred-prob">
+                  <span class="pred-away">${awayProb}%</span>
+                  <span class="pred-label">승률</span>
+                  <span class="pred-home">${homeProb}%</span>
+                </div>
+                <div class="schedule-pred-score">
+                  <span class="pred-away">${awayPts}</span>
+                  <span class="pred-label">예상</span>
+                  <span class="pred-home">${homePts}</span>
+                </div>
+              </div>
+            `;
+          }
+        }
+        return `
+          <a href="#/games/${g.id}" class="schedule-item upcoming">
+            <div class="schedule-item-date">${formatFullDate(g.game_date)}</div>
+            <div class="schedule-item-matchup">
+              <span class="schedule-team away">${g.away_team_short || g.away_team_name}</span>
+              <span class="schedule-vs">@</span>
+              <span class="schedule-team home">${g.home_team_short || g.home_team_name}</span>
+            </div>
+            ${predHtml}
+          </a>
+        `;
+      }).join("");
     } else {
       upcomingList.innerHTML = '<div class="schedule-empty">예정된 경기가 없습니다</div>';
     }
 
-    // Render recent results
+    // Render recent results with prediction comparison
     const recentList = $("recentResultsList");
     if (recentGames.length > 0) {
       recentList.innerHTML = recentGames.map((g) => {
         const homeWin = g.home_score > g.away_score;
+
+        // Get predictions for comparison
+        let predCompareHtml = "";
+        if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
+          const pred = WKBLDatabase.getGamePredictions(g.id);
+          if (pred.team) {
+            const predictedHomeWin = pred.team.home_win_prob > 50;
+            const isCorrect = homeWin === predictedHomeWin;
+            const awayPts = pred.team.away_predicted_pts?.toFixed(0) || "-";
+            const homePts = pred.team.home_predicted_pts?.toFixed(0) || "-";
+            predCompareHtml = `
+              <div class="schedule-pred-compare ${isCorrect ? 'correct' : 'incorrect'}">
+                <span class="pred-result-badge">${isCorrect ? '적중' : '실패'}</span>
+                <span class="pred-expected">예측: ${awayPts}-${homePts}</span>
+              </div>
+            `;
+          }
+        }
+
         return `
           <a href="#/games/${g.id}" class="schedule-item result">
             <div class="schedule-item-date">${formatFullDate(g.game_date)}</div>
@@ -2516,6 +2577,7 @@
               <span class="schedule-score">${g.away_score} - ${g.home_score}</span>
               <span class="schedule-team home ${homeWin ? 'winner' : ''}">${g.home_team_short || g.home_team_name}</span>
             </div>
+            ${predCompareHtml}
           </a>
         `;
       }).join("");

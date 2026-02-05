@@ -68,6 +68,7 @@ python3 tools/ingest_wkbl.py \
 | `--all-seasons` | Collect all historical seasons (2020-21 ~ current) |
 | `--seasons 044 045` | Collect specific seasons by code |
 | `--include-future` | Save future (scheduled) games with NULL scores to database |
+| `--fetch-profiles` | Fetch individual player profiles for birth_date (slower, use with --load-all-players) |
 
 ## Frontend Pages (SPA)
 

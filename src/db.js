@@ -167,6 +167,7 @@ const WKBLDatabase = (function () {
         p.name,
         p.position as pos,
         p.height,
+        p.birth_date,
         p.is_active,
         t.name as team,
         t.id as team_id,
@@ -232,6 +233,7 @@ const WKBLDatabase = (function () {
           p.name,
           p.position as pos,
           p.height,
+          p.birth_date,
           p.is_active,
           t.name as team,
           t.id as team_id
@@ -252,6 +254,7 @@ const WKBLDatabase = (function () {
         if (!playerIds.has(p.id)) {
           players.push({
             ...p,
+            birth_date: p.birth_date || null,
             gp: 0,
             min: 0,
             pts: 0,
@@ -675,7 +678,7 @@ const WKBLDatabase = (function () {
    * Get games list
    * Replaces: GET /api/games
    */
-  function getGames(seasonId, teamId = null, gameType = null, limit = 50, offset = 0) {
+  function getGames(seasonId, teamId = null, gameType = null, limit = 50, offset = 0, excludeFuture = false) {
     let sql = `
       SELECT
         g.id, g.game_date, g.home_score, g.away_score, g.game_type,
@@ -697,6 +700,10 @@ const WKBLDatabase = (function () {
     if (gameType) {
       sql += " AND g.game_type = ?";
       params.push(gameType);
+    }
+
+    if (excludeFuture) {
+      sql += " AND g.home_score IS NOT NULL AND g.away_score IS NOT NULL";
     }
 
     sql += " ORDER BY g.game_date DESC LIMIT ? OFFSET ?";

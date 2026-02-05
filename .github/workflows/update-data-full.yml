@@ -24,19 +24,24 @@ jobs:
             --all-seasons \
             --auto \
             --no-cache \
+            --save-db \
             --load-all-players \
+            --fetch-profiles \
+            --fetch-standings \
+            --fetch-team-stats \
+            --include-future \
             --output data/wkbl-active.json
 
       - name: Check for changes
         id: changes
         run: |
-          git diff --quiet data/wkbl-active.json || echo "changed=true" >> $GITHUB_OUTPUT
+          git diff --quiet data/wkbl-active.json data/wkbl.db || echo "changed=true" >> $GITHUB_OUTPUT
 
       - name: Commit and push if changed
         if: steps.changes.outputs.changed == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/wkbl-active.json
+          git add data/wkbl-active.json data/wkbl.db
           git commit -m "chore: update player stats data (full history)"
           git push

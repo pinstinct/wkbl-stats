@@ -2096,7 +2096,10 @@ def _ingest_multiple_seasons(args):
     # Load players once for all seasons
     if getattr(args, "load_all_players", False):
         all_players_db = load_all_players(
-            args.cache_dir, use_cache=not args.no_cache, delay=args.delay
+            args.cache_dir,
+            use_cache=not args.no_cache,
+            delay=args.delay,
+            fetch_profiles=getattr(args, "fetch_profiles", False),
         )
         # Convert to list format for compatibility
         active_players = [{**p, "pno": pno} for pno, p in all_players_db.items()]
@@ -2191,6 +2194,11 @@ def main():
         action="store_true",
         help="also save future (scheduled) games with NULL scores to database",
     )
+    parser.add_argument(
+        "--fetch-profiles",
+        action="store_true",
+        help="fetch individual player profiles for birth_date (slower, use with --load-all-players)",
+    )
 
     args = parser.parse_args()
 
@@ -2239,7 +2247,10 @@ def main():
     # Load players - use load_all_players if --load-all-players is set
     if args.load_all_players:
         all_players_dict = load_all_players(
-            args.cache_dir, use_cache=not args.no_cache, delay=args.delay
+            args.cache_dir,
+            use_cache=not args.no_cache,
+            delay=args.delay,
+            fetch_profiles=getattr(args, "fetch_profiles", False),
         )
         active_players = [{**p, "pno": pno} for pno, p in all_players_dict.items()]
         logger.info(

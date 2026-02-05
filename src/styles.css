@@ -2594,6 +2594,94 @@ body {
   color: rgba(27, 28, 31, 0.5);
 }
 
+/* Schedule item with prediction */
+.schedule-item.upcoming,
+.schedule-item.result {
+  grid-template-columns: 80px 1fr auto;
+}
+
+.schedule-prediction {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+  font-size: 12px;
+  min-width: 100px;
+}
+
+.schedule-pred-prob,
+.schedule-pred-score {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.schedule-pred-prob .pred-label,
+.schedule-pred-score .pred-label {
+  color: rgba(27, 28, 31, 0.5);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.schedule-pred-prob .pred-away,
+.schedule-pred-prob .pred-home,
+.schedule-pred-score .pred-away,
+.schedule-pred-score .pred-home {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 600;
+  min-width: 30px;
+  text-align: center;
+}
+
+.schedule-pred-compare {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.schedule-pred-compare .pred-result-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.schedule-pred-compare.correct .pred-result-badge {
+  background: rgba(34, 139, 34, 0.15);
+  color: #228b22;
+}
+
+.schedule-pred-compare.incorrect .pred-result-badge {
+  background: rgba(217, 79, 49, 0.15);
+  color: var(--accent);
+}
+
+.schedule-pred-compare .pred-expected {
+  color: rgba(27, 28, 31, 0.6);
+  font-size: 11px;
+}
+
+@media (max-width: 480px) {
+  .schedule-item.upcoming,
+  .schedule-item.result {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .schedule-prediction,
+  .schedule-pred-compare {
+    border-left: none;
+    border-top: 1px solid var(--line);
+    padding-left: 0;
+    padding-top: 8px;
+    margin-top: 4px;
+  }
+}
+
 /* =============================================================================
    Predict Page
    ============================================================================= */
