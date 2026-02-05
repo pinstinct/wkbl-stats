@@ -850,6 +850,73 @@ def get_all_descriptions() -> Dict[str, Dict]:
     return result
 
 
+def get_team_players(team_id: str, season_id: str) -> List[Dict]:
+    """Get all players on a team for a season with their stats.
+
+    Args:
+        team_id: Team ID (e.g., 'kb')
+        season_id: Season code (e.g., '046')
+
+    Returns:
+        List of player dicts with season averages and PIR
+    """
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT
+                p.id, p.name, p.position as pos, p.height,
+                COUNT(pg.game_id) as gp,
+                AVG(pg.pts) as pts,
+                AVG(pg.reb) as reb,
+                AVG(pg.ast) as ast,
+                AVG(pg.stl) as stl,
+                AVG(pg.blk) as blk,
+                AVG(pg.tov) as tov,
+                AVG(pg.pts + pg.reb + pg.ast + pg.stl + pg.blk
+                    + (pg.fgm - pg.fga) + (pg.ftm - pg.fta) - pg.tov) as pir
+            FROM players p
+            JOIN player_games pg ON p.id = pg.player_id
+            JOIN games g ON pg.game_id = g.id
+            WHERE pg.team_id = ? AND g.season_id = ?
+            GROUP BY p.id
+            HAVING gp > 0
+            ORDER BY pir DESC""",
+            (team_id, season_id),
+        ).fetchall()
+
+        return [dict(row) for row in rows]
+
+
+def get_player_recent_games(
+    player_id: str, season_id: str, limit: int = 10
+) -> List[Dict]:
+    """Get recent game stats for a player.
+
+    Args:
+        player_id: Player ID
+        season_id: Season code
+        limit: Number of recent games to return
+
+    Returns:
+        List of game stats dicts ordered by date (most recent first)
+    """
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT
+                g.id as game_id, g.game_date,
+                pg.pts, pg.reb, pg.ast, pg.stl, pg.blk, pg.tov, pg.minutes,
+                g.home_team_id, g.away_team_id, pg.team_id
+            FROM player_games pg
+            JOIN games g ON pg.game_id = g.id
+            WHERE pg.player_id = ? AND g.season_id = ?
+                AND g.home_score IS NOT NULL
+            ORDER BY g.game_date DESC
+            LIMIT ?""",
+            (player_id, season_id, limit),
+        ).fetchall()
+
+        return [dict(row) for row in rows]
+
+
 def save_game_predictions(
     game_id: str,
     predictions: List[Dict[str, Any]],

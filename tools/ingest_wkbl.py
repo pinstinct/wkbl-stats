@@ -1723,6 +1723,268 @@ def _save_future_games(args, schedule_info, end_date, season_code):
 
     logger.info(f"Saved {games_saved} future (scheduled) games to database")
 
+    # Generate predictions for future games
+    _generate_predictions_for_games(future_games, season_code)
+
+
+def _generate_predictions_for_games(games, season_code):
+    """Generate and save predictions for future games.
+
+    Uses player recent game stats to predict performance.
+    Algorithm:
+    - Base prediction = (recent 5 avg * 0.6) + (recent 10 avg * 0.4)
+    - Home bonus: +5%, Away penalty: -3%
+    - Trend bonus: +/-5% if recent 5 avg differs from season avg by >10%
+    - Confidence interval: ±1 standard deviation
+
+    Args:
+        games: List of (game_id, info) tuples
+        season_code: Season code (e.g., '046')
+    """
+
+    if not games:
+        return
+
+    logger.info(f"Generating predictions for {len(games)} future games...")
+
+    for game_id, info in games:
+        home_team_id = get_team_id(info["home_team"])
+        away_team_id = get_team_id(info["away_team"])
+
+        # Skip if already has predictions
+        if database.has_game_predictions(game_id):
+            continue
+
+        all_predictions = []
+
+        # Generate predictions for both teams
+        for team_id, is_home in [(home_team_id, True), (away_team_id, False)]:
+            players = database.get_team_players(team_id, season_code)
+            if not players:
+                continue
+
+            # Select top 5 players by PIR as starters
+            lineup = _select_optimal_lineup(players[:10])  # Consider top 10 for lineup
+
+            for player in lineup:
+                pred = _calculate_player_prediction(
+                    player["id"], season_code, player, is_home
+                )
+                all_predictions.append(
+                    {
+                        "player_id": player["id"],
+                        "team_id": team_id,
+                        "is_starter": 1,
+                        "predicted_pts": pred["pts"]["pred"],
+                        "predicted_pts_low": pred["pts"]["low"],
+                        "predicted_pts_high": pred["pts"]["high"],
+                        "predicted_reb": pred["reb"]["pred"],
+                        "predicted_reb_low": pred["reb"]["low"],
+                        "predicted_reb_high": pred["reb"]["high"],
+                        "predicted_ast": pred["ast"]["pred"],
+                        "predicted_ast_low": pred["ast"]["low"],
+                        "predicted_ast_high": pred["ast"]["high"],
+                    }
+                )
+
+        if not all_predictions:
+            continue
+
+        # Calculate team predictions
+        home_preds = [p for p in all_predictions if p["team_id"] == home_team_id]
+        away_preds = [p for p in all_predictions if p["team_id"] == away_team_id]
+
+        home_total_pts = sum(p["predicted_pts"] for p in home_preds)
+        away_total_pts = sum(p["predicted_pts"] for p in away_preds)
+
+        # Get team standings for win probability
+        standings = database.get_team_standings(season_code)
+        home_standing = next(
+            (s for s in standings if s["team_id"] == home_team_id), None
+        )
+        away_standing = next(
+            (s for s in standings if s["team_id"] == away_team_id), None
+        )
+
+        home_win_prob, away_win_prob = _calculate_win_probability(
+            home_preds, away_preds, home_standing, away_standing
+        )
+
+        team_prediction = {
+            "home_win_prob": home_win_prob,
+            "away_win_prob": away_win_prob,
+            "home_predicted_pts": home_total_pts,
+            "away_predicted_pts": away_total_pts,
+        }
+
+        database.save_game_predictions(game_id, all_predictions, team_prediction)
+
+    logger.info(f"Generated predictions for {len(games)} games")
+
+
+def _select_optimal_lineup(players):
+    """Select optimal 5 players considering position diversity.
+
+    Args:
+        players: List of player dicts sorted by PIR
+
+    Returns:
+        List of 5 players
+    """
+    if len(players) <= 5:
+        return players
+
+    lineup = []
+    positions = {"G": 0, "F": 0, "C": 0}
+    limits = {"G": 2, "F": 2, "C": 1}
+
+    # First pass: select by position
+    for player in players:
+        if len(lineup) >= 5:
+            break
+        pos = (player.get("pos") or "F")[0]  # First char: G, F, or C
+        if positions[pos] < limits[pos]:
+            lineup.append(player)
+            positions[pos] += 1
+
+    # Second pass: fill remaining with best available
+    for player in players:
+        if len(lineup) >= 5:
+            break
+        if player not in lineup:
+            lineup.append(player)
+
+    return lineup[:5]
+
+
+def _calculate_player_prediction(player_id, season_code, player_stats, is_home):
+    """Calculate predicted stats for a player.
+
+    Args:
+        player_id: Player ID
+        season_code: Season code
+        player_stats: Player's season averages
+        is_home: Whether this is a home game
+
+    Returns:
+        Dict with pts/reb/ast predictions including confidence intervals
+    """
+    import math
+
+    recent_games = database.get_player_recent_games(player_id, season_code, 10)
+
+    prediction = {
+        "pts": {"pred": 0, "low": 0, "high": 0},
+        "reb": {"pred": 0, "low": 0, "high": 0},
+        "ast": {"pred": 0, "low": 0, "high": 0},
+    }
+
+    if not recent_games:
+        # Use season averages
+        for stat in ["pts", "reb", "ast"]:
+            val = player_stats.get(stat) or 0
+            prediction[stat] = {
+                "pred": val,
+                "low": max(0, val * 0.7),
+                "high": val * 1.3,
+            }
+        return prediction
+
+    for stat in ["pts", "reb", "ast"]:
+        values = [g[stat] or 0 for g in recent_games]
+        recent5 = values[:5] if len(values) >= 5 else values
+        recent10 = values[:10]
+
+        avg5 = sum(recent5) / len(recent5) if recent5 else 0
+        avg10 = sum(recent10) / len(recent10) if recent10 else 0
+
+        # Weighted average
+        base_pred = avg5 * 0.6 + avg10 * 0.4
+
+        # Home/away adjustment
+        if is_home:
+            base_pred *= 1.05
+        else:
+            base_pred *= 0.97
+
+        # Trend bonus
+        season_avg = player_stats.get(stat) or 0
+        if season_avg > 0:
+            if avg5 > season_avg * 1.1:
+                base_pred *= 1.05  # Hot streak
+            elif avg5 < season_avg * 0.9:
+                base_pred *= 0.95  # Cold streak
+
+        # Standard deviation for confidence interval
+        if len(values) > 1:
+            variance = sum((v - avg10) ** 2 for v in values) / len(values)
+            std_dev = math.sqrt(variance) if variance > 0 else base_pred * 0.15
+        else:
+            std_dev = base_pred * 0.15
+
+        prediction[stat] = {
+            "pred": round(base_pred, 1),
+            "low": round(max(0, base_pred - std_dev), 1),
+            "high": round(base_pred + std_dev, 1),
+        }
+
+    return prediction
+
+
+def _calculate_win_probability(home_preds, away_preds, home_standing, away_standing):
+    """Calculate win probability for each team.
+
+    Args:
+        home_preds: List of home team player predictions
+        away_preds: List of away team player predictions
+        home_standing: Home team standing dict
+        away_standing: Away team standing dict
+
+    Returns:
+        Tuple of (home_win_prob, away_win_prob) as percentages
+    """
+
+    # Base strength from predicted stats
+    def calc_strength(preds, standing, is_home):
+        strength = sum(
+            p["predicted_pts"] + p["predicted_reb"] * 0.5 + p["predicted_ast"] * 0.7
+            for p in preds
+        )
+
+        if standing:
+            win_pct = standing.get("win_pct") or 0.5
+            strength *= 0.5 + win_pct
+
+            # Home/away specific
+            if is_home:
+                home_wins = standing.get("home_wins") or 0
+                home_losses = standing.get("home_losses") or 0
+                home_total = home_wins + home_losses
+                if home_total > 0:
+                    home_pct = home_wins / home_total
+                    strength *= 0.8 + home_pct * 0.4
+            else:
+                away_wins = standing.get("away_wins") or 0
+                away_losses = standing.get("away_losses") or 0
+                away_total = away_wins + away_losses
+                if away_total > 0:
+                    away_pct = away_wins / away_total
+                    strength *= 0.8 + away_pct * 0.4
+
+        return strength
+
+    home_strength = calc_strength(home_preds, home_standing, True)
+    away_strength = calc_strength(away_preds, away_standing, False)
+
+    total = home_strength + away_strength
+    if total > 0:
+        home_prob = round(home_strength / total * 100, 1)
+        away_prob = round(100 - home_prob, 1)
+    else:
+        home_prob, away_prob = 50.0, 50.0
+
+    return home_prob, away_prob
+
 
 def _ingest_single_season(args, season_code, season_label, active_players, game_types):
     """Ingest data for a single season.

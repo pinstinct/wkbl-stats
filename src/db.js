@@ -1055,110 +1055,35 @@ const WKBLDatabase = (function () {
   }
 
   // =============================================================================
-  // Game Predictions (using localStorage for persistence)
+  // Game Predictions (read from database - saved during ingest)
   // =============================================================================
 
-  const PREDICTIONS_STORAGE_KEY = "wkbl_game_predictions";
-
   /**
-   * Get all predictions from localStorage
-   */
-  function getAllPredictionsFromStorage() {
-    try {
-      const stored = localStorage.getItem(PREDICTIONS_STORAGE_KEY);
-      return stored ? JSON.parse(stored) : {};
-    } catch (e) {
-      console.error("Error reading predictions from localStorage:", e);
-      return {};
-    }
-  }
-
-  /**
-   * Save all predictions to localStorage
-   */
-  function savePredictionsToStorage(allPredictions) {
-    try {
-      localStorage.setItem(PREDICTIONS_STORAGE_KEY, JSON.stringify(allPredictions));
-      return true;
-    } catch (e) {
-      console.error("Error saving predictions to localStorage:", e);
-      return false;
-    }
-  }
-
-  /**
-   * Save predictions for a game
-   * @param {string} gameId - Game ID
-   * @param {Array} predictions - Array of player predictions
-   * @param {Object} teamPrediction - Team-level prediction (win prob, etc.)
-   */
-  function saveGamePredictions(gameId, predictions, teamPrediction = null) {
-    try {
-      const allPredictions = getAllPredictionsFromStorage();
-
-      // Store predictions for this game
-      allPredictions[gameId] = {
-        players: predictions,
-        team: teamPrediction,
-        created_at: new Date().toISOString(),
-      };
-
-      savePredictionsToStorage(allPredictions);
-      console.log(`Saved ${predictions.length} predictions for game ${gameId} to localStorage`);
-      return true;
-    } catch (err) {
-      console.error("Error saving predictions:", err);
-      return false;
-    }
-  }
-
-  /**
-   * Get predictions for a game
+   * Get predictions for a game from database
    * @param {string} gameId - Game ID
    * @returns {Object} - { players: [...], team: {...} }
    */
   function getGamePredictions(gameId) {
-    const allPredictions = getAllPredictionsFromStorage();
-    const gamePred = allPredictions[gameId];
+    // Get player predictions
+    const players = query(
+      `SELECT gp.*, p.name as player_name, t.name as team_name, t.short_name
+       FROM game_predictions gp
+       JOIN players p ON gp.player_id = p.id
+       JOIN teams t ON gp.team_id = t.id
+       WHERE gp.game_id = ?
+       ORDER BY gp.is_starter DESC, gp.predicted_pts DESC`,
+      [gameId]
+    );
 
-    if (!gamePred) {
-      return { players: [], team: null };
-    }
-
-    // Enrich player predictions with player names from DB
-    const enrichedPlayers = gamePred.players.map(pred => {
-      // Get player name from DB if available
-      let playerName = pred.player_name || "Unknown";
-      let teamName = pred.team_name || "Unknown";
-
-      if (db) {
-        const playerRows = query(
-          "SELECT name FROM players WHERE id = ?",
-          [pred.player_id]
-        );
-        if (playerRows.length > 0) {
-          playerName = playerRows[0].name;
-        }
-
-        const teamRows = query(
-          "SELECT name, short_name FROM teams WHERE id = ?",
-          [pred.team_id]
-        );
-        if (teamRows.length > 0) {
-          teamName = teamRows[0].name;
-        }
-      }
-
-      return {
-        ...pred,
-        player_name: playerName,
-        team_name: teamName,
-      };
-    });
+    // Get team prediction
+    const teamRows = query(
+      "SELECT * FROM game_team_predictions WHERE game_id = ?",
+      [gameId]
+    );
 
     return {
-      players: enrichedPlayers,
-      team: gamePred.team,
+      players: players,
+      team: teamRows.length > 0 ? teamRows[0] : null,
     };
   }
 
@@ -1168,8 +1093,11 @@ const WKBLDatabase = (function () {
    * @returns {boolean}
    */
   function hasGamePredictions(gameId) {
-    const allPredictions = getAllPredictionsFromStorage();
-    return !!allPredictions[gameId];
+    const rows = query(
+      "SELECT COUNT(*) as cnt FROM game_predictions WHERE game_id = ?",
+      [gameId]
+    );
+    return rows.length > 0 && rows[0].cnt > 0;
   }
 
   // =============================================================================
@@ -1204,7 +1132,6 @@ const WKBLDatabase = (function () {
     getUpcomingGames,
     getRecentGames,
     getNextGame,
-    saveGamePredictions,
     getGamePredictions,
     hasGamePredictions,
   };

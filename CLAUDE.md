@@ -199,7 +199,7 @@ Key tables:
 - `game_team_predictions`: Team win probability predictions (home/away win_prob, predicted_pts)
 - `_meta_descriptions`: Table/column descriptions metadata
 
-**Note:** Static hosting (GitHub Pages) uses localStorage for predictions since sql.js is read-only.
+**Note:** Predictions are generated during ingest (`--include-future`) and stored in DB tables. Browser reads from DB via sql.js.
 
 See `docs/data-sources.md` for detailed column definitions.
 

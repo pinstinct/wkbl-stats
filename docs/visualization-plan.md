@@ -31,16 +31,16 @@
 - [x] `getPlayerCourtMargin()`, `getPlayersCourtMargin()` 함수
 
 #### Phase 5: 예측 저장 및 비교 (NEW)
-- [x] **예측 자동 저장** (localStorage 사용)
-  - 메인 페이지에서 미래 경기 예측 시 자동 저장
+- [x] **예측 자동 저장** (ingest 시점에 DB 저장)
+  - `--include-future` 옵션으로 미래 경기 수집 시 자동 예측 생성
   - 선수별: 예측 득점/리바운드/어시스트 + 신뢰 구간
   - 팀별: 승률 예측, 예상 총득점
+  - 저장 위치: `game_predictions`, `game_team_predictions` 테이블
 - [x] **박스스코어 예측 비교** (`#/games/{id}`)
   - 예측 vs 실제 승패 비교 (적중/실패 표시)
   - 예상 점수 vs 실제 점수
   - 선수별 예측 범위 내/초과/미달 색상 표시
   - 추천 선발 선수 뱃지 표시
-- [x] DB 스키마: `game_predictions`, `game_team_predictions` 테이블 (서버용)
 - [x] `team_standings.last10` → `last5` 컬럼명 정정
 
 ### 라우트 구조 변경
@@ -75,12 +75,19 @@
 **tools/database.py:**
 - `game_predictions` 테이블 - 선수별 예측 스탯
 - `game_team_predictions` 테이블 - 팀 승률 예측
+- `get_team_players()` - 팀 로스터 조회 (예측용)
+- `get_player_recent_games()` - 선수 최근 경기 조회 (예측용)
 - `save_game_predictions()` - 예측 저장 함수
 - `get_game_predictions()` - 예측 조회 함수
+- `has_game_predictions()` - 예측 존재 여부 확인
 
 **tools/ingest_wkbl.py:**
 - `_fetch_schedule_from_wkbl()` 수정 - 미래 경기 파싱 지원
 - `_save_future_games()` - 미래 경기 DB 저장
+- `_generate_predictions_for_games()` - 미래 경기 예측 생성 및 저장
+- `_select_optimal_lineup()` - PIR 기반 최적 라인업 선정
+- `_calculate_player_prediction()` - 선수 스탯 예측 계산
+- `_calculate_win_probability()` - 팀 승률 예측 계산
 
 **src/styles.css:**
 - `.main-prediction-*` - 메인 예측 페이지 스타일

@@ -745,70 +745,8 @@
       renderTotalStats($("homeTotalStats"), homePredictions);
       renderTotalStats($("awayTotalStats"), awayPredictions);
 
-      // Save predictions to database (only for future games, not past)
-      if (!isRecentGame && state.dbInitialized && typeof WKBLDatabase !== "undefined") {
-        // Check if predictions already exist
-        if (!WKBLDatabase.hasGamePredictions(nextGame.id)) {
-          const allPredictions = [];
-
-          // Home team predictions
-          for (let i = 0; i < homeLineup.length; i++) {
-            allPredictions.push({
-              team_id: nextGame.home_team_id,
-              team_name: nextGame.home_team_name,
-              player_id: homeLineup[i].id,
-              player_name: homeLineup[i].name,
-              is_starter: true,
-              predicted_pts: homePredictions[i].pts.pred,
-              predicted_pts_low: homePredictions[i].pts.low,
-              predicted_pts_high: homePredictions[i].pts.high,
-              predicted_reb: homePredictions[i].reb.pred,
-              predicted_reb_low: homePredictions[i].reb.low,
-              predicted_reb_high: homePredictions[i].reb.high,
-              predicted_ast: homePredictions[i].ast.pred,
-              predicted_ast_low: homePredictions[i].ast.low,
-              predicted_ast_high: homePredictions[i].ast.high,
-            });
-          }
-
-          // Away team predictions
-          for (let i = 0; i < awayLineup.length; i++) {
-            allPredictions.push({
-              team_id: nextGame.away_team_id,
-              team_name: nextGame.away_team_name,
-              player_id: awayLineup[i].id,
-              player_name: awayLineup[i].name,
-              is_starter: true,
-              predicted_pts: awayPredictions[i].pts.pred,
-              predicted_pts_low: awayPredictions[i].pts.low,
-              predicted_pts_high: awayPredictions[i].pts.high,
-              predicted_reb: awayPredictions[i].reb.pred,
-              predicted_reb_low: awayPredictions[i].reb.low,
-              predicted_reb_high: awayPredictions[i].reb.high,
-              predicted_ast: awayPredictions[i].ast.pred,
-              predicted_ast_low: awayPredictions[i].ast.low,
-              predicted_ast_high: awayPredictions[i].ast.high,
-            });
-          }
-
-          // Team-level prediction
-          const homeTotalPts = homePredictions.reduce((sum, p) => sum + (p.pts.pred || 0), 0);
-          const awayTotalPts = awayPredictions.reduce((sum, p) => sum + (p.pts.pred || 0), 0);
-
-          const teamPrediction = {
-            home_team_id: nextGame.home_team_id,
-            home_team_name: nextGame.home_team_name,
-            away_team_id: nextGame.away_team_id,
-            away_team_name: nextGame.away_team_name,
-            home_win_prob: parseFloat(homeWinProb),
-            away_win_prob: parseFloat(awayWinProb),
-            home_predicted_pts: homeTotalPts,
-            away_predicted_pts: awayTotalPts,
-          };
-
-          WKBLDatabase.saveGamePredictions(nextGame.id, allPredictions, teamPrediction);
-        }
-      }
+      // Note: Predictions are saved to DB during ingest (tools/ingest_wkbl.py)
+      // and read from DB in loadGamePage for comparison with actual results
     } catch (error) {
       console.error("Error generating lineup predictions:", error);
       mainLineupGrid.style.display = "none";
