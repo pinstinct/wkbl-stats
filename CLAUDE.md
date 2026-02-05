@@ -296,7 +296,7 @@ Render provides server-based API with FastAPI. Use this for server-side features
 
 | Workflow | Trigger | Description |
 |----------|---------|-------------|
-| `update-data.yml` | Daily (6AM KST) | Update current season data + future scheduled games |
+| `update-data.yml` | Daily (6AM KST) | Update current season data + future games + predictions |
 | `update-data-full.yml` | Manual only | Fetch all seasons including retired players |
 
 **Run data update**: GitHub → Actions → Select workflow → "Run workflow"

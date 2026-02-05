@@ -42,6 +42,7 @@
   - 선수별 예측 범위 내/초과/미달 색상 표시
   - 추천 선발 선수 뱃지 표시
 - [x] `team_standings.last10` → `last5` 컬럼명 정정
+- [x] `--load-all-players` 단일 시즌 모드 적용 버그 수정
 
 ### 라우트 구조 변경
 | Before | After | Description |
