@@ -40,7 +40,7 @@ const WKBLDatabase = (function () {
       try {
         // Initialize sql.js with WASM
         const SQL = await initSqlJs({
-          locateFile: (file) => `https://sql.js.org/dist/${file}`,
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`,
         });
 
         // Fetch the database file

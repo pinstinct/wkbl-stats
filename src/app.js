@@ -1677,16 +1677,14 @@
           if (!testRes.ok) {
             state.useApi = false;
             state.useLocalDb = true;
-            console.log("[app.js] API not available, using local database");
           }
         } catch (e) {
           state.useApi = false;
           state.useLocalDb = true;
-          console.log("[app.js] API not available, using local database");
         }
       }
     } catch (e) {
-      console.log("[app.js] Local database not available, will use API or JSON fallback");
+      // Local database not available, will use API or JSON fallback
     }
 
     initEventListeners();
