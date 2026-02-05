@@ -1091,6 +1091,9 @@ def _fetch_schedule_from_wkbl(
                 # Find all table rows with game data
                 rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S)
 
+                # Track future games without game_no
+                future_games_in_month = []
+
                 for row in rows:
                     # Skip header row
                     if "<th" in row:
@@ -1099,7 +1102,7 @@ def _fetch_schedule_from_wkbl(
                     # Get date: format is MM/DD in <td>
                     date_match = re.search(r"<td[^>]*>(\d{1,2})/(\d{1,2})", row)
 
-                    # Get game_no from link
+                    # Get game_no from link (only exists for past games)
                     game_match = re.search(r"game_no=(\d+)", row)
 
                     # Get teams - away and home from data-kr attributes
@@ -1110,10 +1113,9 @@ def _fetch_schedule_from_wkbl(
                         r"info_team home.*?data-kr=\"([^\"]+)\"", row, re.S
                     )
 
-                    if date_match and game_match:
+                    if date_match:
                         month = int(date_match.group(1))
                         day = int(date_match.group(2))
-                        game_no = int(game_match.group(1))
 
                         # Determine year based on month
                         if month >= 10:  # Oct-Dec
@@ -1122,17 +1124,46 @@ def _fetch_schedule_from_wkbl(
                             game_year = season_year + 1
 
                         date = f"{game_year}{month:02d}{day:02d}"
-                        # Build game_id with correct game type code
-                        game_id = f"{season_code}{game_type_code}{game_no:03d}"
-
                         away_team = away_match.group(1) if away_match else ""
                         home_team = home_match.group(1) if home_match else ""
 
-                        games[game_id] = {
-                            "date": date,
-                            "home_team": home_team,
-                            "away_team": away_team,
-                        }
+                        if game_match:
+                            # Past game with game_no
+                            game_no = int(game_match.group(1))
+                            game_id = f"{season_code}{game_type_code}{game_no:03d}"
+                            games[game_id] = {
+                                "date": date,
+                                "home_team": home_team,
+                                "away_team": away_team,
+                            }
+                        elif away_team and home_team:
+                            # Future game without game_no - collect for later
+                            future_games_in_month.append(
+                                {
+                                    "date": date,
+                                    "home_team": home_team,
+                                    "away_team": away_team,
+                                }
+                            )
+
+                # Assign game numbers to future games
+                if future_games_in_month:
+                    # Find max game_no for this game type
+                    max_game_no = 0
+                    for gid in games:
+                        if gid.startswith(f"{season_code}{game_type_code}"):
+                            gno = int(gid[-3:])
+                            if gno > max_game_no:
+                                max_game_no = gno
+
+                    # Sort future games by date and assign sequential numbers
+                    future_games_in_month.sort(key=lambda x: x["date"])
+                    for fg in future_games_in_month:
+                        max_game_no += 1
+                        game_id = f"{season_code}{game_type_code}{max_game_no:03d}"
+                        # Avoid duplicates (same date+teams might already exist)
+                        if game_id not in games:
+                            games[game_id] = fg
 
             except Exception as e:
                 logger.warning(f"Failed to fetch schedule for {ym} (gun={gun}): {e}")
