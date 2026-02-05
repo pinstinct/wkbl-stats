@@ -58,12 +58,11 @@
 - `getRecentGames()` - 최근 완료 경기 조회
 - `getNextGame()` - 다음 경기 조회
 - `getTeamRoster()` - 팀 로스터 + 시즌 스탯 조회
-- `saveGamePredictions()` - 예측 저장 (localStorage)
-- `getGamePredictions()` - 예측 조회
+- `getGamePredictions()` - DB에서 예측 조회
 - `hasGamePredictions()` - 예측 존재 여부 확인
 
 **src/app.js:**
-- `loadMainPage()` - 메인 예측 페이지 로드 + 예측 자동 저장
+- `loadMainPage()` - 메인 예측 페이지 로드
 - `loadGamePage()` - 박스스코어 페이지 + 예측 비교 표시
 - `generateOptimalLineup()` - PIR 기반 최적 라인업 생성
 - `getPlayerPrediction()` - 선수 스탯 예측 계산
@@ -257,6 +256,70 @@ WKBL 데이터에서는 경기별 +/- 데이터가 없으므로, 다음과 같�
 - `src/db.js`: `calculateCourtMargin()` 함수 추가
 - `src/app.js`: 코트마진 표시 로직 추가
 - `src/styles.css`: 코트마진 뱃지/표시 스타일
+
+---
+
+## Phase 5: 예측 저장 및 비교
+
+### 5.1 예측 저장 워크플로우
+
+```
+[데이터 수집 시점]
+ingest_wkbl.py --include-future
+       │
+       ├─→ 미래 경기 목록 가져오기
+       │
+       ├─→ 각 경기에 대해:
+       │     ├─→ 홈/원정 팀 로스터 조회 (get_team_players)
+       │     ├─→ 각 선수 최근 10경기 조회 (get_player_recent_games)
+       │     ├─→ PIR 기반 최적 5인 선정 (_select_optimal_lineup)
+       │     ├─→ 선수별 예측 계산 (_calculate_player_prediction)
+       │     ├─→ 팀 승률 예측 (_calculate_win_probability)
+       │     └─→ DB에 저장 (save_game_predictions)
+       │
+       └─→ game_predictions, game_team_predictions 테이블
+
+[브라우저]
+#/games/{id} 박스스코어 페이지
+       │
+       ├─→ DB에서 예측 조회 (getGamePredictions)
+       ├─→ 실제 결과와 비교
+       └─→ 예측 적중/실패 표시
+```
+
+### 5.2 예측 테이블 스키마
+
+**game_predictions** (선수별 예측):
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| game_id | TEXT | 경기 ID (FK) |
+| player_id | TEXT | 선수 ID (FK) |
+| team_id | TEXT | 팀 ID (FK) |
+| is_starter | INTEGER | 추천 선발 여부 (1=선발) |
+| predicted_pts | REAL | 예측 득점 |
+| predicted_pts_low | REAL | 예측 득점 하한 |
+| predicted_pts_high | REAL | 예측 득점 상한 |
+| predicted_reb | REAL | 예측 리바운드 |
+| predicted_ast | REAL | 예측 어시스트 |
+
+**game_team_predictions** (팀 예측):
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| game_id | TEXT | 경기 ID (FK) |
+| home_win_prob | REAL | 홈팀 승률 예측 (0-100) |
+| away_win_prob | REAL | 원정팀 승률 예측 (0-100) |
+| home_predicted_pts | REAL | 홈팀 예상 총득점 |
+| away_predicted_pts | REAL | 원정팀 예상 총득점 |
+
+### 5.3 박스스코어 예측 비교 UI
+
+- **팀 예측 비교**: 승률 예측 vs 실제 결과 (적중/실패)
+- **점수 비교**: 예상 점수 vs 실제 점수
+- **선수별 표시**:
+  - 선발 추천 선수: 파란색 "선발" 뱃지
+  - 득점 예측 범위 내: 녹색 배경
+  - 득점 예측 초과: 파란색 배경
+  - 득점 예측 미달: 빨간색 배경
 
 ---
 
