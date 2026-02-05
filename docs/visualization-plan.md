@@ -1,23 +1,72 @@
 # WKBL Stats 시각화 및 예측 기능 구현 계획
 
-## 구현 현황 (2026-02 업데이트)
+## 구현 현황 (2026-02-05 업데이트)
 
 ### 완료된 기능
+
+#### Phase 1: 시각화 강화
 - [x] 슈팅 효율 트렌드 차트 (선수 상세)
 - [x] 선수 스탯 레이더 차트 (선수 상세)
 - [x] 최근 경기 바 차트 (선수 상세)
 - [x] 팀 순위 시각화 (팀 페이지)
 - [x] 비교 페이지 Chart.js 업그레이드
-- [x] 코트마진 지표 계산 및 표시
-- [x] 일정 페이지 (`#/schedule`)
-- [x] 예측 페이지 (`#/predict`)
-- [x] **메인 홈페이지 게임 예측** (`#/`) - 최근/다음 경기 기반 라인업 추천 및 예측
+
+#### Phase 2: 경기 일정 페이지
+- [x] 일정 페이지 (`#/schedule`) - D-day 카운트다운, 예정/최근 경기
+- [x] `--include-future` 옵션으로 미래 경기 수집
+- [x] 미래 경기 파싱 (game_no 없는 경기도 캡처)
+- [x] GitHub Actions 워크플로우에 미래 경기 수집 추가
+
+#### Phase 3: 선수 활약 예측
+- [x] 예측 페이지 (`#/predict`) - 개별 선수 예측
+- [x] **메인 홈페이지 게임 예측** (`#/`)
+  - 다음 경기 기반 라인업 추천
+  - PIR 기반 최적 선발 5인 선정
+  - 선수별 예측 스탯 (PTS, REB, AST) + 신뢰 구간
+  - 팀 승률 예측
+  - 예측 방식 안내 (접이식 설명)
+
+#### Phase 4: 코트마진 지표
+- [x] 코트마진 계산 및 표시 (박스스코어)
+- [x] `getPlayerCourtMargin()`, `getPlayersCourtMargin()` 함수
+
+### 라우트 구조 변경
+| Before | After | Description |
+|--------|-------|-------------|
+| `#/` (선수 목록) | `#/` (게임 예측) | 홈페이지가 다음 경기 예측으로 변경 |
+| - | `#/players` | 선수 목록이 별도 라우트로 이동 |
 
 ### 추가된 파일/함수
-- `src/db.js`: `getPlayerCourtMargin()`, `getPlayersCourtMargin()`, `getUpcomingGames()`, `getRecentGames()`, `getNextGame()`, `getTeamRoster()`
-- `src/app.js`: `renderShootingEfficiencyChart()`, `renderPlayerRadarChart()`, `renderGameLogChart()`, `renderStandingsChart()`, `renderCompareRadarChart()`, `renderCompareBarChart()`, `calculatePrediction()`, `renderPredictTrendChart()`, `loadMainPage()`, `generateOptimalLineup()`, `getPlayerPrediction()`, `calculateTeamStrength()`, `renderLineupPlayers()`, `renderTotalStats()`
-- `src/styles.css`: 메인 예측 페이지 스타일 (`.main-prediction-*`, `.main-game-*`, `.main-lineup-*`, `.lineup-*`)
-- `docs/visualization-plan.md`: 이 문서
+
+**src/db.js:**
+- `getPlayerCourtMargin()` - 선수별 코트마진 계산
+- `getPlayersCourtMargin()` - 여러 선수 코트마진 일괄 조회
+- `getUpcomingGames()` - 예정 경기 조회
+- `getRecentGames()` - 최근 완료 경기 조회
+- `getNextGame()` - 다음 경기 조회
+- `getTeamRoster()` - 팀 로스터 + 시즌 스탯 조회
+
+**src/app.js:**
+- `loadMainPage()` - 메인 예측 페이지 로드
+- `generateOptimalLineup()` - PIR 기반 최적 라인업 생성
+- `getPlayerPrediction()` - 선수 스탯 예측 계산
+- `calculateTeamStrength()` - 팀 강도 계산 (승률 예측용)
+- `renderLineupPlayers()` - 라인업 카드 렌더링
+- `renderTotalStats()` - 팀 예상 스탯 렌더링
+- 기타 차트 함수들
+
+**tools/ingest_wkbl.py:**
+- `_fetch_schedule_from_wkbl()` 수정 - 미래 경기 파싱 지원
+- `_save_future_games()` - 미래 경기 DB 저장
+
+**src/styles.css:**
+- `.main-prediction-*` - 메인 예측 페이지 스타일
+- `.main-game-*` - 경기 카드 스타일
+- `.main-lineup-*`, `.lineup-*` - 라인업 카드 스타일
+- `.prediction-explanation` - 예측 방식 안내 스타일
+
+**.github/workflows/update-data.yml:**
+- `--include-future` 옵션 추가 (매일 미래 경기 수집)
 
 ---
 
