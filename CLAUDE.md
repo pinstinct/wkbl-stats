@@ -180,6 +180,8 @@ seasons ─┐
          │
 teams ───┼──→ games ──→ player_games (per-game player stats)
          │        └──→ team_games (per-game team stats)
+         │        └──→ game_predictions (player stat predictions)
+         │        └──→ game_team_predictions (team win predictions)
          │
          └──→ team_standings (season standings)
 players ─┘
@@ -192,8 +194,12 @@ Key tables:
 - `games`: Game metadata (id=04601055, date, home/away teams, scores, game_type)
 - `player_games`: Per-game player stats (MIN, PTS, REB, AST, shooting splits)
 - `team_games`: Per-game team stats (fast_break_pts, paint_pts, two_pts, three_pts)
-- `team_standings`: Season standings (rank, wins, losses, win_pct, home/away records, streak)
+- `team_standings`: Season standings (rank, wins, losses, win_pct, home/away records, streak, last5)
+- `game_predictions`: Player stat predictions (predicted_pts/reb/ast with confidence intervals)
+- `game_team_predictions`: Team win probability predictions (home/away win_prob, predicted_pts)
 - `_meta_descriptions`: Table/column descriptions metadata
+
+**Note:** Static hosting (GitHub Pages) uses localStorage for predictions since sql.js is read-only.
 
 See `docs/data-sources.md` for detailed column definitions.
 

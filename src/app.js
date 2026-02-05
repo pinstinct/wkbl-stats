@@ -744,6 +744,71 @@
       // Render total stats
       renderTotalStats($("homeTotalStats"), homePredictions);
       renderTotalStats($("awayTotalStats"), awayPredictions);
+
+      // Save predictions to database (only for future games, not past)
+      if (!isRecentGame && state.dbInitialized && typeof WKBLDatabase !== "undefined") {
+        // Check if predictions already exist
+        if (!WKBLDatabase.hasGamePredictions(nextGame.id)) {
+          const allPredictions = [];
+
+          // Home team predictions
+          for (let i = 0; i < homeLineup.length; i++) {
+            allPredictions.push({
+              team_id: nextGame.home_team_id,
+              team_name: nextGame.home_team_name,
+              player_id: homeLineup[i].id,
+              player_name: homeLineup[i].name,
+              is_starter: true,
+              predicted_pts: homePredictions[i].pts.pred,
+              predicted_pts_low: homePredictions[i].pts.low,
+              predicted_pts_high: homePredictions[i].pts.high,
+              predicted_reb: homePredictions[i].reb.pred,
+              predicted_reb_low: homePredictions[i].reb.low,
+              predicted_reb_high: homePredictions[i].reb.high,
+              predicted_ast: homePredictions[i].ast.pred,
+              predicted_ast_low: homePredictions[i].ast.low,
+              predicted_ast_high: homePredictions[i].ast.high,
+            });
+          }
+
+          // Away team predictions
+          for (let i = 0; i < awayLineup.length; i++) {
+            allPredictions.push({
+              team_id: nextGame.away_team_id,
+              team_name: nextGame.away_team_name,
+              player_id: awayLineup[i].id,
+              player_name: awayLineup[i].name,
+              is_starter: true,
+              predicted_pts: awayPredictions[i].pts.pred,
+              predicted_pts_low: awayPredictions[i].pts.low,
+              predicted_pts_high: awayPredictions[i].pts.high,
+              predicted_reb: awayPredictions[i].reb.pred,
+              predicted_reb_low: awayPredictions[i].reb.low,
+              predicted_reb_high: awayPredictions[i].reb.high,
+              predicted_ast: awayPredictions[i].ast.pred,
+              predicted_ast_low: awayPredictions[i].ast.low,
+              predicted_ast_high: awayPredictions[i].ast.high,
+            });
+          }
+
+          // Team-level prediction
+          const homeTotalPts = homePredictions.reduce((sum, p) => sum + (p.pts.pred || 0), 0);
+          const awayTotalPts = awayPredictions.reduce((sum, p) => sum + (p.pts.pred || 0), 0);
+
+          const teamPrediction = {
+            home_team_id: nextGame.home_team_id,
+            home_team_name: nextGame.home_team_name,
+            away_team_id: nextGame.away_team_id,
+            away_team_name: nextGame.away_team_name,
+            home_win_prob: parseFloat(homeWinProb),
+            away_win_prob: parseFloat(awayWinProb),
+            home_predicted_pts: homeTotalPts,
+            away_predicted_pts: awayTotalPts,
+          };
+
+          WKBLDatabase.saveGamePredictions(nextGame.id, allPredictions, teamPrediction);
+        }
+      }
     } catch (error) {
       console.error("Error generating lineup predictions:", error);
       mainLineupGrid.style.display = "none";
@@ -1853,16 +1918,108 @@
       $("boxscoreAwayTeamName").textContent = game.away_team_name;
       $("boxscoreHomeTeamName").textContent = game.home_team_name;
 
-      // Away team stats
-      const awayBody = $("boxscoreAwayBody");
-      awayBody.innerHTML = (game.away_team_stats || []).map((p) => {
+      // Get predictions if they exist
+      let predictions = { players: [], team: null };
+      if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
+        predictions = WKBLDatabase.getGamePredictions(gameId);
+      }
+
+      // Create prediction lookup by player_id
+      const predictionMap = {};
+      for (const pred of predictions.players) {
+        predictionMap[pred.player_id] = pred;
+      }
+
+      // Render prediction summary if exists
+      const predictionSection = $("boxscorePrediction");
+      if (predictions.team && game.home_score !== null) {
+        const homeActualWin = game.home_score > game.away_score;
+        const homePredictedWin = predictions.team.home_win_prob > 50;
+        const predictionCorrect = homeActualWin === homePredictedWin;
+
+        predictionSection.innerHTML = `
+          <div class="prediction-summary">
+            <h3>예측 vs 실제</h3>
+            <div class="prediction-comparison">
+              <div class="pred-team">
+                <span class="pred-label">${game.away_team_name}</span>
+                <div class="pred-values">
+                  <span class="pred-expected">예측: ${predictions.team.away_win_prob.toFixed(0)}%</span>
+                  <span class="pred-actual ${!homeActualWin ? 'winner' : ''}">${!homeActualWin ? '승리' : '패배'}</span>
+                </div>
+              </div>
+              <div class="pred-vs">VS</div>
+              <div class="pred-team">
+                <span class="pred-label">${game.home_team_name}</span>
+                <div class="pred-values">
+                  <span class="pred-expected">예측: ${predictions.team.home_win_prob.toFixed(0)}%</span>
+                  <span class="pred-actual ${homeActualWin ? 'winner' : ''}">${homeActualWin ? '승리' : '패배'}</span>
+                </div>
+              </div>
+            </div>
+            <div class="pred-result ${predictionCorrect ? 'correct' : 'incorrect'}">
+              ${predictionCorrect ? '✓ 예측 적중' : '✗ 예측 실패'}
+            </div>
+            <div class="pred-score-comparison">
+              <div class="pred-score-item">
+                <span>예상 점수</span>
+                <span>${predictions.team.away_predicted_pts?.toFixed(0) || '-'} - ${predictions.team.home_predicted_pts?.toFixed(0) || '-'}</span>
+              </div>
+              <div class="pred-score-item">
+                <span>실제 점수</span>
+                <span>${game.away_score} - ${game.home_score}</span>
+              </div>
+            </div>
+          </div>
+        `;
+        predictionSection.style.display = "block";
+      } else if (predictions.team) {
+        // Game not played yet - show prediction only
+        predictionSection.innerHTML = `
+          <div class="prediction-summary pending">
+            <h3>경기 예측</h3>
+            <div class="prediction-comparison">
+              <div class="pred-team">
+                <span class="pred-label">${game.away_team_name}</span>
+                <span class="pred-prob">${predictions.team.away_win_prob.toFixed(0)}%</span>
+              </div>
+              <div class="pred-vs">VS</div>
+              <div class="pred-team">
+                <span class="pred-label">${game.home_team_name}</span>
+                <span class="pred-prob">${predictions.team.home_win_prob.toFixed(0)}%</span>
+              </div>
+            </div>
+          </div>
+        `;
+        predictionSection.style.display = "block";
+      } else {
+        predictionSection.style.display = "none";
+      }
+
+      // Helper function to render player row with prediction
+      function renderPlayerRow(p, isHome) {
+        const pred = predictionMap[p.player_id];
         const cmSign = p.court_margin !== null ? (p.court_margin >= 0 ? "+" : "") : "";
         const cmClass = p.court_margin !== null ? (p.court_margin >= 0 ? "stat-positive" : "stat-negative") : "";
+
+        // Calculate prediction accuracy for PTS
+        let predClass = "";
+        let predInfo = "";
+        if (pred && game.home_score !== null) {
+          const diff = p.pts - pred.predicted_pts;
+          const withinRange = p.pts >= pred.predicted_pts_low && p.pts <= pred.predicted_pts_high;
+          predClass = withinRange ? "pred-hit" : (diff > 0 ? "pred-over" : "pred-under");
+          predInfo = `예측: ${pred.predicted_pts.toFixed(1)} (${pred.predicted_pts_low.toFixed(1)}~${pred.predicted_pts_high.toFixed(1)})`;
+        }
+
         return `
-          <tr>
-            <td><a href="#/players/${p.player_id}">${p.player_name}</a></td>
+          <tr class="${pred?.is_starter ? 'starter-row' : ''}">
+            <td>
+              <a href="#/players/${p.player_id}">${p.player_name}</a>
+              ${pred?.is_starter ? '<span class="starter-badge">선발</span>' : ''}
+            </td>
             <td>${formatNumber(p.minutes, 0)}</td>
-            <td>${p.pts}</td>
+            <td class="${predClass}" title="${predInfo}">${p.pts}</td>
             <td>${p.reb}</td>
             <td>${p.ast}</td>
             <td>${p.stl}</td>
@@ -1876,32 +2033,23 @@
             <td class="hide-tablet ${cmClass}">${p.court_margin !== null ? cmSign + p.court_margin : "-"}</td>
           </tr>
         `;
-      }).join("");
+      }
+
+      // Away team stats
+      const awayBody = $("boxscoreAwayBody");
+      awayBody.innerHTML = (game.away_team_stats || []).map(p => renderPlayerRow(p, false)).join("");
 
       // Home team stats
       const homeBody = $("boxscoreHomeBody");
-      homeBody.innerHTML = (game.home_team_stats || []).map((p) => {
-        const cmSign = p.court_margin !== null ? (p.court_margin >= 0 ? "+" : "") : "";
-        const cmClass = p.court_margin !== null ? (p.court_margin >= 0 ? "stat-positive" : "stat-negative") : "";
-        return `
-          <tr>
-            <td><a href="#/players/${p.player_id}">${p.player_name}</a></td>
-            <td>${formatNumber(p.minutes, 0)}</td>
-            <td>${p.pts}</td>
-            <td>${p.reb}</td>
-            <td>${p.ast}</td>
-            <td>${p.stl}</td>
-            <td>${p.blk}</td>
-            <td class="hide-mobile">${p.tov}</td>
-            <td class="hide-mobile">${p.fgm}/${p.fga}</td>
-            <td class="hide-tablet">${p.tpm}/${p.tpa}</td>
-            <td class="hide-tablet">${p.ftm}/${p.fta}</td>
-            <td class="hide-tablet">${formatPct(p.ts_pct)}</td>
-            <td class="hide-tablet">${p.pir}</td>
-            <td class="hide-tablet ${cmClass}">${p.court_margin !== null ? cmSign + p.court_margin : "-"}</td>
-          </tr>
-        `;
-      }).join("");
+      homeBody.innerHTML = (game.home_team_stats || []).map(p => renderPlayerRow(p, true)).join("");
+
+      // Show prediction legend if predictions exist
+      const legendEl = $("boxscorePredictionLegend");
+      if (predictions.players.length > 0 && game.home_score !== null) {
+        legendEl.style.display = "block";
+      } else {
+        legendEl.style.display = "none";
+      }
 
     } catch (error) {
       console.error("Failed to load game:", error);

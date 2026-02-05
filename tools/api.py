@@ -519,7 +519,7 @@ def get_team_detail(team_id: str, season_id: str) -> Optional[dict]:
                 "home_record": f"{s['home_wins']}-{s['home_losses']}",
                 "away_record": f"{s['away_wins']}-{s['away_losses']}",
                 "streak": s["streak"],
-                "last5": s["last10"],  # Note: DB has last10 but WKBL provides last5
+                "last5": s["last5"],
             }
 
         # Recent games
@@ -719,7 +719,7 @@ def get_standings(season_id: str) -> list[dict]:
                     "home_record": f"{d['home_wins']}-{d['home_losses']}",
                     "away_record": f"{d['away_wins']}-{d['away_losses']}",
                     "streak": d["streak"],
-                    "last5": d["last10"],
+                    "last5": d["last5"],
                 }
             )
         return result

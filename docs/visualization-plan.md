@@ -30,6 +30,19 @@
 - [x] 코트마진 계산 및 표시 (박스스코어)
 - [x] `getPlayerCourtMargin()`, `getPlayersCourtMargin()` 함수
 
+#### Phase 5: 예측 저장 및 비교 (NEW)
+- [x] **예측 자동 저장** (localStorage 사용)
+  - 메인 페이지에서 미래 경기 예측 시 자동 저장
+  - 선수별: 예측 득점/리바운드/어시스트 + 신뢰 구간
+  - 팀별: 승률 예측, 예상 총득점
+- [x] **박스스코어 예측 비교** (`#/games/{id}`)
+  - 예측 vs 실제 승패 비교 (적중/실패 표시)
+  - 예상 점수 vs 실제 점수
+  - 선수별 예측 범위 내/초과/미달 색상 표시
+  - 추천 선발 선수 뱃지 표시
+- [x] DB 스키마: `game_predictions`, `game_team_predictions` 테이블 (서버용)
+- [x] `team_standings.last10` → `last5` 컬럼명 정정
+
 ### 라우트 구조 변경
 | Before | After | Description |
 |--------|-------|-------------|
@@ -45,15 +58,25 @@
 - `getRecentGames()` - 최근 완료 경기 조회
 - `getNextGame()` - 다음 경기 조회
 - `getTeamRoster()` - 팀 로스터 + 시즌 스탯 조회
+- `saveGamePredictions()` - 예측 저장 (localStorage)
+- `getGamePredictions()` - 예측 조회
+- `hasGamePredictions()` - 예측 존재 여부 확인
 
 **src/app.js:**
-- `loadMainPage()` - 메인 예측 페이지 로드
+- `loadMainPage()` - 메인 예측 페이지 로드 + 예측 자동 저장
+- `loadGamePage()` - 박스스코어 페이지 + 예측 비교 표시
 - `generateOptimalLineup()` - PIR 기반 최적 라인업 생성
 - `getPlayerPrediction()` - 선수 스탯 예측 계산
 - `calculateTeamStrength()` - 팀 강도 계산 (승률 예측용)
 - `renderLineupPlayers()` - 라인업 카드 렌더링
 - `renderTotalStats()` - 팀 예상 스탯 렌더링
 - 기타 차트 함수들
+
+**tools/database.py:**
+- `game_predictions` 테이블 - 선수별 예측 스탯
+- `game_team_predictions` 테이블 - 팀 승률 예측
+- `save_game_predictions()` - 예측 저장 함수
+- `get_game_predictions()` - 예측 조회 함수
 
 **tools/ingest_wkbl.py:**
 - `_fetch_schedule_from_wkbl()` 수정 - 미래 경기 파싱 지원
@@ -64,6 +87,14 @@
 - `.main-game-*` - 경기 카드 스타일
 - `.main-lineup-*`, `.lineup-*` - 라인업 카드 스타일
 - `.prediction-explanation` - 예측 방식 안내 스타일
+- `.boxscore-prediction` - 박스스코어 예측 비교 섹션
+- `.prediction-legend` - 예측 범례 스타일
+- `.pred-hit`, `.pred-over`, `.pred-under` - 예측 적중 색상
+- `.starter-badge` - 선발 추천 뱃지
+
+**index.html:**
+- `#boxscorePrediction` - 예측 비교 섹션
+- `#boxscorePredictionLegend` - 예측 범례
 
 **.github/workflows/update-data.yml:**
 - `--include-future` 옵션 추가 (매일 미래 경기 수집)

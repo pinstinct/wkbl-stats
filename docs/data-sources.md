@@ -324,12 +324,11 @@ players ─┘
 | `away_wins` | INTEGER | 원정 승 |
 | `away_losses` | INTEGER | 원정 패 |
 | `streak` | TEXT | 연속 기록 (예: 연3승, 연2패) |
-| `last10` | TEXT | 최근 5경기 (예: 3-2) - 데이터소스가 last5를 제공 |
+| `last5` | TEXT | 최근 5경기 (예: 3-2) |
 | `updated_at` | TEXT | 마지막 업데이트 시간 |
 
 **UNIQUE 제약:** `(season_id, team_id)`
 
-**참고:** 데이터 소스는 실제로 최근 5경기 (last5) 데이터를 제공하지만, 향후 확장을 위해 컬럼명은 `last10`으로 유지합니다.
 
 #### games (경기)
 

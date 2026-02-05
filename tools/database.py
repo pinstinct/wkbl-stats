@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS team_standings (
     away_wins INTEGER DEFAULT 0,        -- 원정 승
     away_losses INTEGER DEFAULT 0,      -- 원정 패
     streak TEXT,                        -- 연속 기록 (예: 'W3', 'L2')
-    last10 TEXT,                        -- 최근 10경기 (예: '7-3')
+    last5 TEXT,                         -- 최근 5경기 (예: '3-2')
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (season_id) REFERENCES seasons(id),
     FOREIGN KEY (team_id) REFERENCES teams(id),
@@ -159,6 +159,45 @@ CREATE INDEX IF NOT EXISTS idx_games_season ON games(season_id);
 CREATE INDEX IF NOT EXISTS idx_games_date ON games(game_date);
 CREATE INDEX IF NOT EXISTS idx_team_games_game ON team_games(game_id);
 CREATE INDEX IF NOT EXISTS idx_team_standings_season ON team_standings(season_id);
+
+-- 경기 예측 테이블
+CREATE TABLE IF NOT EXISTS game_predictions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id TEXT NOT NULL,
+    team_id TEXT NOT NULL,
+    player_id TEXT NOT NULL,
+    is_starter INTEGER DEFAULT 0,       -- 1: 추천 선발 라인업
+    predicted_pts REAL,
+    predicted_pts_low REAL,
+    predicted_pts_high REAL,
+    predicted_reb REAL,
+    predicted_reb_low REAL,
+    predicted_reb_high REAL,
+    predicted_ast REAL,
+    predicted_ast_low REAL,
+    predicted_ast_high REAL,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (game_id) REFERENCES games(id),
+    FOREIGN KEY (player_id) REFERENCES players(id),
+    FOREIGN KEY (team_id) REFERENCES teams(id),
+    UNIQUE (game_id, player_id)
+);
+
+-- 팀별 경기 예측 (승률 등)
+CREATE TABLE IF NOT EXISTS game_team_predictions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id TEXT NOT NULL,
+    home_win_prob REAL,                 -- 홈팀 승률 예측 (0-100)
+    away_win_prob REAL,                 -- 원정팀 승률 예측 (0-100)
+    home_predicted_pts REAL,            -- 홈팀 예상 총득점
+    away_predicted_pts REAL,            -- 원정팀 예상 총득점
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (game_id) REFERENCES games(id),
+    UNIQUE (game_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_game_predictions_game ON game_predictions(game_id);
+CREATE INDEX IF NOT EXISTS idx_game_team_predictions_game ON game_team_predictions(game_id);
 
 -- 메타데이터 테이블 (테이블/컬럼 설명)
 CREATE TABLE IF NOT EXISTS _meta_descriptions (
@@ -262,7 +301,19 @@ META_DESCRIPTIONS = [
     ("team_standings", "away_wins", "원정 승"),
     ("team_standings", "away_losses", "원정 패"),
     ("team_standings", "streak", "연속 기록 (예: W3, L2)"),
-    ("team_standings", "last10", "최근 10경기 (예: 7-3)"),
+    ("team_standings", "last5", "최근 5경기 (예: 3-2)"),
+    # game_predictions 테이블
+    ("game_predictions", "", "경기별 선수 스탯 예측"),
+    ("game_predictions", "game_id", "경기 ID"),
+    ("game_predictions", "player_id", "선수 ID"),
+    ("game_predictions", "is_starter", "추천 선발 여부 (1=선발)"),
+    ("game_predictions", "predicted_pts", "예측 득점"),
+    ("game_predictions", "predicted_reb", "예측 리바운드"),
+    ("game_predictions", "predicted_ast", "예측 어시스트"),
+    # game_team_predictions 테이블
+    ("game_team_predictions", "", "경기별 팀 승률 예측"),
+    ("game_team_predictions", "home_win_prob", "홈팀 승률 예측 (0-100)"),
+    ("game_team_predictions", "away_win_prob", "원정팀 승률 예측 (0-100)"),
 ]
 
 # WKBL 팀 마스터 데이터
@@ -669,7 +720,7 @@ def insert_team_standing(season_id: str, team_id: str, standing: Dict[str, Any])
             """INSERT OR REPLACE INTO team_standings
                (season_id, team_id, rank, games_played, wins, losses, win_pct,
                 games_behind, home_wins, home_losses, away_wins, away_losses,
-                streak, last10, updated_at)
+                streak, last5, updated_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
             (
                 season_id,
@@ -685,7 +736,7 @@ def insert_team_standing(season_id: str, team_id: str, standing: Dict[str, Any])
                 standing.get("away_wins", 0),
                 standing.get("away_losses", 0),
                 standing.get("streak"),
-                standing.get("last10"),
+                standing.get("last5"),
             ),
         )
         conn.commit()
@@ -704,7 +755,7 @@ def bulk_insert_team_standings(season_id: str, standings: List[Dict[str, Any]]):
                 """INSERT OR REPLACE INTO team_standings
                    (season_id, team_id, rank, games_played, wins, losses, win_pct,
                     games_behind, home_wins, home_losses, away_wins, away_losses,
-                    streak, last10, updated_at)
+                    streak, last5, updated_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
                 (
                     season_id,
@@ -720,7 +771,7 @@ def bulk_insert_team_standings(season_id: str, standings: List[Dict[str, Any]]):
                     standing.get("away_wins", 0),
                     standing.get("away_losses", 0),
                     standing.get("streak"),
-                    standing.get("last10"),
+                    standing.get("last5"),
                 ),
             )
         conn.commit()
@@ -797,6 +848,117 @@ def get_all_descriptions() -> Dict[str, Dict]:
             result[table]["columns"][row["column_name"]] = row["description"]
 
     return result
+
+
+def save_game_predictions(
+    game_id: str,
+    predictions: List[Dict[str, Any]],
+    team_prediction: Optional[Dict[str, Any]] = None,
+):
+    """Save player predictions for a game.
+
+    Args:
+        game_id: Game ID
+        predictions: List of player prediction dicts with:
+            - player_id, team_id, is_starter
+            - predicted_pts, predicted_pts_low, predicted_pts_high
+            - predicted_reb, predicted_reb_low, predicted_reb_high
+            - predicted_ast, predicted_ast_low, predicted_ast_high
+        team_prediction: Optional dict with:
+            - home_win_prob, away_win_prob
+            - home_predicted_pts, away_predicted_pts
+    """
+    with get_connection() as conn:
+        # Save player predictions
+        for pred in predictions:
+            conn.execute(
+                """INSERT OR REPLACE INTO game_predictions
+                   (game_id, team_id, player_id, is_starter,
+                    predicted_pts, predicted_pts_low, predicted_pts_high,
+                    predicted_reb, predicted_reb_low, predicted_reb_high,
+                    predicted_ast, predicted_ast_low, predicted_ast_high,
+                    created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+                (
+                    game_id,
+                    pred.get("team_id"),
+                    pred.get("player_id"),
+                    pred.get("is_starter", 0),
+                    pred.get("predicted_pts"),
+                    pred.get("predicted_pts_low"),
+                    pred.get("predicted_pts_high"),
+                    pred.get("predicted_reb"),
+                    pred.get("predicted_reb_low"),
+                    pred.get("predicted_reb_high"),
+                    pred.get("predicted_ast"),
+                    pred.get("predicted_ast_low"),
+                    pred.get("predicted_ast_high"),
+                ),
+            )
+
+        # Save team prediction
+        if team_prediction:
+            conn.execute(
+                """INSERT OR REPLACE INTO game_team_predictions
+                   (game_id, home_win_prob, away_win_prob,
+                    home_predicted_pts, away_predicted_pts, created_at)
+                   VALUES (?, ?, ?, ?, ?, datetime('now'))""",
+                (
+                    game_id,
+                    team_prediction.get("home_win_prob"),
+                    team_prediction.get("away_win_prob"),
+                    team_prediction.get("home_predicted_pts"),
+                    team_prediction.get("away_predicted_pts"),
+                ),
+            )
+
+        conn.commit()
+        logger.info(f"Saved {len(predictions)} predictions for game {game_id}")
+
+
+def get_game_predictions(game_id: str) -> Dict[str, Any]:
+    """Get predictions for a game.
+
+    Args:
+        game_id: Game ID
+
+    Returns:
+        Dict with:
+        - 'players': List of player predictions with player info
+        - 'team': Team-level prediction (win prob, total pts)
+    """
+    with get_connection() as conn:
+        # Get player predictions
+        player_rows = conn.execute(
+            """SELECT gp.*, p.name as player_name, t.name as team_name, t.short_name
+               FROM game_predictions gp
+               JOIN players p ON gp.player_id = p.id
+               JOIN teams t ON gp.team_id = t.id
+               WHERE gp.game_id = ?
+               ORDER BY gp.is_starter DESC, gp.predicted_pts DESC""",
+            (game_id,),
+        ).fetchall()
+
+        # Get team prediction
+        team_row = conn.execute(
+            "SELECT * FROM game_team_predictions WHERE game_id = ?",
+            (game_id,),
+        ).fetchone()
+
+        return {
+            "players": [dict(row) for row in player_rows],
+            "team": dict(team_row) if team_row else None,
+        }
+
+
+def has_game_predictions(game_id: str) -> bool:
+    """Check if predictions exist for a game."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) as cnt FROM game_predictions WHERE game_id = ?",
+            (game_id,),
+        ).fetchone()
+        return row["cnt"] > 0
 
 
 if __name__ == "__main__":

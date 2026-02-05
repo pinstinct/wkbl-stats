@@ -1011,9 +1011,9 @@ def parse_standings_html(html, season_code):
 
         # Skip neutral record (9th cell, cells[8])
 
-        # Extract last5 (10th cell) - stored as last10 in DB - format: "3-2"
+        # Extract last5 (10th cell) - format: "3-2"
         last5_text = strip_tags(cells[9]).strip()
-        last10 = last5_text if last5_text and last5_text != "-" else None
+        last5 = last5_text if last5_text and last5_text != "-" else None
 
         # Extract streak (11th cell) - format: "연3승" or "연2패"
         streak_text = strip_tags(cells[10]).strip()
@@ -1034,7 +1034,7 @@ def parse_standings_html(html, season_code):
                 "away_wins": away_wins,
                 "away_losses": away_losses,
                 "streak": streak,
-                "last10": last10,
+                "last5": last5,
             }
         )
 

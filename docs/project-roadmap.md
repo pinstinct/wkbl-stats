@@ -78,7 +78,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 │ team_id (FK)        │         │                        │
 │ rank, wins, losses  │         │                        │
 │ home/away records   │         │                        │
-│ streak, last10      │         │                        │
+│ streak, last5       │         │                        │
 └─────────────────────┘         │                        │
                                 │                        │
         ┌───────────────────────┴────────────────────────┘
