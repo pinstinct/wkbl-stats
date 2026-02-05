@@ -362,7 +362,7 @@ uv run pre-commit run --all-files
 
 - **Playoff data unavailable**: WKBL Data Lab does not provide boxscore data for playoff games. Game IDs with type code "04" (e.g., `04604010`) return empty player records. Only regular season and all-star games have detailed statistics.
 - **All-star games**: Game number "001" is always treated as all-star regardless of type code.
-- **is_active field maintenance**: The `players.is_active` field must be updated when data is refreshed. Players who played in the current season should have `is_active=1`. If the field is incorrect, the player list will appear empty on GitHub Pages (static hosting).
+- **is_active field maintenance**: The `players.is_active` field is set by the ingest script based on WKBL's official active roster (not game records). Active players include those with no game records (injured, benched, rookies). If the field is incorrect, the player list will appear empty on GitHub Pages (static hosting).
 
 ## Notes
 

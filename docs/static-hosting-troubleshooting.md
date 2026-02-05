@@ -119,28 +119,31 @@ const SQL = await initSqlJs({
 
 ### 2. is_active 필드 수정
 
-**수정 SQL:**
-```sql
--- 모든 선수를 비활성으로 초기화
-UPDATE players SET is_active = 0;
+**중요:** `is_active` 필드는 **WKBL 공식 active roster 기준**으로 설정해야 합니다. 경기 기록이 없더라도 현역 선수(부상, 벤치, 신인 등)는 `is_active=1`이어야 합니다.
 
--- 2025-26 시즌에 경기한 선수들을 활성으로 설정
+**올바른 접근 방식:**
+```python
+# ingest_wkbl.py가 WKBL 공식 사이트의 active roster를 가져와서 설정
+# player_group=12 (현역) → is_active=1
+# player_group=11 (은퇴) → is_active=0
+# player_group=F11 (외국인/은퇴) → is_active=0
+```
+
+**잘못된 접근 방식 (사용하지 마세요):**
+```sql
+-- 경기 기록 기준으로 설정하면 부상/벤치 선수가 누락됨
 UPDATE players SET is_active = 1
-WHERE id IN (
-  SELECT DISTINCT pg.player_id
-  FROM player_games pg
-  JOIN games g ON pg.game_id = g.id
-  WHERE g.season_id = '046'
-);
+WHERE id IN (SELECT DISTINCT player_id FROM player_games ...);
+-- ❌ 이 방식은 경기 출전 기록 없는 현역 선수를 놓침
 ```
 
 **수정 후 데이터 상태:**
 ```sql
 SELECT is_active, COUNT(*) FROM players GROUP BY is_active;
--- 0|93
--- 1|83
+-- 0|75  (은퇴/외국인 선수)
+-- 1|101 (WKBL 공식 현역 선수)
 
--- 2025-26 시즌 경기한 활성 선수: 83명
+-- 현역 선수 중 2025-26 시즌 경기 없는 선수: 18명 (부상/벤치 등)
 ```
 
 ## 디버깅 과정
@@ -211,15 +214,21 @@ async function fetchPlayers(season) {
 
 1. **ingest 스크립트 실행 후 is_active 확인**
    ```bash
+   # 현역 선수 수 확인 (WKBL 공식 roster와 일치해야 함, 약 100명 내외)
+   sqlite3 data/wkbl.db "SELECT COUNT(*) FROM players WHERE is_active = 1;"
+
+   # 현역이지만 아직 경기 출전 없는 선수 확인 (존재할 수 있음 - 정상)
    sqlite3 data/wkbl.db "
-     SELECT COUNT(*) FROM players p
+     SELECT p.name, p.team_id FROM players p
      WHERE p.is_active = 1
-     AND EXISTS (
+     AND NOT EXISTS (
        SELECT 1 FROM player_games pg
        JOIN games g ON pg.game_id = g.id
        WHERE pg.player_id = p.id AND g.season_id = '046'
      );"
    ```
+
+   **주의:** `is_active`는 WKBL 공식 roster 기준입니다. 경기 기록이 없어도 현역 선수일 수 있습니다.
 
 2. **CDN 버전 고정**
    - sql.js 버전을 명시적으로 지정 (`@1.10.3`)
