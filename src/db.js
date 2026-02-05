@@ -157,8 +157,10 @@ const WKBLDatabase = (function () {
   /**
    * Get all players with their season stats
    * Replaces: GET /api/players
+   * Includes players with gp=0 (active but no games this season)
    */
-  function getPlayers(seasonId, teamId = null, activeOnly = true) {
+  function getPlayers(seasonId, teamId = null, activeOnly = true, includeNoGames = true) {
+    // First, get players with game records
     let sql = `
       SELECT
         p.id,
@@ -208,7 +210,7 @@ const WKBLDatabase = (function () {
 
     const rows = query(sql, params);
 
-    return rows.map((d) => {
+    const players = rows.map((d) => {
       // Calculate percentages
       d.fgp = d.total_fga ? Math.round((d.total_fgm / d.total_fga) * 1000) / 1000 : 0;
       d.tpp = d.total_tpa ? Math.round((d.total_tpm / d.total_tpa) * 1000) / 1000 : 0;
@@ -219,6 +221,61 @@ const WKBLDatabase = (function () {
 
       return d;
     });
+
+    // Add players with no games this season (gp=0)
+    if (includeNoGames && activeOnly) {
+      const playerIds = new Set(players.map((p) => p.id));
+
+      let noGamesSql = `
+        SELECT
+          p.id,
+          p.name,
+          p.position as pos,
+          p.height,
+          p.is_active,
+          t.name as team,
+          t.id as team_id
+        FROM players p
+        LEFT JOIN teams t ON p.team_id = t.id
+        WHERE p.is_active = 1
+      `;
+      const noGamesParams = [];
+
+      if (teamId && teamId !== "all") {
+        noGamesSql += " AND p.team_id = ?";
+        noGamesParams.push(teamId);
+      }
+
+      const noGamesRows = query(noGamesSql, noGamesParams);
+
+      for (const p of noGamesRows) {
+        if (!playerIds.has(p.id)) {
+          players.push({
+            ...p,
+            gp: 0,
+            min: 0,
+            pts: 0,
+            reb: 0,
+            ast: 0,
+            stl: 0,
+            blk: 0,
+            tov: 0,
+            fgp: 0,
+            tpp: 0,
+            ftp: 0,
+            ts_pct: 0,
+            efg_pct: 0,
+            pir: 0,
+            ast_to: 0,
+            pts36: 0,
+            reb36: 0,
+            ast36: 0,
+          });
+        }
+      }
+    }
+
+    return players;
   }
 
   /**
@@ -540,6 +597,51 @@ const WKBLDatabase = (function () {
   }
 
   /**
+   * Get team roster with player stats for main page lineup
+   */
+  function getTeamRoster(teamId, seasonId) {
+    const rows = query(
+      `SELECT
+        p.id, p.name, p.position as pos, p.height,
+        COUNT(pg.game_id) as gp,
+        ROUND(AVG(pg.minutes), 1) as min,
+        ROUND(AVG(pg.pts), 1) as pts,
+        ROUND(AVG(pg.reb), 1) as reb,
+        ROUND(AVG(pg.ast), 1) as ast,
+        ROUND(AVG(pg.stl), 1) as stl,
+        ROUND(AVG(pg.blk), 1) as blk,
+        ROUND(AVG(pg.tov), 1) as tov,
+        SUM(pg.fgm) as total_fgm, SUM(pg.fga) as total_fga,
+        SUM(pg.tpm) as total_tpm, SUM(pg.tpa) as total_tpa,
+        SUM(pg.ftm) as total_ftm, SUM(pg.fta) as total_fta,
+        ROUND(AVG(pg.pts + pg.reb + pg.ast + pg.stl + pg.blk + (pg.fgm - pg.fga) + (pg.ftm - pg.fta) - pg.tov), 1) as pir
+      FROM players p
+      JOIN player_games pg ON p.id = pg.player_id
+      JOIN games g ON pg.game_id = g.id
+      WHERE pg.team_id = ? AND g.season_id = ?
+      GROUP BY p.id
+      ORDER BY pir DESC`,
+      [teamId, seasonId]
+    );
+
+    return rows.map(d => {
+      d.fgp = d.total_fga ? Math.round((d.total_fgm / d.total_fga) * 1000) / 1000 : 0;
+      d.tpp = d.total_tpa ? Math.round((d.total_tpm / d.total_tpa) * 1000) / 1000 : 0;
+      d.ftp = d.total_fta ? Math.round((d.total_ftm / d.total_fta) * 1000) / 1000 : 0;
+
+      // Clean up
+      delete d.total_fgm;
+      delete d.total_fga;
+      delete d.total_tpm;
+      delete d.total_tpa;
+      delete d.total_ftm;
+      delete d.total_fta;
+
+      return d;
+    });
+  }
+
+  /**
    * Get team standings for a season
    * Replaces: GET /api/seasons/{id}/standings
    */
@@ -640,6 +742,35 @@ const WKBLDatabase = (function () {
     game.away_team_stats = [];
 
     for (const d of players) {
+      // Calculate advanced stats for this game
+      const pts = d.pts || 0;
+      const fga = d.fga || 0;
+      const fta = d.fta || 0;
+      const fgm = d.fgm || 0;
+      const tpm = d.tpm || 0;
+      const ftm = d.ftm || 0;
+
+      // TS% = PTS / (2 x (FGA + 0.44 x FTA))
+      const tsa = 2 * (fga + 0.44 * fta);
+      const ts_pct = tsa > 0 ? Math.round((pts / tsa) * 1000) / 1000 : 0;
+
+      // PIR = PTS + REB + AST + STL + BLK - TO - (FGA-FGM) - (FTA-FTM)
+      const reb = d.reb || 0;
+      const ast = d.ast || 0;
+      const stl = d.stl || 0;
+      const blk = d.blk || 0;
+      const tov = d.tov || 0;
+      const pir = pts + reb + ast + stl + blk - tov - (fga - fgm) - (fta - ftm);
+
+      // Court margin for this game
+      const isHome = d.team_id === game.home_team_id;
+      const teamScore = isHome ? game.home_score : game.away_score;
+      const oppScore = isHome ? game.away_score : game.home_score;
+      const playTimeRatio = Math.min((d.minutes || 0) / 40, 1);
+      const courtMargin = teamScore && oppScore
+        ? Math.round((teamScore - oppScore) * playTimeRatio * 10) / 10
+        : null;
+
       const stat = {
         player_id: d.player_id,
         player_name: d.player_name,
@@ -658,6 +789,9 @@ const WKBLDatabase = (function () {
         tpa: d.tpa,
         ftm: d.ftm,
         fta: d.fta,
+        ts_pct: ts_pct,
+        pir: pir,
+        court_margin: courtMargin,
       };
 
       if (d.team_id === game.home_team_id) {
@@ -791,6 +925,136 @@ const WKBLDatabase = (function () {
   }
 
   // =============================================================================
+  // Schedule Functions
+  // =============================================================================
+
+  /**
+   * Get upcoming games (games with NULL scores or future dates)
+   */
+  function getUpcomingGames(seasonId, teamId = null, limit = 20) {
+    let sql = `
+      SELECT
+        g.id, g.game_date, g.home_score, g.away_score, g.game_type,
+        g.home_team_id, g.away_team_id,
+        ht.name as home_team_name, ht.short_name as home_team_short,
+        at.name as away_team_name, at.short_name as away_team_short
+      FROM games g
+      JOIN teams ht ON g.home_team_id = ht.id
+      JOIN teams at ON g.away_team_id = at.id
+      WHERE g.season_id = ?
+        AND (g.home_score IS NULL OR g.away_score IS NULL)
+    `;
+    const params = [seasonId];
+
+    if (teamId) {
+      sql += " AND (g.home_team_id = ? OR g.away_team_id = ?)";
+      params.push(teamId, teamId);
+    }
+
+    sql += " ORDER BY g.game_date ASC LIMIT ?";
+    params.push(limit);
+
+    return query(sql, params);
+  }
+
+  /**
+   * Get recent completed games
+   */
+  function getRecentGames(seasonId, teamId = null, limit = 10) {
+    let sql = `
+      SELECT
+        g.id, g.game_date, g.home_score, g.away_score, g.game_type,
+        g.home_team_id, g.away_team_id,
+        ht.name as home_team_name, ht.short_name as home_team_short,
+        at.name as away_team_name, at.short_name as away_team_short
+      FROM games g
+      JOIN teams ht ON g.home_team_id = ht.id
+      JOIN teams at ON g.away_team_id = at.id
+      WHERE g.season_id = ?
+        AND g.home_score IS NOT NULL
+        AND g.away_score IS NOT NULL
+    `;
+    const params = [seasonId];
+
+    if (teamId) {
+      sql += " AND (g.home_team_id = ? OR g.away_team_id = ?)";
+      params.push(teamId, teamId);
+    }
+
+    sql += " ORDER BY g.game_date DESC LIMIT ?";
+    params.push(limit);
+
+    return query(sql, params);
+  }
+
+  /**
+   * Get next game (closest upcoming game)
+   */
+  function getNextGame(seasonId, teamId = null) {
+    const games = getUpcomingGames(seasonId, teamId, 1);
+    return games.length > 0 ? games[0] : null;
+  }
+
+  // =============================================================================
+  // Court Margin Calculation
+  // =============================================================================
+
+  /**
+   * Calculate court margin for a player
+   * Court margin = weighted score differential based on playing time
+   * Formula: (teamScore - oppScore) * (minutes / 40) per game, averaged
+   */
+  function getPlayerCourtMargin(playerId, seasonId = null) {
+    let sql = `
+      SELECT
+        pg.minutes,
+        g.home_team_id,
+        g.away_team_id,
+        g.home_score,
+        g.away_score,
+        pg.team_id
+      FROM player_games pg
+      JOIN games g ON pg.game_id = g.id
+      WHERE pg.player_id = ?
+        AND g.home_score IS NOT NULL
+        AND g.away_score IS NOT NULL
+    `;
+    const params = [playerId];
+
+    if (seasonId) {
+      sql += " AND g.season_id = ?";
+      params.push(seasonId);
+    }
+
+    const rows = query(sql, params);
+
+    if (rows.length === 0) return null;
+
+    let totalMargin = 0;
+    for (const row of rows) {
+      const isHome = row.team_id === row.home_team_id;
+      const teamScore = isHome ? row.home_score : row.away_score;
+      const oppScore = isHome ? row.away_score : row.home_score;
+      const playTimeRatio = Math.min(row.minutes / 40, 1); // cap at 1
+      const gameMargin = (teamScore - oppScore) * playTimeRatio;
+      totalMargin += gameMargin;
+    }
+
+    return Math.round((totalMargin / rows.length) * 10) / 10;
+  }
+
+  /**
+   * Get court margin for multiple players (for comparison)
+   */
+  function getPlayersCourtMargin(playerIds, seasonId) {
+    const result = {};
+    for (const id of playerIds) {
+      result[id] = getPlayerCourtMargin(id, seasonId);
+    }
+    return result;
+  }
+
+  // =============================================================================
   // Public API
   // =============================================================================
 
@@ -809,6 +1073,7 @@ const WKBLDatabase = (function () {
     getPlayerComparison,
     getTeams,
     getTeamDetail,
+    getTeamRoster,
     getStandings,
     getGames,
     getGameBoxscore,
@@ -816,6 +1081,11 @@ const WKBLDatabase = (function () {
     getLeaders,
     getLeadersAll,
     search,
+    getPlayerCourtMargin,
+    getPlayersCourtMargin,
+    getUpcomingGames,
+    getRecentGames,
+    getNextGame,
   };
 })();
 

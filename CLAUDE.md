@@ -67,6 +67,7 @@ python3 tools/ingest_wkbl.py \
 | `--game-type {regular,playoff,all}` | Game type to collect (default: regular) |
 | `--all-seasons` | Collect all historical seasons (2020-21 ~ current) |
 | `--seasons 044 045` | Collect specific seasons by code |
+| `--include-future` | Save future (scheduled) games with NULL scores to database |
 
 ## Frontend Pages (SPA)
 
@@ -74,14 +75,17 @@ Hash-based routing system for single-page application.
 
 | URL | Page | Description |
 |-----|------|-------------|
-| `#/` | Home | Player list with filters, sorting, search |
+| `#/` | Home | Game prediction with optimal starting lineup recommendations |
+| `#/players` | Players | Player list with filters, sorting, search |
 | `#/players/{id}` | Player Detail | Career summary, season stats, trend chart, game log |
 | `#/teams` | Teams | Standings table (rank, W-L, home/away) |
 | `#/teams/{id}` | Team Detail | Roster, recent games |
 | `#/games` | Games | Game cards with scores |
-| `#/games/{id}` | Boxscore | Full box score (home/away player stats) |
+| `#/games/{id}` | Boxscore | Full box score (home/away player stats, TS%, PIR, +/-) |
 | `#/leaders` | Leaders | Top 5 in PTS/REB/AST/STL/BLK |
 | `#/compare` | Compare | Player comparison tool (up to 4 players) |
+| `#/schedule` | Schedule | Upcoming and recent games with D-day countdown |
+| `#/predict` | Predict | Individual player performance prediction |
 
 **Global Search**: Press `Ctrl+K` (or `Cmd+K` on Mac) to open global search modal.
 

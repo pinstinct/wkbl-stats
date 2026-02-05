@@ -1652,6 +1652,47 @@ def _save_to_db(
         logger.info(f"Saved {team_games_saved} team-game records to database")
 
 
+def _save_future_games(args, schedule_info, end_date, season_code):
+    """Save future games (after end_date) with NULL scores to database.
+
+    Args:
+        args: Command line arguments
+        schedule_info: Dict mapping game_id to {date, home_team, away_team}
+        end_date: Current end date (YYYYMMDD)
+        season_code: Season code (e.g., '046')
+    """
+    future_games = []
+    for game_id, info in schedule_info.items():
+        if info["date"] > end_date and info["home_team"] and info["away_team"]:
+            future_games.append((game_id, info))
+
+    if not future_games:
+        logger.info("No future games to save")
+        return
+
+    games_saved = 0
+    for game_id, info in future_games:
+        date = info["date"]
+        formatted_date = f"{date[:4]}-{date[4:6]}-{date[6:8]}" if len(date) == 8 else ""
+        home_team_id = get_team_id(info["home_team"])
+        away_team_id = get_team_id(info["away_team"])
+        game_type = parse_game_type(game_id)
+
+        database.insert_game(
+            game_id=game_id,
+            season_id=season_code,
+            game_date=formatted_date,
+            home_team_id=home_team_id,
+            away_team_id=away_team_id,
+            home_score=None,  # Future game - no score
+            away_score=None,
+            game_type=game_type,
+        )
+        games_saved += 1
+
+    logger.info(f"Saved {games_saved} future (scheduled) games to database")
+
+
 def _ingest_single_season(args, season_code, season_label, active_players, game_types):
     """Ingest data for a single season.
 
@@ -1705,6 +1746,10 @@ def _ingest_single_season(args, season_code, season_label, active_players, game_
         _save_to_db(
             args, records, team_records, active_players, game_items, schedule_info
         )
+
+    # Save future games if requested
+    if args.save_db and getattr(args, "include_future", False) and schedule_info:
+        _save_future_games(args, schedule_info, end_date, season_code)
 
     # Fetch and save standings if requested
     if getattr(args, "fetch_standings", False) and args.save_db:
@@ -1848,6 +1893,11 @@ def main():
         action="store_true",
         help="load all players (active + retired + foreign) for correct pno mapping",
     )
+    parser.add_argument(
+        "--include-future",
+        action="store_true",
+        help="also save future (scheduled) games with NULL scores to database",
+    )
 
     args = parser.parse_args()
 
@@ -1902,6 +1952,11 @@ def main():
         _save_to_db(
             args, records, team_records, active_players, game_items, schedule_info
         )
+
+    # Save future games if requested
+    if args.save_db and args.include_future and schedule_info:
+        season_code = args.selected_id[:3] if args.selected_id else "046"
+        _save_future_games(args, schedule_info, end_date, season_code)
 
     # Aggregate stats - use DB if available, otherwise use fetched records
     if args.save_db and existing_game_ids:
