@@ -562,7 +562,7 @@ const WKBLDatabase = (function () {
       };
     }
 
-    // Recent games
+    // Recent games (completed only)
     const games = query(
       `SELECT
         g.id, g.game_date, g.home_team_id, g.away_team_id,
@@ -574,6 +574,8 @@ const WKBLDatabase = (function () {
       JOIN teams at ON g.away_team_id = at.id
       WHERE g.season_id = ?
         AND (g.home_team_id = ? OR g.away_team_id = ?)
+        AND g.home_score IS NOT NULL
+        AND g.away_score IS NOT NULL
       ORDER BY g.game_date DESC
       LIMIT 10`,
       [seasonId, teamId, teamId]

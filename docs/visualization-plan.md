@@ -90,6 +90,9 @@
 - [x] **오늘 경기 예측 누락 수정**
   - `_save_future_games()`에서 `>` 조건을 `>=`로 변경
   - 오늘 예정된 경기도 예측 대상에 포함
+- [x] **팀 상세 페이지 최근 경기 필터 수정**
+  - `getTeamDetail()`에서 완료 경기만 표시 (`home_score IS NOT NULL AND away_score IS NOT NULL`)
+  - 예정 경기는 최근 경기 목록에서 제외
 
 ### 라우트 구조 변경
 | Before | After | Description |
