@@ -28,7 +28,7 @@ python3 tools/ingest_wkbl.py \
   --output data/wkbl-active.json
 ```
 
-**Full refresh** (re-fetch all games):
+**Full refresh** (re-fetch all games + future schedule):
 ```bash
 python3 tools/ingest_wkbl.py \
   --season-label 2025-26 \
@@ -36,6 +36,7 @@ python3 tools/ingest_wkbl.py \
   --save-db \
   --load-all-players \
   --force-refresh \
+  --include-future \
   --active-only \
   --output data/wkbl-active.json
 ```
@@ -49,7 +50,8 @@ python3 tools/ingest_wkbl.py \
   --all-seasons \
   --game-type all \
   --fetch-team-stats \
-  --fetch-standings
+  --fetch-standings \
+  --include-future
 ```
 
 ### Ingest Options
