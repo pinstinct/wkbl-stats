@@ -440,6 +440,82 @@ class TestPredictions:
         # Now predictions should exist
         assert database.has_game_predictions(sample_game["game_id"]) is True
 
+    def test_predictions_for_future_game(
+        self, test_db, sample_season, sample_team, sample_team2, sample_player
+    ):
+        """Test predictions work for future games (NULL scores)."""
+        import database
+
+        # Setup: create a future game with NULL scores
+        database.insert_season(**sample_season)
+        with database.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT OR REPLACE INTO teams (id, name) VALUES (?, ?)",
+                (sample_team["id"], sample_team["name"]),
+            )
+            cursor.execute(
+                "INSERT OR REPLACE INTO teams (id, name) VALUES (?, ?)",
+                (sample_team2["id"], sample_team2["name"]),
+            )
+            conn.commit()
+
+        database.insert_player(**sample_player)
+
+        # Insert future game with NULL scores
+        future_game_id = "04699001"
+        database.insert_game(
+            game_id=future_game_id,
+            season_id=sample_season["season_id"],
+            game_date="2026-12-31",
+            home_team_id=sample_team["id"],
+            away_team_id=sample_team2["id"],
+            home_score=None,  # Future game
+            away_score=None,
+            game_type="regular",
+        )
+
+        # Verify game saved with NULL scores
+        with database.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT home_score, away_score FROM games WHERE id = ?",
+                (future_game_id,),
+            )
+            row = cursor.fetchone()
+        assert row[0] is None
+        assert row[1] is None
+
+        # Save predictions for future game
+        player_predictions = [
+            {
+                "player_id": sample_player["player_id"],
+                "team_id": sample_team["id"],
+                "is_starter": 1,
+                "predicted_pts": 18.5,
+                "predicted_pts_low": 12.0,
+                "predicted_pts_high": 25.0,
+                "predicted_reb": 6.0,
+                "predicted_ast": 4.0,
+            }
+        ]
+        team_prediction = {
+            "home_win_prob": 52.5,
+            "away_win_prob": 47.5,
+            "home_predicted_pts": 68.0,
+            "away_predicted_pts": 65.0,
+        }
+        database.save_game_predictions(
+            future_game_id, player_predictions, team_prediction
+        )
+
+        # Verify predictions saved
+        result = database.get_game_predictions(future_game_id)
+        assert result["team"]["home_win_prob"] == 52.5
+        assert result["team"]["away_win_prob"] == 47.5
+        assert len(result["players"]) == 1
+        assert result["players"][0]["predicted_pts"] == 18.5
+
 
 class TestPlayerRecentGames:
     """Tests for player recent games query."""

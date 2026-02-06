@@ -69,13 +69,14 @@
   - 임시 데이터베이스 생성/정리 (`temp_db_path`, `test_db`)
   - 샘플 데이터 fixture (season, team, player, game, player_game)
   - 통합 테스트용 `populated_db` fixture
-- [x] **database.py 테스트** (`tests/test_database.py` - 27 tests)
+- [x] **database.py 테스트** (`tests/test_database.py` - 28 tests)
   - DB 초기화 및 테이블 생성
   - 시즌/선수/게임/선수경기 CRUD 작업
   - 시즌 통계 및 박스스코어 조회
   - 팀 순위 및 예측 저장/조회
   - 팀 경기 스탯 및 쿼리 함수
   - 대량 삽입 작업 (bulk operations)
+  - 미래 경기(NULL score) 예측 테스트
 - [x] **api.py 테스트** (`tests/test_api.py` - 23 tests)
   - 모든 REST API 엔드포인트 테스트
   - Health, Players, Teams, Games, Seasons
@@ -83,7 +84,12 @@
   - 에러 케이스 (404, 400, 422)
 - [x] **pre-commit hook 설정**
   - bandit에서 tests 디렉토리 제외 (`args: ["-x", "tests"]`)
-- [x] **총 50개 테스트, 모두 통과**
+- [x] **총 51개 테스트, 모두 통과**
+
+#### Phase 9: 버그 수정 (2026-02-06)
+- [x] **오늘 경기 예측 누락 수정**
+  - `_save_future_games()`에서 `>` 조건을 `>=`로 변경
+  - 오늘 예정된 경기도 예측 대상에 포함
 
 ### 라우트 구조 변경
 | Before | After | Description |

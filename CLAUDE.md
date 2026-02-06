@@ -86,10 +86,10 @@ uv run pytest tests/test_database.py -v
 uv run pytest tests/test_api.py -v
 ```
 
-**Test coverage (50 tests total):**
-- `test_database.py`: Database operations (27 tests)
+**Test coverage (51 tests total):**
+- `test_database.py`: Database operations (28 tests)
   - Database init, CRUD operations, season stats, boxscore, standings, predictions
-  - Team game operations, game queries, bulk operations
+  - Team game operations, game queries, bulk operations, future game predictions
 - `test_api.py`: REST API endpoints (23 tests)
   - Health, players, teams, games, seasons, standings, leaders, search, compare
 
