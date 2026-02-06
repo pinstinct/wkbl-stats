@@ -67,6 +67,12 @@
     return Number(value).toFixed(decimals);
   }
 
+  function formatSigned(value, decimals = 1) {
+    if (value === null || value === undefined) return "-";
+    const sign = value >= 0 ? "+" : "";
+    return sign + Number(value).toFixed(decimals);
+  }
+
   function formatDate(dateStr) {
     if (!dateStr) return "-";
     const d = new Date(dateStr);
@@ -678,6 +684,7 @@
     { key: "pts36", label: "PTS/36", format: "number", desc: "Points per 36 min" },
     { key: "reb36", label: "REB/36", format: "number", desc: "Rebounds per 36 min" },
     { key: "ast36", label: "AST/36", format: "number", desc: "Assists per 36 min" },
+    { key: "court_margin", label: "코트마진", format: "signed", desc: "Court Margin - 출전 시간 가중 득실차" },
   ];
 
   async function loadPlayersPage() {
@@ -685,11 +692,19 @@
 
     try {
       state.players = await fetchPlayers(state.currentSeason);
+      if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
+        const seasonId = state.currentSeason === "all" ? null : state.currentSeason;
+        const playerIds = state.players.map((p) => p.id);
+        const margins = WKBLDatabase.getPlayersCourtMargin(playerIds, seasonId);
+        state.players.forEach((p) => {
+          p.court_margin = margins[p.id] ?? null;
+        });
+      }
       populateTeamSelect(state.players);
       applyFilters();
     } catch (error) {
       console.error("Failed to load players:", error);
-      $("statsBody").innerHTML = `<tr><td colspan="17" style="text-align:center;color:#c00;">데이터를 불러올 수 없습니다.</td></tr>`;
+      $("statsBody").innerHTML = `<tr><td colspan="22" style="text-align:center;color:#c00;">데이터를 불러올 수 없습니다.</td></tr>`;
     }
   }
 
@@ -780,6 +795,7 @@
         <td class="hide-mobile">${formatPct(player.efg_pct)}</td>
         <td class="hide-tablet">${formatNumber(player.ast_to)}</td>
         <td class="hide-tablet">${formatNumber(player.pir)}</td>
+        <td class="hide-tablet ${player.court_margin === null || player.court_margin === undefined ? "" : (player.court_margin >= 0 ? "stat-positive" : "stat-negative")}">${formatSigned(player.court_margin)}</td>
         <td class="hide-tablet">${formatNumber(player.pts36)}</td>
         <td class="hide-tablet">${formatNumber(player.reb36)}</td>
         <td class="hide-tablet">${formatNumber(player.ast36)}</td>
@@ -808,25 +824,6 @@
 
     $("playerGp").textContent = `${player.gp}경기`;
 
-    // Court margin
-    const cmEl = $("playerCourtMargin");
-    if (cmEl) {
-      if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
-        const courtMargin = WKBLDatabase.getPlayerCourtMargin(player.id);
-        if (courtMargin !== null) {
-          const sign = courtMargin >= 0 ? "+" : "";
-          cmEl.textContent = `+/-: ${sign}${courtMargin.toFixed(1)}`;
-          cmEl.className = courtMargin >= 0 ? "stat-positive" : "stat-negative";
-        } else {
-          cmEl.textContent = "+/-: -";
-          cmEl.className = "";
-        }
-      } else {
-        cmEl.textContent = "+/-: -";
-        cmEl.className = "";
-      }
-    }
-
     const grid = $("playerStatGrid");
     grid.innerHTML = "";
 
@@ -846,8 +843,16 @@
     advancedSection.innerHTML = `<div class="stat-section-title">2차 지표</div><div class="stat-grid-inner"></div>`;
     const advancedGrid = advancedSection.querySelector(".stat-grid-inner");
     advancedStats.forEach((stat) => {
-      const value = stat.format === "pct" ? formatPct(player[stat.key]) : formatNumber(player[stat.key]);
-      advancedGrid.innerHTML += `<div class="stat-card stat-card--advanced" title="${stat.desc}"><span>${stat.label}</span><strong>${value}</strong></div>`;
+      const rawValue = player[stat.key];
+      let value;
+      if (stat.format === "pct") {
+        value = formatPct(rawValue);
+      } else if (stat.format === "signed") {
+        value = formatSigned(rawValue);
+      } else {
+        value = formatNumber(rawValue);
+      }
+      advancedGrid.innerHTML += `<div class="stat-card stat-card--advanced" data-tooltip="${stat.desc}"><span>${stat.label}</span><strong>${value}</strong></div>`;
     });
 
     grid.append(primarySection, advancedSection);
