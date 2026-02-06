@@ -1,13 +1,37 @@
 :root {
   --bg: #f4f1ea;
   --ink: #1b1c1f;
+  --ink-rgb: 27, 28, 31;
   --accent: #d94f31;
   --accent-2: #2a5d9f;
   --surface: #ffffff;
   --surface-2: #fdf7f0;
-  --line: rgba(27, 28, 31, 0.12);
-  --shadow: 0 30px 80px rgba(27, 28, 31, 0.08);
+  --line: rgba(var(--ink-rgb), 0.12);
+  --shadow: 0 30px 80px rgba(var(--ink-rgb), 0.08);
   --radius: 20px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1115;
+    --ink: #eef1f6;
+    --ink-rgb: 238, 241, 246;
+    --accent: #e8744f;
+    --accent-2: #4b7ec4;
+    --surface: #151a23;
+    --surface-2: #10151f;
+    --line: rgba(var(--ink-rgb), 0.12);
+    --shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
+  }
+
+  .bg-grid {
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(232, 116, 79, 0.12), transparent 45%),
+      radial-gradient(circle at 80% 0%, rgba(75, 126, 196, 0.15), transparent 40%),
+      linear-gradient(120deg, rgba(15, 17, 21, 0.8), transparent 50%);
+  }
 }
 
 * {
@@ -58,7 +82,7 @@ body {
 
 .brand p {
   margin: 0;
-  color: rgba(27, 28, 31, 0.7);
+  color: rgba(var(--ink-rgb), 0.7);
   font-size: clamp(13px, 2vw, 16px);
 }
 
@@ -78,7 +102,7 @@ body {
   gap: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: rgba(27, 28, 31, 0.7);
+  color: rgba(var(--ink-rgb), 0.7);
 }
 
 .control select,
@@ -131,7 +155,7 @@ body {
   display: flex;
   gap: 12px;
   margin-top: 8px;
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
   font-size: 14px;
 }
 
@@ -151,7 +175,7 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
   padding-bottom: 8px;
   border-bottom: 1px solid var(--line);
 }
@@ -188,7 +212,7 @@ body {
 .stat-card span {
   display: block;
   font-size: 10px;
-  color: rgba(27, 28, 31, 0.55);
+  color: rgba(var(--ink-rgb), 0.55);
   margin-bottom: 4px;
   font-weight: 500;
 }
@@ -300,7 +324,7 @@ body {
 
 .legend {
   font-size: 12px;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
 }
 
 .table-wrap {
@@ -329,7 +353,7 @@ body {
   cursor: pointer;
   font-size: 11px;
   font-weight: 600;
-  color: rgba(27, 28, 31, 0.7);
+  color: rgba(var(--ink-rgb), 0.7);
   text-transform: uppercase;
 }
 
@@ -355,7 +379,7 @@ body {
 
 .site-footer {
   padding: 24px clamp(16px, 6vw, 80px) 40px;
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
   font-size: 12px;
   display: flex;
   justify-content: space-between;
@@ -387,12 +411,40 @@ body {
 
 /* Responsive: Mobile (< 720px) */
 @media (max-width: 720px) {
+  .content {
+    padding: 0 12px 48px;
+    max-width: 100%;
+    overflow: visible;
+  }
+
+  .controls {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .control {
+    width: 100%;
+  }
+
   .control.search {
     grid-column: span 1;
   }
 
+  .player-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .player-meta {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    font-size: 12px;
+  }
+
   .stat-grid-inner {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .stat-card {
@@ -420,34 +472,25 @@ body {
     padding: 6px 10px;
   }
 
-  /* Prevent page horizontal overflow */
-  body {
-    overflow-x: hidden;
-  }
-
-  .content {
-    max-width: 100%;
-    overflow: hidden;
-  }
-
   /* Table section must contain the wide table */
   .table-section {
-    overflow: hidden;
-    max-width: 100%;
+    overflow: visible;
+    padding: 12px;
   }
 
-  /* Show all columns on mobile with horizontal scroll */
+  /* Hide non-essential columns on mobile */
   #statsTable .hide-mobile,
   #statsTable .hide-tablet {
-    display: table-cell !important;
+    display: table-cell;
   }
 
   /* Table horizontal scroll setup */
   .table-wrap {
     position: relative;
-    overflow-x: scroll;
+    overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
+    padding-bottom: 4px;
   }
 
   #statsTable {
@@ -467,25 +510,13 @@ body {
   /* Sticky first column (player name) */
   #statsTable th:first-child,
   #statsTable td:first-child {
-    position: sticky;
-    left: 0;
-    background: var(--surface);
-    z-index: 2;
-    min-width: 70px;
-    max-width: 90px;
-    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+    min-width: 88px;
   }
 
-  #statsTable th:first-child {
-    z-index: 3;
-  }
-
-  #statsTable tbody tr:hover td {
-    background: rgba(217, 79, 49, 0.06);
-  }
-
-  #statsTable tbody tr:hover td:first-child {
-    background: #fef6f4;
+  .detail-table {
+    min-width: 720px;
+    width: max-content;
+    white-space: nowrap;
   }
 }
 
@@ -611,7 +642,7 @@ body {
 .detail-section h3 {
   margin: 0 0 16px;
   font-size: 16px;
-  color: rgba(27, 28, 31, 0.8);
+  color: rgba(var(--ink-rgb), 0.8);
 }
 
 .detail-table {
@@ -630,7 +661,7 @@ body {
 .detail-table th {
   font-size: 11px;
   font-weight: 600;
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
   text-transform: uppercase;
   background: var(--surface-2);
 }
@@ -682,7 +713,7 @@ body {
 
 .career-stat-label {
   font-size: 11px;
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
   text-transform: uppercase;
   margin-bottom: 4px;
 }
@@ -784,7 +815,7 @@ body {
 
 .boxscore-team .team-name {
   font-size: 14px;
-  color: rgba(27, 28, 31, 0.7);
+  color: rgba(var(--ink-rgb), 0.7);
 }
 
 .boxscore-team .team-score {
@@ -801,7 +832,7 @@ body {
 
 .boxscore-vs .vs-text {
   font-size: 12px;
-  color: rgba(27, 28, 31, 0.4);
+  color: rgba(var(--ink-rgb), 0.4);
 }
 
 .boxscore-table tbody tr:first-child td {
@@ -851,7 +882,7 @@ body {
 
 .pred-expected {
   font-size: 13px;
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
 }
 
 .pred-actual {
@@ -875,7 +906,7 @@ body {
 
 .pred-vs {
   font-size: 12px;
-  color: rgba(27, 28, 31, 0.4);
+  color: rgba(var(--ink-rgb), 0.4);
   font-weight: 600;
 }
 
@@ -913,7 +944,7 @@ body {
 
 .pred-score-item span:first-child {
   font-size: 12px;
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
 }
 
 .pred-score-item span:last-child {
@@ -939,7 +970,7 @@ body {
 
 .legend-title {
   font-weight: 600;
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
 }
 
 .legend-item {
@@ -1038,7 +1069,7 @@ body {
 
 .game-card-date {
   font-size: 13px;
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
 }
 
 .game-card-matchup {
@@ -1070,7 +1101,7 @@ body {
 }
 
 .game-card-result .final {
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
 }
 
 /* =============================================================================
@@ -1093,7 +1124,7 @@ body {
 .leader-card h3 {
   margin: 0 0 16px;
   font-size: 14px;
-  color: rgba(27, 28, 31, 0.7);
+  color: rgba(var(--ink-rgb), 0.7);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -1118,7 +1149,7 @@ body {
 .leader-rank {
   width: 24px;
   font-weight: 600;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
 }
 
 .leader-item:first-child .leader-rank {
@@ -1144,7 +1175,7 @@ body {
 
 .leader-team {
   font-size: 12px;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
 }
 
 .leader-value {
@@ -1226,7 +1257,7 @@ body {
 
 .compare-suggestion-team {
   font-size: 12px;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
 }
 
 .compare-selected {
@@ -1277,7 +1308,7 @@ body {
 }
 
 .compare-btn:disabled {
-  background: rgba(27, 28, 31, 0.2);
+  background: rgba(var(--ink-rgb), 0.2);
   cursor: not-allowed;
 }
 
@@ -1322,7 +1353,7 @@ body {
 
 .compare-card-stat-label {
   font-size: 10px;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
   text-transform: uppercase;
 }
 
@@ -1360,7 +1391,7 @@ body {
 .compare-bar-label {
   font-size: 12px;
   font-weight: 600;
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
 }
 
 .compare-bar-track {
@@ -1410,12 +1441,19 @@ body {
 
   .nav-links {
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
   }
 
   .nav-link {
     padding: 8px 12px;
     font-size: 13px;
+    white-space: nowrap;
+    flex: 0 0 auto;
   }
 
   .boxscore-header {
@@ -1550,7 +1588,7 @@ body {
 }
 
 .compare-suggestion-team {
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
   font-size: 13px;
 }
 
@@ -1564,7 +1602,7 @@ body {
 }
 
 .compare-hint {
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
   font-size: 14px;
 }
 
@@ -1664,7 +1702,7 @@ body {
 .compare-player-meta {
   display: flex;
   gap: 12px;
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
   font-size: 13px;
   margin-bottom: 16px;
 }
@@ -1685,7 +1723,7 @@ body {
 .compare-stat-label {
   display: block;
   font-size: 11px;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
   font-weight: 600;
   margin-bottom: 4px;
 }
@@ -1737,7 +1775,7 @@ body {
 
 .compare-bar-name {
   font-size: 13px;
-  color: rgba(27, 28, 31, 0.7);
+  color: rgba(var(--ink-rgb), 0.7);
   text-overflow: ellipsis;
   overflow: hidden;
   white-space: nowrap;
@@ -1950,7 +1988,7 @@ body {
 .search-modal-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(27, 28, 31, 0.5);
+  background: rgba(var(--ink-rgb), 0.5);
   backdrop-filter: blur(4px);
 }
 
@@ -1975,7 +2013,7 @@ body {
 }
 
 .search-modal-input::placeholder {
-  color: rgba(27, 28, 31, 0.4);
+  color: rgba(var(--ink-rgb), 0.4);
 }
 
 .search-modal-results {
@@ -1996,7 +2034,7 @@ body {
   padding: 8px 24px;
   font-size: 11px;
   font-weight: 600;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -2044,7 +2082,7 @@ body {
 
 .search-result-meta {
   font-size: 13px;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
 }
 
 .search-modal-footer {
@@ -2053,7 +2091,7 @@ body {
   padding: 12px 24px;
   background: var(--surface-2);
   font-size: 12px;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
 }
 
 .search-modal-footer kbd {
@@ -2069,7 +2107,7 @@ body {
 .search-no-results {
   padding: 40px 24px;
   text-align: center;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
 }
 
 @media (max-width: 480px) {
@@ -2110,7 +2148,7 @@ body {
 
 .main-prediction-date {
   font-size: 14px;
-  color: rgba(27, 28, 31, 0.7);
+  color: rgba(var(--ink-rgb), 0.7);
 }
 
 .main-game-card {
@@ -2183,7 +2221,7 @@ body {
 }
 
 .main-no-game p {
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
   margin: 0 0 16px;
 }
 
@@ -2235,7 +2273,7 @@ body {
 .win-probability .prob-label {
   display: block;
   font-size: 11px;
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -2251,7 +2289,7 @@ body {
 }
 
 .prob-value.prob-low {
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
 }
 
 .lineup-players {
@@ -2313,7 +2351,7 @@ body {
 .lineup-stat .stat-label {
   display: block;
   font-size: 10px;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   margin-bottom: 2px;
@@ -2329,7 +2367,7 @@ body {
 .lineup-stat .stat-range {
   display: block;
   font-size: 10px;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
 }
 
 .lineup-total {
@@ -2341,7 +2379,7 @@ body {
   margin: 0 0 12px;
   font-size: 12px;
   font-weight: 500;
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -2358,7 +2396,7 @@ body {
 .total-stat .stat-label {
   display: block;
   font-size: 11px;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
   margin-bottom: 4px;
 }
 
@@ -2371,7 +2409,7 @@ body {
 .total-stat .stat-range {
   display: block;
   font-size: 10px;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
   margin-top: 2px;
 }
 
@@ -2391,7 +2429,7 @@ body {
 .pred-total-header {
   font-size: 12px;
   font-weight: 600;
-  color: rgba(27, 28, 31, 0.7);
+  color: rgba(var(--ink-rgb), 0.7);
   margin-bottom: 8px;
 }
 
@@ -2414,12 +2452,12 @@ body {
 
 .pred-team-label {
   font-weight: 600;
-  color: rgba(27, 28, 31, 0.7);
+  color: rgba(var(--ink-rgb), 0.7);
 }
 
 .pred-score-cell {
   text-align: center;
-  color: rgba(27, 28, 31, 0.7);
+  color: rgba(var(--ink-rgb), 0.7);
 }
 
 .prediction-explanation {
@@ -2458,7 +2496,7 @@ body {
 
 .explanation-content {
   font-size: 13px;
-  color: rgba(27, 28, 31, 0.75);
+  color: rgba(var(--ink-rgb), 0.75);
   line-height: 1.6;
 }
 
@@ -2581,7 +2619,7 @@ body {
 .schedule-section h3 {
   margin: 0 0 16px;
   font-size: 16px;
-  color: rgba(27, 28, 31, 0.8);
+  color: rgba(var(--ink-rgb), 0.8);
 }
 
 .schedule-list {
@@ -2607,7 +2645,7 @@ body {
 
 .schedule-item-date {
   font-size: 13px;
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
 }
 
 .schedule-item-matchup {
@@ -2631,7 +2669,7 @@ body {
 }
 
 .schedule-vs {
-  color: rgba(27, 28, 31, 0.4);
+  color: rgba(var(--ink-rgb), 0.4);
   font-size: 12px;
 }
 
@@ -2645,7 +2683,7 @@ body {
 .schedule-empty {
   padding: 24px;
   text-align: center;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
 }
 
 /* Schedule item with prediction */
@@ -2673,7 +2711,7 @@ body {
 
 .schedule-pred-prob .pred-label,
 .schedule-pred-score .pred-label {
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
   font-size: 10px;
   text-transform: uppercase;
 }
@@ -2715,7 +2753,7 @@ body {
 }
 
 .schedule-pred-compare .pred-expected {
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
   font-size: 11px;
 }
 
@@ -2804,7 +2842,7 @@ body {
 }
 
 .predict-suggestion-team {
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
   font-size: 13px;
 }
 
@@ -2839,7 +2877,7 @@ body {
 .predict-player-meta {
   display: flex;
   gap: 12px;
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
   font-size: 14px;
 }
 
@@ -2859,7 +2897,7 @@ body {
 
 .predict-stat-label {
   font-size: 12px;
-  color: rgba(27, 28, 31, 0.6);
+  color: rgba(var(--ink-rgb), 0.6);
   text-transform: uppercase;
   margin-bottom: 8px;
 }
@@ -2874,7 +2912,7 @@ body {
 
 .predict-stat-range {
   font-size: 14px;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
   margin-bottom: 8px;
 }
 
@@ -2897,8 +2935,8 @@ body {
 }
 
 .predict-stat-trend.stable {
-  background: rgba(27, 28, 31, 0.1);
-  color: rgba(27, 28, 31, 0.6);
+  background: rgba(var(--ink-rgb), 0.1);
+  color: rgba(var(--ink-rgb), 0.6);
 }
 
 .predict-factors-card {
@@ -2916,14 +2954,14 @@ body {
 .predict-factors-list {
   margin: 0;
   padding-left: 20px;
-  color: rgba(27, 28, 31, 0.7);
+  color: rgba(var(--ink-rgb), 0.7);
   line-height: 1.8;
 }
 
 .predict-error {
   padding: 40px;
   text-align: center;
-  color: rgba(27, 28, 31, 0.5);
+  color: rgba(var(--ink-rgb), 0.5);
 }
 
 @media (max-width: 720px) {
