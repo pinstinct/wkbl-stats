@@ -2368,6 +2368,33 @@ body {
   font-family: "Space Grotesk", sans-serif;
 }
 
+.total-stat .stat-range {
+  display: block;
+  font-size: 10px;
+  color: rgba(27, 28, 31, 0.5);
+  margin-top: 2px;
+}
+
+.pred-total-stats {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.pred-total-team {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.pred-total-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(27, 28, 31, 0.7);
+  margin-bottom: 8px;
+}
+
 .prediction-explanation {
   background: var(--surface);
   border-radius: var(--radius);

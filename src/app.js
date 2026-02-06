@@ -1652,6 +1652,80 @@
         `;
         predictionSection.style.display = "block";
       } else if (predictions.team) {
+        const buildTeamTotals = (players, teamId) => {
+          const teamPlayers = players.filter((p) => p.team_id === teamId);
+          if (teamPlayers.length === 0) return null;
+          const totals = {
+            pts: { pred: 0, low: 0, high: 0 },
+            reb: { pred: 0, low: 0, high: 0 },
+            ast: { pred: 0, low: 0, high: 0 },
+          };
+          teamPlayers.forEach((p) => {
+            totals.pts.pred += p.predicted_pts || 0;
+            totals.pts.low += p.predicted_pts_low || 0;
+            totals.pts.high += p.predicted_pts_high || 0;
+            totals.reb.pred += p.predicted_reb || 0;
+            totals.reb.low += p.predicted_reb_low || 0;
+            totals.reb.high += p.predicted_reb_high || 0;
+            totals.ast.pred += p.predicted_ast || 0;
+            totals.ast.low += p.predicted_ast_low || 0;
+            totals.ast.high += p.predicted_ast_high || 0;
+          });
+          return totals;
+        };
+
+        const formatRange = (low, high) => {
+          if (low === null || low === undefined || high === null || high === undefined) return "-";
+          return `${formatNumber(low)}~${formatNumber(high)}`;
+        };
+
+        const awayTotals = buildTeamTotals(predictions.players, game.away_team_id);
+        const homeTotals = buildTeamTotals(predictions.players, game.home_team_id);
+        const totalsHtml = awayTotals && homeTotals ? `
+          <div class="pred-total-stats">
+            <div class="pred-total-team">
+              <div class="pred-total-header">${game.away_team_name}</div>
+              <div class="lineup-total-stats">
+                <div class="total-stat">
+                  <span class="stat-label">총 득점</span>
+                  <span class="stat-value">${formatNumber(awayTotals.pts.pred)}</span>
+                  <span class="stat-range">${formatRange(awayTotals.pts.low, awayTotals.pts.high)}</span>
+                </div>
+                <div class="total-stat">
+                  <span class="stat-label">총 리바운드</span>
+                  <span class="stat-value">${formatNumber(awayTotals.reb.pred)}</span>
+                  <span class="stat-range">${formatRange(awayTotals.reb.low, awayTotals.reb.high)}</span>
+                </div>
+                <div class="total-stat">
+                  <span class="stat-label">총 어시스트</span>
+                  <span class="stat-value">${formatNumber(awayTotals.ast.pred)}</span>
+                  <span class="stat-range">${formatRange(awayTotals.ast.low, awayTotals.ast.high)}</span>
+                </div>
+              </div>
+            </div>
+            <div class="pred-total-team">
+              <div class="pred-total-header">${game.home_team_name}</div>
+              <div class="lineup-total-stats">
+                <div class="total-stat">
+                  <span class="stat-label">총 득점</span>
+                  <span class="stat-value">${formatNumber(homeTotals.pts.pred)}</span>
+                  <span class="stat-range">${formatRange(homeTotals.pts.low, homeTotals.pts.high)}</span>
+                </div>
+                <div class="total-stat">
+                  <span class="stat-label">총 리바운드</span>
+                  <span class="stat-value">${formatNumber(homeTotals.reb.pred)}</span>
+                  <span class="stat-range">${formatRange(homeTotals.reb.low, homeTotals.reb.high)}</span>
+                </div>
+                <div class="total-stat">
+                  <span class="stat-label">총 어시스트</span>
+                  <span class="stat-value">${formatNumber(homeTotals.ast.pred)}</span>
+                  <span class="stat-range">${formatRange(homeTotals.ast.low, homeTotals.ast.high)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ` : "";
+
         // Game not played yet - show prediction only
         const awayPredPts = predictions.team.away_predicted_pts?.toFixed(0) || "-";
         const homePredPts = predictions.team.home_predicted_pts?.toFixed(0) || "-";
@@ -1675,6 +1749,7 @@
                 <span>${awayPredPts} - ${homePredPts}</span>
               </div>
             </div>
+            ${totalsHtml}
           </div>
         `;
         predictionSection.style.display = "block";

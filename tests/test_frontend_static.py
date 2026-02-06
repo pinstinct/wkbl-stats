@@ -23,3 +23,8 @@ def test_advanced_stats_includes_court_margin():
 def test_advanced_stats_use_tooltips():
     app_js = (ROOT / "src" / "app.js").read_text(encoding="utf-8")
     assert 'stat-card--advanced" data-tooltip=' in app_js
+
+
+def test_schedule_game_prediction_totals_markup():
+    app_js = (ROOT / "src" / "app.js").read_text(encoding="utf-8")
+    assert "pred-total-stats" in app_js
