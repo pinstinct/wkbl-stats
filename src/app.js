@@ -6,9 +6,7 @@
   // =============================================================================
 
   const CONFIG = {
-    apiBase: "/api",
     dataPath: "./data/wkbl-active.json",
-    fallbackPath: "./data/sample.json",
     debounceDelay: 150,
     defaultSeason: "046",
   };
@@ -40,8 +38,6 @@
     players: [],
     filtered: [],
     sort: { key: "pts", dir: "desc" },
-    useApi: true, // Try API first, fallback to local DB, then JSON
-    useLocalDb: false, // Use sql.js local database
     dbInitialized: false,
     // Compare page state
     compareSelectedPlayers: [],
@@ -109,7 +105,6 @@
     try {
       await WKBLDatabase.initDatabase();
       state.dbInitialized = true;
-      state.useLocalDb = true;
       console.log("[app.js] Local database initialized");
       return true;
     } catch (e) {
@@ -118,52 +113,16 @@
     }
   }
 
-  async function apiGet(endpoint) {
-    const res = await fetch(`${CONFIG.apiBase}${endpoint}`);
-    if (!res.ok) throw new Error(`API error: ${res.status}`);
-    return res.json();
-  }
-
   async function fetchPlayers(season) {
-    // Try local database first (for GitHub Pages)
-    if (state.useLocalDb || !state.useApi) {
-      try {
-        await initLocalDb();
-        if (state.dbInitialized) {
-          const activeOnly = season !== "all";
-          const seasonId = season === "all" ? null : season;
-          return WKBLDatabase.getPlayers(seasonId, null, activeOnly);
-        }
-      } catch (e) {
-        console.warn("Local DB failed:", e.message);
-      }
+    // Try local database (sql.js)
+    await initLocalDb();
+    if (state.dbInitialized) {
+      const activeOnly = season !== "all";
+      const seasonId = season === "all" ? null : season;
+      return WKBLDatabase.getPlayers(seasonId, null, activeOnly);
     }
 
-    // Try API
-    if (state.useApi) {
-      try {
-        const activeOnly = season !== "all";
-        const data = await apiGet(`/players?season=${season}&active_only=${activeOnly}`);
-        return data.players;
-      } catch (e) {
-        console.warn("API failed, trying local DB:", e.message);
-        state.useApi = false;
-
-        // Try local database as fallback
-        try {
-          await initLocalDb();
-          if (state.dbInitialized) {
-            const activeOnly = season !== "all";
-            const seasonId = season === "all" ? null : season;
-            return WKBLDatabase.getPlayers(seasonId, null, activeOnly);
-          }
-        } catch (dbError) {
-          console.warn("Local DB fallback failed:", dbError.message);
-        }
-      }
-    }
-
-    // Final fallback to JSON file
+    // Fallback to JSON file
     const res = await fetch(CONFIG.dataPath);
     if (!res.ok) throw new Error("Data not found");
     const data = await res.json();
@@ -171,356 +130,99 @@
   }
 
   async function fetchPlayerDetail(playerId) {
-    // Try local database first
-    if (state.useLocalDb || !state.useApi) {
-      try {
-        await initLocalDb();
-        if (state.dbInitialized) {
-          const player = WKBLDatabase.getPlayerDetail(playerId);
-          if (player) return player;
-        }
-      } catch (e) {
-        console.warn("Local DB fetchPlayerDetail failed:", e.message);
-      }
+    await initLocalDb();
+    if (state.dbInitialized) {
+      const player = WKBLDatabase.getPlayerDetail(playerId);
+      if (player) return player;
     }
-
-    // Try API
-    if (state.useApi) {
-      try {
-        return await apiGet(`/players/${playerId}`);
-      } catch (e) {
-        console.warn("API fetchPlayerDetail failed:", e.message);
-        state.useApi = false;
-        // Try local DB as fallback
-        await initLocalDb();
-        if (state.dbInitialized) {
-          return WKBLDatabase.getPlayerDetail(playerId);
-        }
-      }
-    }
-
     throw new Error("Player not found");
   }
 
   async function fetchPlayerGamelog(playerId) {
-    // Try local database first
-    if (state.useLocalDb || !state.useApi) {
-      try {
-        await initLocalDb();
-        if (state.dbInitialized) {
-          return WKBLDatabase.getPlayerGamelog(playerId);
-        }
-      } catch (e) {
-        console.warn("Local DB fetchPlayerGamelog failed:", e.message);
-      }
+    await initLocalDb();
+    if (state.dbInitialized) {
+      return WKBLDatabase.getPlayerGamelog(playerId);
     }
-
-    // Try API
-    if (state.useApi) {
-      try {
-        const data = await apiGet(`/players/${playerId}/gamelog`);
-        return data.games;
-      } catch (e) {
-        console.warn("API fetchPlayerGamelog failed:", e.message);
-        state.useApi = false;
-        await initLocalDb();
-        if (state.dbInitialized) {
-          return WKBLDatabase.getPlayerGamelog(playerId);
-        }
-      }
-    }
-
     return [];
   }
 
   async function fetchTeams() {
-    // Try local database first
-    if (state.useLocalDb || !state.useApi) {
-      try {
-        await initLocalDb();
-        if (state.dbInitialized) {
-          return { teams: WKBLDatabase.getTeams() };
-        }
-      } catch (e) {
-        console.warn("Local DB fetchTeams failed:", e.message);
-      }
+    await initLocalDb();
+    if (state.dbInitialized) {
+      return { teams: WKBLDatabase.getTeams() };
     }
-
-    // Try API
-    if (state.useApi) {
-      try {
-        return await apiGet("/teams");
-      } catch (e) {
-        console.warn("API fetchTeams failed:", e.message);
-        state.useApi = false;
-        await initLocalDb();
-        if (state.dbInitialized) {
-          return { teams: WKBLDatabase.getTeams() };
-        }
-      }
-    }
-
     return { teams: [] };
   }
 
   async function fetchStandings(season) {
-    // Try local database first
-    if (state.useLocalDb || !state.useApi) {
-      try {
-        await initLocalDb();
-        if (state.dbInitialized) {
-          const standings = WKBLDatabase.getStandings(season);
-          return {
-            season: season,
-            season_label: SEASONS[season] || season,
-            standings: standings,
-          };
-        }
-      } catch (e) {
-        console.warn("Local DB fetchStandings failed:", e.message);
-      }
+    await initLocalDb();
+    if (state.dbInitialized) {
+      const standings = WKBLDatabase.getStandings(season);
+      return {
+        season: season,
+        season_label: SEASONS[season] || season,
+        standings: standings,
+      };
     }
-
-    // Try API
-    if (state.useApi) {
-      try {
-        return await apiGet(`/seasons/${season}/standings`);
-      } catch (e) {
-        console.warn("API fetchStandings failed:", e.message);
-        state.useApi = false;
-        await initLocalDb();
-        if (state.dbInitialized) {
-          const standings = WKBLDatabase.getStandings(season);
-          return {
-            season: season,
-            season_label: SEASONS[season] || season,
-            standings: standings,
-          };
-        }
-      }
-    }
-
     return { standings: [] };
   }
 
   async function fetchTeamDetail(teamId, season) {
-    // Try local database first
-    if (state.useLocalDb || !state.useApi) {
-      try {
-        await initLocalDb();
-        if (state.dbInitialized) {
-          const team = WKBLDatabase.getTeamDetail(teamId, season);
-          if (team) return { season: season, ...team };
-        }
-      } catch (e) {
-        console.warn("Local DB fetchTeamDetail failed:", e.message);
-      }
+    await initLocalDb();
+    if (state.dbInitialized) {
+      const team = WKBLDatabase.getTeamDetail(teamId, season);
+      if (team) return { season: season, ...team };
     }
-
-    // Try API
-    if (state.useApi) {
-      try {
-        return await apiGet(`/teams/${teamId}?season=${season}`);
-      } catch (e) {
-        console.warn("API fetchTeamDetail failed:", e.message);
-        state.useApi = false;
-        await initLocalDb();
-        if (state.dbInitialized) {
-          const team = WKBLDatabase.getTeamDetail(teamId, season);
-          if (team) return { season: season, ...team };
-        }
-      }
-    }
-
     throw new Error("Team not found");
   }
 
   async function fetchGames(season) {
-    // Try local database first
-    if (state.useLocalDb || !state.useApi) {
-      try {
-        await initLocalDb();
-        if (state.dbInitialized) {
-          // Exclude future games (home_score IS NULL)
-          return WKBLDatabase.getGames(season, null, null, 50, 0, true);
-        }
-      } catch (e) {
-        console.warn("Local DB fetchGames failed:", e.message);
-      }
+    await initLocalDb();
+    if (state.dbInitialized) {
+      // Exclude future games (home_score IS NULL)
+      return WKBLDatabase.getGames(season, null, null, 50, 0, true);
     }
-
-    // Try API
-    if (state.useApi) {
-      try {
-        const data = await apiGet(`/games?season=${season}&limit=50`);
-        // Filter out future games (no scores)
-        return (data.games || []).filter(g => g.home_score !== null && g.away_score !== null);
-      } catch (e) {
-        console.warn("API fetchGames failed:", e.message);
-        state.useApi = false;
-        await initLocalDb();
-        if (state.dbInitialized) {
-          return WKBLDatabase.getGames(season, null, null, 50, 0, true);
-        }
-      }
-    }
-
     return [];
   }
 
   async function fetchGameBoxscore(gameId) {
-    // Try local database first
-    if (state.useLocalDb || !state.useApi) {
-      try {
-        await initLocalDb();
-        if (state.dbInitialized) {
-          const boxscore = WKBLDatabase.getGameBoxscore(gameId);
-          if (boxscore) return boxscore;
-        }
-      } catch (e) {
-        console.warn("Local DB fetchGameBoxscore failed:", e.message);
-      }
+    await initLocalDb();
+    if (state.dbInitialized) {
+      const boxscore = WKBLDatabase.getGameBoxscore(gameId);
+      if (boxscore) return boxscore;
     }
-
-    // Try API
-    if (state.useApi) {
-      try {
-        return await apiGet(`/games/${gameId}`);
-      } catch (e) {
-        console.warn("API fetchGameBoxscore failed:", e.message);
-        state.useApi = false;
-        await initLocalDb();
-        if (state.dbInitialized) {
-          return WKBLDatabase.getGameBoxscore(gameId);
-        }
-      }
-    }
-
     throw new Error("Game not found");
   }
 
   async function fetchLeaders(season, category, limit = 10) {
-    // Try local database first
-    if (state.useLocalDb || !state.useApi) {
-      try {
-        await initLocalDb();
-        if (state.dbInitialized) {
-          return WKBLDatabase.getLeaders(season, category, limit);
-        }
-      } catch (e) {
-        console.warn("Local DB fetchLeaders failed:", e.message);
-      }
+    await initLocalDb();
+    if (state.dbInitialized) {
+      return WKBLDatabase.getLeaders(season, category, limit);
     }
-
-    // Try API
-    if (state.useApi) {
-      try {
-        const data = await apiGet(`/leaders?season=${season}&category=${category}&limit=${limit}`);
-        return data.leaders;
-      } catch (e) {
-        console.warn("API fetchLeaders failed:", e.message);
-        state.useApi = false;
-        await initLocalDb();
-        if (state.dbInitialized) {
-          return WKBLDatabase.getLeaders(season, category, limit);
-        }
-      }
-    }
-
     return [];
   }
 
   async function fetchAllLeaders(season) {
-    // Try local database first
-    if (state.useLocalDb || !state.useApi) {
-      try {
-        await initLocalDb();
-        if (state.dbInitialized) {
-          return WKBLDatabase.getLeadersAll(season, 5);
-        }
-      } catch (e) {
-        console.warn("Local DB fetchAllLeaders failed:", e.message);
-      }
+    await initLocalDb();
+    if (state.dbInitialized) {
+      return WKBLDatabase.getLeadersAll(season, 5);
     }
-
-    // Try API
-    if (state.useApi) {
-      try {
-        const data = await apiGet(`/leaders/all?season=${season}&limit=5`);
-        return data.categories;
-      } catch (e) {
-        console.warn("API fetchAllLeaders failed:", e.message);
-        state.useApi = false;
-        await initLocalDb();
-        if (state.dbInitialized) {
-          return WKBLDatabase.getLeadersAll(season, 5);
-        }
-      }
-    }
-
     return {};
   }
 
   async function fetchSearch(query, limit = 10) {
-    // Try local database first
-    if (state.useLocalDb || !state.useApi) {
-      try {
-        await initLocalDb();
-        if (state.dbInitialized) {
-          return WKBLDatabase.search(query, limit);
-        }
-      } catch (e) {
-        console.warn("Local DB fetchSearch failed:", e.message);
-      }
+    await initLocalDb();
+    if (state.dbInitialized) {
+      return WKBLDatabase.search(query, limit);
     }
-
-    // Try API
-    if (state.useApi) {
-      try {
-        const data = await apiGet(`/search?q=${encodeURIComponent(query)}&limit=${limit}`);
-        return data;
-      } catch (e) {
-        console.warn("API fetchSearch failed:", e.message);
-        state.useApi = false;
-        await initLocalDb();
-        if (state.dbInitialized) {
-          return WKBLDatabase.search(query, limit);
-        }
-      }
-    }
-
     return { players: [], teams: [] };
   }
 
   async function fetchComparePlayers(playerIds, season) {
-    // Try local database first
-    if (state.useLocalDb || !state.useApi) {
-      try {
-        await initLocalDb();
-        if (state.dbInitialized) {
-          return WKBLDatabase.getPlayerComparison(playerIds, season);
-        }
-      } catch (e) {
-        console.warn("Local DB fetchComparePlayers failed:", e.message);
-      }
+    await initLocalDb();
+    if (state.dbInitialized) {
+      return WKBLDatabase.getPlayerComparison(playerIds, season);
     }
-
-    // Try API
-    if (state.useApi) {
-      try {
-        const ids = playerIds.join(",");
-        const data = await apiGet(`/players/compare?ids=${ids}&season=${season}`);
-        return data.players;
-      } catch (e) {
-        console.warn("API fetchComparePlayers failed:", e.message);
-        state.useApi = false;
-        await initLocalDb();
-        if (state.dbInitialized) {
-          return WKBLDatabase.getPlayerComparison(playerIds, season);
-        }
-      }
-    }
-
     return [];
   }
 
@@ -3255,26 +2957,12 @@
   // =============================================================================
 
   async function init() {
-    // Try to initialize local database first (for GitHub Pages static hosting)
-    // This will be used as fallback if API is not available
+    // Initialize local database (sql.js) for static hosting
+    // This is the primary data source for GitHub Pages
     try {
       await initLocalDb();
-      if (state.dbInitialized) {
-        // On GitHub Pages (static hosting), prefer local DB
-        // Check if we're on a static host by trying a simple API call
-        try {
-          const testRes = await fetch(`${CONFIG.apiBase}/health`, { method: "HEAD" });
-          if (!testRes.ok) {
-            state.useApi = false;
-            state.useLocalDb = true;
-          }
-        } catch (e) {
-          state.useApi = false;
-          state.useLocalDb = true;
-        }
-      }
     } catch (e) {
-      // Local database not available, will use API or JSON fallback
+      console.warn("[app.js] Local database not available, using JSON fallback");
     }
 
     initEventListeners();

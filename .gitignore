@@ -1,5 +1,6 @@
 ### Custom ###
-/data
+tools/data/
+data/cache/
 
 ### macOS ###
 # General

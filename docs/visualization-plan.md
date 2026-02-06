@@ -51,6 +51,16 @@
 - [x] **생일 표시 형식 개선** - "YYYY-MM-DD (만 XX세)"
 - [x] CLAUDE.md, README.md 문서 정리 및 최신화
 
+#### Phase 7: 코드 정리 및 리팩토링 (2026-02-06)
+- [x] **API 폴백 로직 제거** - 정적 호스팅(sql.js) 전용으로 단순화
+  - `apiBase`, `fallbackPath` CONFIG 제거
+  - `useApi`, `useLocalDb` 상태 변수 제거
+  - `apiGet()` 함수 제거
+  - HEAD /api/health 체크 제거 (405 에러 해결)
+- [x] **fetch 함수 단순화** - 모든 fetch 함수를 `initLocalDb() → WKBLDatabase → JSON` 패턴으로 통일
+- [x] **.gitignore 정리** - `tools/data/`, `data/cache/` 캐시 디렉토리 무시 추가
+- [x] **약 200줄 이상의 불필요한 코드 제거**
+
 ### 라우트 구조 변경
 | Before | After | Description |
 |--------|-------|-------------|
