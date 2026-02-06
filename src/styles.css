@@ -94,6 +94,8 @@ body {
   padding: 16px;
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  width: 100%;
+  min-width: 0;
 }
 
 .control {
@@ -103,6 +105,7 @@ body {
   font-size: 13px;
   font-weight: 600;
   color: rgba(var(--ink-rgb), 0.7);
+  min-width: 0;
 }
 
 .control select,
@@ -113,6 +116,7 @@ body {
   font-size: 14px;
   background: var(--surface-2);
   width: 100%;
+  min-width: 0;
 }
 
 .control.search {
@@ -417,6 +421,10 @@ body {
     overflow: visible;
   }
 
+  #view-players {
+    overflow: visible;
+  }
+
   .controls {
     grid-template-columns: 1fr;
     gap: 10px;
@@ -476,6 +484,11 @@ body {
   .table-section {
     overflow: visible;
     padding: 12px;
+  }
+
+  #view-players .table-section {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Hide non-essential columns on mobile */
@@ -583,6 +596,8 @@ body {
 
 .view {
   animation: fadeIn 0.2s ease;
+  width: 100%;
+  min-width: 0;
 }
 
 @keyframes fadeIn {

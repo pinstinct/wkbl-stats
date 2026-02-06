@@ -1585,6 +1585,7 @@
 
   async function loadGamePage(gameId) {
     try {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
       const game = await fetchGameBoxscore(gameId);
 
       $("boxscoreDate").textContent = formatDate(game.game_date);
