@@ -1098,13 +1098,32 @@
     if (birthEl) {
       if (player.birth_date) {
         const age = calculateAge(player.birth_date);
-        birthEl.textContent = age !== null ? `만 ${age}세` : player.birth_date;
+        birthEl.textContent = age !== null ? `${player.birth_date} (만 ${age}세)` : player.birth_date;
       } else {
         birthEl.textContent = "-";
       }
     }
 
-    $("playerGp").textContent = `${player.gp}경기 출전`;
+    $("playerGp").textContent = `${player.gp}경기`;
+
+    // Court margin
+    const cmEl = $("playerCourtMargin");
+    if (cmEl) {
+      if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
+        const courtMargin = WKBLDatabase.getPlayerCourtMargin(player.id);
+        if (courtMargin !== null) {
+          const sign = courtMargin >= 0 ? "+" : "";
+          cmEl.textContent = `+/-: ${sign}${courtMargin.toFixed(1)}`;
+          cmEl.className = courtMargin >= 0 ? "stat-positive" : "stat-negative";
+        } else {
+          cmEl.textContent = "+/-: -";
+          cmEl.className = "";
+        }
+      } else {
+        cmEl.textContent = "+/-: -";
+        cmEl.className = "";
+      }
+    }
 
     const grid = $("playerStatGrid");
     grid.innerHTML = "";
@@ -1927,6 +1946,8 @@
         predictionSection.style.display = "block";
       } else if (predictions.team) {
         // Game not played yet - show prediction only
+        const awayPredPts = predictions.team.away_predicted_pts?.toFixed(0) || "-";
+        const homePredPts = predictions.team.home_predicted_pts?.toFixed(0) || "-";
         predictionSection.innerHTML = `
           <div class="prediction-summary pending">
             <h3>경기 예측</h3>
@@ -1939,6 +1960,12 @@
               <div class="pred-team">
                 <span class="pred-label">${game.home_team_name}</span>
                 <span class="pred-prob">${predictions.team.home_win_prob.toFixed(0)}%</span>
+              </div>
+            </div>
+            <div class="pred-score-comparison">
+              <div class="pred-score-item">
+                <span>예상 점수</span>
+                <span>${awayPredPts} - ${homePredPts}</span>
               </div>
             </div>
           </div>
@@ -2534,7 +2561,7 @@
             <div class="schedule-item-date">${formatFullDate(g.game_date)}</div>
             <div class="schedule-item-matchup">
               <span class="schedule-team away">${g.away_team_short || g.away_team_name}</span>
-              <span class="schedule-vs">@</span>
+              <span class="schedule-vs">vs</span>
               <span class="schedule-team home">${g.home_team_short || g.home_team_name}</span>
             </div>
             ${predHtml}
