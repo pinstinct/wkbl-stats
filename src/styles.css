@@ -2395,6 +2395,33 @@ body {
   margin-bottom: 8px;
 }
 
+.pred-score-compare-table {
+  margin-top: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.pred-score-row {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.pred-team-label {
+  font-weight: 600;
+  color: rgba(27, 28, 31, 0.7);
+}
+
+.pred-score-cell {
+  text-align: center;
+  color: rgba(27, 28, 31, 0.7);
+}
+
 .prediction-explanation {
   background: var(--surface);
   border-radius: var(--radius);

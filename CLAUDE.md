@@ -71,6 +71,7 @@ python3 tools/ingest_wkbl.py \
 | `--seasons 044 045` | Collect specific seasons by code |
 | `--include-future` | Save future (scheduled) games with NULL scores to database |
 | `--fetch-profiles` | Fetch individual player profiles for birth_date (slower, use with --load-all-players) |
+| `--backfill-games {id...}` | Backfill predictions for specific game IDs |
 
 ### Testing
 
@@ -86,12 +87,13 @@ uv run pytest tests/test_database.py -v
 uv run pytest tests/test_api.py -v
 ```
 
-**Test coverage (51 tests total):**
+**Test coverage (53 tests total):**
 - `test_database.py`: Database operations (28 tests)
   - Database init, CRUD operations, season stats, boxscore, standings, predictions
   - Team game operations, game queries, bulk operations, future game predictions
 - `test_api.py`: REST API endpoints (23 tests)
   - Health, players, teams, games, seasons, standings, leaders, search, compare
+- `test_ingest_predictions.py`: Ingest prediction backfill (2 tests)
 
 ## Frontend Pages (SPA)
 

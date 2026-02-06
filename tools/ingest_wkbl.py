@@ -1823,6 +1823,96 @@ def _generate_predictions_for_games(games, season_code):
     logger.info(f"Generated predictions for {len(games)} games")
 
 
+def _generate_predictions_for_game_ids(game_ids):
+    """Generate and save predictions for specific game IDs.
+
+    Args:
+        game_ids: List of game_id strings
+    """
+    if not game_ids:
+        return
+
+    logger.info(f"Backfilling predictions for {len(game_ids)} games...")
+
+    for game_id in game_ids:
+        boxscore = database.get_game_boxscore(game_id)
+        if not boxscore:
+            logger.warning(f"Game not found in database: {game_id}")
+            continue
+        game = boxscore["game"]
+
+        if database.has_game_predictions(game_id):
+            logger.info(f"Predictions already exist for game {game_id}, skipping")
+            continue
+
+        season_code = game["season_id"]
+        home_team_id = game["home_team_id"]
+        away_team_id = game["away_team_id"]
+
+        all_predictions = []
+
+        for team_id, is_home in [(home_team_id, True), (away_team_id, False)]:
+            players = database.get_team_players(team_id, season_code)
+            if not players:
+                continue
+
+            lineup = _select_optimal_lineup(players[:10])
+
+            for player in lineup:
+                pred = _calculate_player_prediction(
+                    player["id"], season_code, player, is_home
+                )
+                all_predictions.append(
+                    {
+                        "player_id": player["id"],
+                        "team_id": team_id,
+                        "is_starter": 1,
+                        "predicted_pts": pred["pts"]["pred"],
+                        "predicted_pts_low": pred["pts"]["low"],
+                        "predicted_pts_high": pred["pts"]["high"],
+                        "predicted_reb": pred["reb"]["pred"],
+                        "predicted_reb_low": pred["reb"]["low"],
+                        "predicted_reb_high": pred["reb"]["high"],
+                        "predicted_ast": pred["ast"]["pred"],
+                        "predicted_ast_low": pred["ast"]["low"],
+                        "predicted_ast_high": pred["ast"]["high"],
+                    }
+                )
+
+        if not all_predictions:
+            logger.warning(f"No predictions generated for game {game_id}")
+            continue
+
+        home_preds = [p for p in all_predictions if p["team_id"] == home_team_id]
+        away_preds = [p for p in all_predictions if p["team_id"] == away_team_id]
+
+        home_total_pts = sum(p["predicted_pts"] for p in home_preds)
+        away_total_pts = sum(p["predicted_pts"] for p in away_preds)
+
+        standings = database.get_team_standings(season_code)
+        home_standing = next(
+            (s for s in standings if s["team_id"] == home_team_id), None
+        )
+        away_standing = next(
+            (s for s in standings if s["team_id"] == away_team_id), None
+        )
+
+        home_win_prob, away_win_prob = _calculate_win_probability(
+            home_preds, away_preds, home_standing, away_standing
+        )
+
+        team_prediction = {
+            "home_win_prob": home_win_prob,
+            "away_win_prob": away_win_prob,
+            "home_predicted_pts": home_total_pts,
+            "away_predicted_pts": away_total_pts,
+        }
+
+        database.save_game_predictions(game_id, all_predictions, team_prediction)
+
+    logger.info("Backfill predictions complete")
+
+
 def _select_optimal_lineup(players):
     """Select optimal 5 players considering position diversity.
 
@@ -2200,8 +2290,17 @@ def main():
         action="store_true",
         help="fetch individual player profiles for birth_date (slower, use with --load-all-players)",
     )
+    parser.add_argument(
+        "--backfill-games",
+        nargs="+",
+        help="game IDs to backfill predictions for (requires existing DB data)",
+    )
 
     args = parser.parse_args()
+
+    if args.backfill_games:
+        _generate_predictions_for_game_ids(args.backfill_games)
+        return
 
     # Handle multi-season collection mode
     if args.all_seasons or args.seasons:

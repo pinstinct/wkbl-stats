@@ -1614,6 +1614,15 @@
         const homeActualWin = game.home_score > game.away_score;
         const homePredictedWin = predictions.team.home_win_prob > 50;
         const predictionCorrect = homeActualWin === homePredictedWin;
+        const awayPredPts = predictions.team.away_predicted_pts?.toFixed(0) || "-";
+        const homePredPts = predictions.team.home_predicted_pts?.toFixed(0) || "-";
+        const awayDiff = predictions.team.away_predicted_pts !== null && predictions.team.away_predicted_pts !== undefined
+          ? Math.round((game.away_score - predictions.team.away_predicted_pts) * 10) / 10
+          : null;
+        const homeDiff = predictions.team.home_predicted_pts !== null && predictions.team.home_predicted_pts !== undefined
+          ? Math.round((game.home_score - predictions.team.home_predicted_pts) * 10) / 10
+          : null;
+        const diffClass = (diff) => diff === null ? "" : (diff >= 0 ? "stat-positive" : "stat-negative");
 
         predictionSection.innerHTML = `
           <div class="prediction-summary">
@@ -1641,11 +1650,25 @@
             <div class="pred-score-comparison">
               <div class="pred-score-item">
                 <span>예상 점수</span>
-                <span>${predictions.team.away_predicted_pts?.toFixed(0) || '-'} - ${predictions.team.home_predicted_pts?.toFixed(0) || '-'}</span>
+                <span>${awayPredPts} - ${homePredPts}</span>
               </div>
               <div class="pred-score-item">
                 <span>실제 점수</span>
                 <span>${game.away_score} - ${game.home_score}</span>
+              </div>
+            </div>
+            <div class="pred-score-compare-table">
+              <div class="pred-score-row">
+                <span class="pred-team-label">${game.away_team_name}</span>
+                <span class="pred-score-cell">예측 ${awayPredPts}</span>
+                <span class="pred-score-cell">실제 ${game.away_score}</span>
+                <span class="pred-score-cell ${diffClass(awayDiff)}">차이 ${awayDiff !== null ? formatNumber(awayDiff, 0) : "-"}</span>
+              </div>
+              <div class="pred-score-row">
+                <span class="pred-team-label">${game.home_team_name}</span>
+                <span class="pred-score-cell">예측 ${homePredPts}</span>
+                <span class="pred-score-cell">실제 ${game.home_score}</span>
+                <span class="pred-score-cell ${diffClass(homeDiff)}">차이 ${homeDiff !== null ? formatNumber(homeDiff, 0) : "-"}</span>
               </div>
             </div>
           </div>
