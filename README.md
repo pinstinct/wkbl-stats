@@ -6,14 +6,16 @@ WKBL(한국여자농구연맹) 통계를 Basketball Reference 스타일로 보�
 
 ## 주요 기능
 
+- **경기 예측** - 다음 경기 승률 예측 및 추천 선발 라인업
+- **선수 활약 예측** - 개별 선수 득점/리바운드/어시스트 예측 (신뢰 구간 포함)
+- **경기 일정** - 예정 경기 및 최근 결과, 예측 적중 여부 표시
 - 선수별 경기당 평균 스탯 조회 (2020-21 ~ 현재)
-- 선수 상세 페이지 (커리어 스탯, 시즌별 기록, 최근 경기 로그, 트렌드 차트)
-- 팀 페이지 (순위표, 로스터, 최근 경기)
-- 경기 박스스코어
+- 선수 상세 페이지 (커리어 스탯, 시즌별 기록, 트렌드 차트, 레이더 차트)
+- 팀 순위표 (승률 차트, 홈/원정 기록)
+- 경기 박스스코어 (예측 vs 실제 비교)
 - 부문별 리더보드 (득점/리바운드/어시스트/스틸/블록)
-- **선수 비교 도구** (최대 4명 비교, 바 차트 시각화)
+- **선수 비교 도구** (최대 4명 비교, 레이더/바 차트)
 - **전역 검색** (Ctrl+K 단축키, 선수/팀 통합 검색)
-- 시즌/팀/포지션 필터링 및 선수 검색
 - 반응형 디자인 (모바일/태블릿/데스크톱)
 - REST API 제공 (`/api/docs`에서 Swagger UI 확인)
 - 매일 자동 데이터 업데이트 (GitHub Actions)
@@ -22,14 +24,17 @@ WKBL(한국여자농구연맹) 통계를 Basketball Reference 스타일로 보�
 
 | URL | 페이지 | 설명 |
 |-----|--------|------|
-| `#/` | 홈 | 선수 목록 + 필터/정렬/검색 |
-| `#/players/{id}` | 선수 상세 | 커리어 요약, 시즌별 기록, 트렌드 차트, 최근 경기 |
-| `#/teams` | 팀 순위 | 순위표 (승률, 홈/원정, 연속기록) |
+| `#/` | 홈 | 다음 경기 예측 및 추천 라인업 |
+| `#/players` | 선수 목록 | 필터/정렬/검색, 선수 카드 |
+| `#/players/{id}` | 선수 상세 | 커리어 요약, 시즌별 기록, 트렌드/레이더 차트 |
+| `#/teams` | 팀 순위 | 순위표, 승률 차트 |
 | `#/teams/{id}` | 팀 상세 | 로스터, 최근 경기 |
-| `#/games` | 경기 목록 | 경기 카드 (날짜, 팀, 점수) |
-| `#/games/{id}` | 박스스코어 | 양팀 선수별 스탯 |
+| `#/games` | 경기 목록 | 완료된 경기 카드 |
+| `#/games/{id}` | 박스스코어 | 양팀 선수별 스탯, 예측 비교 |
+| `#/schedule` | 일정 | 예정/최근 경기, 예측 적중 여부 |
 | `#/leaders` | 리더보드 | 부문별 Top 5 |
-| `#/compare` | 선수 비교 | 최대 4명 선수 스탯 비교 |
+| `#/compare` | 선수 비교 | 최대 4명 비교, 레이더/바 차트 |
+| `#/predict` | 선수 예측 | 개별 선수 활약 예측 |
 
 ## 스탯 지표
 
@@ -93,12 +98,13 @@ Query parameters: `season`, `team`, `category`, `limit`, `offset`, `q` (검색�
 ## 데이터 수집
 
 ```bash
-# 증분 업데이트 (새 경기만)
+# 증분 업데이트 (새 경기 + 미래 일정)
 uv run python3 tools/ingest_wkbl.py \
   --season-label 2025-26 \
   --auto \
   --save-db \
   --load-all-players \
+  --include-future \
   --active-only \
   --output data/wkbl-active.json
 
@@ -109,16 +115,17 @@ uv run python3 tools/ingest_wkbl.py \
   --save-db \
   --load-all-players \
   --force-refresh \
+  --include-future \
   --active-only \
   --output data/wkbl-active.json
 ```
 
 ## 배포
 
-GitHub Pages로 정적 파일 호스팅.
+GitHub Pages로 정적 파일 호스팅 (sql.js로 브라우저에서 SQLite 쿼리 실행).
 
 - `main` 브랜치 푸시 시 자동 배포
-- 매일 오전 6시, 오후 10시 (KST) 데이터 자동 업데이트
+- 매일 오전 6시 (KST) 데이터 자동 업데이트
 
 ## 데이터 출처
 
@@ -141,11 +148,12 @@ GitHub Pages로 정적 파일 호스팅.
 ```
 .
 ├── index.html              # SPA 메인 페이지 (모든 뷰 템플릿)
-├── server.py               # FastAPI 서버
+├── server.py               # FastAPI 서버 (로컬/Render)
 ├── pyproject.toml          # 프로젝트 의존성
 ├── uv.lock                 # 의존성 잠금
 ├── src/
-│   ├── app.js              # 프론트엔드 (라우팅, API 호출, 렌더링)
+│   ├── app.js              # 프론트엔드 (라우팅, 렌더링, 차트)
+│   ├── db.js               # 브라우저 SQLite (sql.js 래퍼)
 │   └── styles.css          # 반응형 스타일
 ├── data/
 │   ├── wkbl-active.json    # 현역 선수 스탯 (자동 생성)
@@ -155,14 +163,14 @@ GitHub Pages로 정적 파일 호스팅.
 ├── tools/
 │   ├── api.py              # REST API 엔드포인트
 │   ├── config.py           # 설정 모듈
-│   ├── database.py         # SQLite 스키마
+│   ├── database.py         # SQLite 스키마 및 쿼리
 │   └── ingest_wkbl.py      # 데이터 수집 스크립트
 ├── docs/
 │   ├── data-sources.md     # 데이터 소스 문서
 │   └── project-roadmap.md  # 프로젝트 로드맵
 └── .github/workflows/
-    ├── deploy.yml          # GitHub Pages 배포
-    └── update-data.yml     # 데이터 자동 업데이트
+    ├── update-data.yml     # 일일 데이터 업데이트
+    └── update-data-full.yml # 전체 히스토리 업데이트 (수동)
 ```
 
 ## 라이선스

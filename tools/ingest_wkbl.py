@@ -2146,7 +2146,7 @@ def main():
     parser.add_argument("--cache-dir", default="data/cache", help="cache dir")
     parser.add_argument("--no-cache", action="store_true")
     parser.add_argument("--delay", type=float, default=DELAY)
-    parser.add_argument("--output", default="data/season-output.json")
+    parser.add_argument("--output", default="data/wkbl-active.json")
     parser.add_argument(
         "--active-only", action="store_true", help="include only current active players"
     )
