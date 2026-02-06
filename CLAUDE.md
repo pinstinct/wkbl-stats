@@ -86,9 +86,12 @@ uv run pytest tests/test_database.py -v
 uv run pytest tests/test_api.py -v
 ```
 
-**Test coverage:**
-- `test_database.py`: Database operations (19 tests)
-- `test_api.py`: REST API endpoints (22 tests)
+**Test coverage (50 tests total):**
+- `test_database.py`: Database operations (27 tests)
+  - Database init, CRUD operations, season stats, boxscore, standings, predictions
+  - Team game operations, game queries, bulk operations
+- `test_api.py`: REST API endpoints (23 tests)
+  - Health, players, teams, games, seasons, standings, leaders, search, compare
 
 ## Frontend Pages (SPA)
 

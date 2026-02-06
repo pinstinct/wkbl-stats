@@ -463,3 +463,187 @@ class TestPlayerRecentGames:
             "nonexistent", sample_season["season_id"], limit=10
         )
         assert len(games) == 0
+
+
+class TestTeamGameOperations:
+    """Tests for team game stats operations."""
+
+    def test_insert_team_game(self, populated_db, sample_game, sample_team):
+        """Test inserting team game stats."""
+        import database
+
+        team_stats = {
+            "fast_break": 12,
+            "paint_pts": 24,
+            "two_pts": 36,
+            "three_pts": 18,
+            "reb": 35,
+            "ast": 15,
+            "stl": 8,
+            "blk": 3,
+            "tov": 12,
+            "pf": 18,
+        }
+        database.insert_team_game(
+            sample_game["game_id"], sample_team["id"], is_home=1, stats=team_stats
+        )
+
+        with database.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT fast_break_pts, paint_pts, reb FROM team_games WHERE game_id = ? AND team_id = ?",
+                (sample_game["game_id"], sample_team["id"]),
+            )
+            row = cursor.fetchone()
+
+        assert row is not None
+        assert row[0] == 12  # fast_break_pts
+        assert row[1] == 24  # paint_pts
+        assert row[2] == 35  # reb
+
+    def test_get_team_season_stats(
+        self, populated_db, sample_game, sample_team, sample_season
+    ):
+        """Test getting team season stats."""
+        import database
+
+        # Insert team game stats first
+        team_stats = {
+            "fast_break": 10,
+            "paint_pts": 20,
+            "reb": 30,
+            "ast": 12,
+            "stl": 6,
+            "blk": 2,
+            "tov": 10,
+            "pf": 15,
+        }
+        database.insert_team_game(
+            sample_game["game_id"], sample_team["id"], is_home=1, stats=team_stats
+        )
+
+        stats = database.get_team_season_stats(
+            sample_team["id"], sample_season["season_id"]
+        )
+
+        assert stats is not None
+        assert stats["games"] == 1
+        assert stats["reb"] == 30.0
+        assert stats["ast"] == 12.0
+
+    def test_get_team_season_stats_nonexistent(self, populated_db, sample_season):
+        """Test getting team season stats for nonexistent team."""
+        import database
+
+        stats = database.get_team_season_stats(
+            "nonexistent", sample_season["season_id"]
+        )
+        assert stats is None
+
+
+class TestGameQueries:
+    """Tests for game query operations."""
+
+    def test_get_games_in_season(self, populated_db, sample_season, sample_game):
+        """Test getting all games in a season."""
+        import database
+
+        games = database.get_games_in_season(sample_season["season_id"])
+
+        assert len(games) > 0
+        game_ids = [g["id"] for g in games]
+        assert sample_game["game_id"] in game_ids
+
+        # Verify game data structure
+        game = next(g for g in games if g["id"] == sample_game["game_id"])
+        assert "home_team_name" in game
+        assert "away_team_name" in game
+        assert game["home_score"] == 75
+        assert game["away_score"] == 68
+
+    def test_get_games_in_season_empty(self, test_db):
+        """Test getting games from empty season."""
+        import database
+
+        games = database.get_games_in_season("999")
+        assert len(games) == 0
+
+    def test_get_last_game_date(self, populated_db, sample_season, sample_game):
+        """Test getting the most recent game date."""
+        import database
+
+        last_date = database.get_last_game_date(sample_season["season_id"])
+
+        assert last_date is not None
+        assert last_date == sample_game["game_date"]
+
+    def test_get_last_game_date_empty_season(self, test_db):
+        """Test getting last game date from empty season."""
+        import database
+
+        last_date = database.get_last_game_date("999")
+        assert last_date is None
+
+
+class TestBulkTeamStandings:
+    """Tests for bulk team standings operations."""
+
+    def test_bulk_insert_team_standings(
+        self, test_db, sample_season, sample_team, sample_team2
+    ):
+        """Test bulk inserting team standings."""
+        import database
+
+        # Setup
+        database.insert_season(**sample_season)
+        with database.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT OR REPLACE INTO teams (id, name) VALUES (?, ?)",
+                (sample_team["id"], sample_team["name"]),
+            )
+            cursor.execute(
+                "INSERT OR REPLACE INTO teams (id, name) VALUES (?, ?)",
+                (sample_team2["id"], sample_team2["name"]),
+            )
+            conn.commit()
+
+        standings = [
+            {
+                "team_id": sample_team["id"],
+                "rank": 1,
+                "wins": 12,
+                "losses": 3,
+                "win_pct": 0.8,
+                "games_behind": 0.0,
+                "home_wins": 7,
+                "home_losses": 1,
+                "away_wins": 5,
+                "away_losses": 2,
+            },
+            {
+                "team_id": sample_team2["id"],
+                "rank": 2,
+                "wins": 10,
+                "losses": 5,
+                "win_pct": 0.667,
+                "games_behind": 2.0,
+                "home_wins": 6,
+                "home_losses": 2,
+                "away_wins": 4,
+                "away_losses": 3,
+            },
+        ]
+        database.bulk_insert_team_standings(sample_season["season_id"], standings)
+
+        result = database.get_team_standings(sample_season["season_id"])
+
+        assert len(result) == 2
+        # Verify first team
+        team1 = next(s for s in result if s["team_id"] == sample_team["id"])
+        assert team1["rank"] == 1
+        assert team1["wins"] == 12
+        # Verify second team
+        team2 = next(s for s in result if s["team_id"] == sample_team2["id"])
+        assert team2["rank"] == 2
+        assert team2["games_behind"] == 2.0

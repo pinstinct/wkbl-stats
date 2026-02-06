@@ -61,6 +61,30 @@
 - [x] **.gitignore 정리** - `tools/data/`, `data/cache/` 캐시 디렉토리 무시 추가
 - [x] **약 200줄 이상의 불필요한 코드 제거**
 
+#### Phase 8: 테스트 코드 추가 (2026-02-06)
+- [x] **pytest 테스트 프레임워크 설정**
+  - `pyproject.toml`에 테스트 의존성 추가 (pytest, pytest-cov, httpx)
+  - 테스트 설정 구성 (testpaths, addopts)
+- [x] **공유 fixture 구현** (`tests/conftest.py`)
+  - 임시 데이터베이스 생성/정리 (`temp_db_path`, `test_db`)
+  - 샘플 데이터 fixture (season, team, player, game, player_game)
+  - 통합 테스트용 `populated_db` fixture
+- [x] **database.py 테스트** (`tests/test_database.py` - 27 tests)
+  - DB 초기화 및 테이블 생성
+  - 시즌/선수/게임/선수경기 CRUD 작업
+  - 시즌 통계 및 박스스코어 조회
+  - 팀 순위 및 예측 저장/조회
+  - 팀 경기 스탯 및 쿼리 함수
+  - 대량 삽입 작업 (bulk operations)
+- [x] **api.py 테스트** (`tests/test_api.py` - 23 tests)
+  - 모든 REST API 엔드포인트 테스트
+  - Health, Players, Teams, Games, Seasons
+  - Standings, Leaders, Search, Compare, Highlights
+  - 에러 케이스 (404, 400, 422)
+- [x] **pre-commit hook 설정**
+  - bandit에서 tests 디렉토리 제외 (`args: ["-x", "tests"]`)
+- [x] **총 50개 테스트, 모두 통과**
+
 ### 라우트 구조 변경
 | Before | After | Description |
 |--------|-------|-------------|
@@ -122,6 +146,20 @@
 
 **.github/workflows/update-data.yml:**
 - `--include-future` 옵션 추가 (매일 미래 경기 수집)
+
+**tests/conftest.py:**
+- 공유 pytest fixture 정의
+- `temp_db_path`, `test_db` - 임시 데이터베이스 관리
+- `sample_season`, `sample_team`, `sample_player` 등 샘플 데이터
+- `populated_db` - 테스트 데이터가 채워진 DB
+
+**tests/test_database.py:**
+- 27개 테스트 - database.py 함수 검증
+- DB 초기화, CRUD, 통계, 예측 등
+
+**tests/test_api.py:**
+- 23개 테스트 - REST API 엔드포인트 검증
+- FastAPI TestClient 사용
 
 ---
 

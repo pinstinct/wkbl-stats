@@ -156,12 +156,20 @@ class TestGamesEndpoint:
 class TestGameBoxscoreEndpoint:
     """Tests for /games/{id} endpoint."""
 
-    def test_get_game_boxscore(self, client, sample_game):
+    def test_get_game_boxscore(self, client, sample_game, sample_player):
         """Test getting game boxscore."""
         response = client.get(f"/games/{sample_game['game_id']}")
         assert response.status_code == 200
         data = response.json()
-        assert "id" in data or "game_id" in data or "home" in data or "away" in data
+        # Check boxscore structure - API uses home_team_stats/away_team_stats
+        assert "id" in data
+        assert data["id"] == sample_game["game_id"]
+        assert "home_team_stats" in data
+        assert "away_team_stats" in data
+        # Check player stats are included in home team
+        assert len(data["home_team_stats"]) > 0
+        player_ids = [p["player_id"] for p in data["home_team_stats"]]
+        assert sample_player["player_id"] in player_ids
 
     def test_get_game_boxscore_not_found(self, client):
         """Test getting non-existent game."""
@@ -222,13 +230,31 @@ class TestLeadersEndpoint:
         data = response.json()
         assert "leaders" in data
 
+    def test_get_leaders_different_categories(self, client, sample_season):
+        """Test getting leaders for different stat categories."""
+        categories = ["pts", "reb", "ast", "stl", "blk"]
+        for category in categories:
+            response = client.get(
+                f"/leaders?season={sample_season['season_id']}&category={category}"
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert "leaders" in data
+
     def test_get_leaders_all_categories(self, client, sample_season):
         """Test getting leaders for all categories."""
         response = client.get(f"/leaders/all?season={sample_season['season_id']}")
         assert response.status_code == 200
         data = response.json()
-        # Should have multiple categories
+        # Should have categories wrapper
         assert isinstance(data, dict)
+        assert "categories" in data
+        # Check expected categories exist inside categories
+        categories = data["categories"]
+        expected_keys = ["pts", "reb", "ast", "stl", "blk"]
+        for key in expected_keys:
+            assert key in categories, f"Missing category: {key}"
+            assert isinstance(categories[key], list)
 
 
 class TestSearchEndpoint:
