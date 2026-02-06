@@ -72,6 +72,24 @@ python3 tools/ingest_wkbl.py \
 | `--include-future` | Save future (scheduled) games with NULL scores to database |
 | `--fetch-profiles` | Fetch individual player profiles for birth_date (slower, use with --load-all-players) |
 
+### Testing
+
+```bash
+# Run all tests
+uv run pytest tests/ -v
+
+# Run with coverage
+uv run pytest tests/ --cov=tools --cov-report=term-missing
+
+# Run specific test file
+uv run pytest tests/test_database.py -v
+uv run pytest tests/test_api.py -v
+```
+
+**Test coverage:**
+- `test_database.py`: Database operations (19 tests)
+- `test_api.py`: REST API endpoints (22 tests)
+
 ## Frontend Pages (SPA)
 
 Hash-based routing system for single-page application.
