@@ -123,9 +123,11 @@
     // Try local database (sql.js)
     await initLocalDb();
     if (state.dbInitialized) {
-      const activeOnly = season !== "all";
+      const isCurrentSeason = season === CONFIG.defaultSeason;
+      const activeOnly = season !== "all" && isCurrentSeason;
+      const includeNoGames = season !== "all";
       const seasonId = season === "all" ? null : season;
-      return WKBLDatabase.getPlayers(seasonId, null, activeOnly);
+      return WKBLDatabase.getPlayers(seasonId, null, activeOnly, includeNoGames);
     }
 
     // Fallback to JSON file
