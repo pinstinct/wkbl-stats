@@ -671,21 +671,27 @@ def get_games_in_season(season_id: str) -> List[Dict]:
 
 
 def get_existing_game_ids(season_id: Optional[str] = None) -> set:
-    """Get set of game IDs already in database.
+    """Get set of game IDs already in database that have scores.
+
+    Only returns games with non-NULL scores so that future games
+    (saved with NULL scores) are re-fetched when scores become available.
 
     Args:
         season_id: Optional season filter. If None, returns all game IDs.
 
     Returns:
-        Set of game_id strings that exist in the database.
+        Set of game_id strings that exist in the database with scores.
     """
     with get_connection() as conn:
         if season_id:
             rows = conn.execute(
-                "SELECT id FROM games WHERE season_id = ?", (season_id,)
+                "SELECT id FROM games WHERE season_id = ? AND home_score IS NOT NULL",
+                (season_id,),
             ).fetchall()
         else:
-            rows = conn.execute("SELECT id FROM games").fetchall()
+            rows = conn.execute(
+                "SELECT id FROM games WHERE home_score IS NOT NULL"
+            ).fetchall()
 
         return {row["id"] for row in rows}
 
