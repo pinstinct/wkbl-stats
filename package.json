@@ -1,0 +1,12 @@
+{
+  "name": "wkbl-stats-frontend-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:front": "vitest run",
+    "test:front:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8"
+  }
+}

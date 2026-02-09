@@ -75,6 +75,19 @@ uv run python3 server.py
 - Frontend: http://localhost:8000
 - API Docs: http://localhost:8000/api/docs
 
+## 테스트
+
+```bash
+# 백엔드/데이터 테스트
+uv run pytest -q
+
+# 프론트 뷰 단위 테스트 (Vitest)
+npm install
+npm run test:front
+```
+
+- 네트워크가 제한된 환경에서는 `npm install`이 실패할 수 있습니다.
+
 ## REST API
 
 | Endpoint | Description |
@@ -148,13 +161,16 @@ GitHub Pages로 정적 파일 호스팅 (sql.js로 브라우저에서 SQLite 쿼
 ```
 .
 ├── index.html              # SPA 메인 페이지 (모든 뷰 템플릿)
+├── package.json            # 프론트 테스트(vitest) 설정
 ├── server.py               # FastAPI 서버 (로컬/Render)
 ├── pyproject.toml          # 프로젝트 의존성
 ├── uv.lock                 # 의존성 잠금
 ├── src/
 │   ├── app.js              # 프론트엔드 (라우팅, 렌더링, 차트)
 │   ├── db.js               # 브라우저 SQLite (sql.js 래퍼)
-│   └── styles.css          # 반응형 스타일
+│   ├── seasons.js          # 프론트 공유 시즌 상수
+│   ├── styles.css          # 반응형 스타일
+│   └── views/              # 페이지별 렌더링 모듈
 ├── data/
 │   ├── wkbl-active.json    # 현역 선수 스탯 (자동 생성)
 │   ├── wkbl.db             # SQLite 데이터베이스

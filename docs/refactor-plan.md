@@ -6,7 +6,8 @@
 
 ## 점검 결과 요약
 
-- 테스트 상태: `uv run pytest -q` 기준 **60 passed**.
+- 테스트 상태: `uv run pytest -q` 기준 **57 passed**.
+- 프론트 테스트: Vitest 테스트 파일 추가(`src/views/*.test.js`), 현재 환경은 npm registry DNS 제한으로 실행 확인 불가.
 - 현재 병목 파일:
   - `src/app.js` 3,181 lines
   - `src/styles.css` 3,427 lines
@@ -36,7 +37,7 @@
 
 1. 시즌/설정 상수 단일화
 - 현재 시즌 맵/기본 시즌이 `src/app.js`, `src/db.js`, `tools/config.py`에 중복.
-- `src/shared/seasons.js`(프론트) + `tools/config.py`(백엔드 원본)로 소스 오브 트루스 정리.
+- `src/seasons.js`(프론트) + `tools/config.py`(백엔드 원본)로 소스 오브 트루스 정리.
 
 2. 스탯 계산 로직 공통화
 - TS%, eFG%, PIR, per36 계산이 `src/db.js`와 `tools/api.py`에 중복.
@@ -81,11 +82,13 @@
 
 ### P1 진행 현황 (2026-02-09)
 
-- 진행: `players`, `teams` 뷰 분리 1차 완료
+- 완료: `players`, `player-detail`, `teams`, `games`, `game-detail`, `schedule`, `leaders`, `compare`, `predict` 렌더링 모듈 분리
 - 추가: `src/views/players.js` (`renderPlayersTable`, `renderPlayerSummaryCard`)
+- 추가: `src/views/player-detail.js` (`renderCareerSummary`, `renderPlayerSeasonTable`, `renderPlayerGameLogTable`)
 - 추가: `src/views/teams.js` (`renderStandingsTable`, `renderTeamRoster`, `renderTeamRecentGames`)
-- 변경: `src/app.js`에서 players/teams 렌더링을 view 모듈 호출로 전환
-- 남음: `player-detail`, `games`, `game-detail`, `schedule`, `leaders`, `compare`, `predict` 순차 분리
+- 추가: `src/views/games.js`, `src/views/game-detail.js`, `src/views/schedule.js`, `src/views/leaders.js`, `src/views/compare.js`, `src/views/predict.js`
+- 변경: `src/app.js`에서 각 페이지 렌더링을 view 모듈 호출로 전환
+- 남음: `home` 렌더링 분리(선택), 데이터 접근 레이어 분리(`src/data/*`), 이벤트 바인딩 `mount/unmount`화
 
 ### P2 (CSS 유지보수성)
 
@@ -116,6 +119,7 @@
 11. 프론트 순수 함수 테스트 추가
 - 대상: 포맷 함수, 정렬/필터 함수, 예측 배지/상태 판정 로직.
 - DOM 결합 전 로직을 함수화해서 단위 테스트 가능하게 정리.
+- 진행: Vitest 테스트 베이스 및 view 모듈 단위 테스트 추가
 
 12. 회귀 체크리스트 갱신
 - 최근 발생했던 모바일 고정열/오버플로우 케이스를 체크리스트에 추가.

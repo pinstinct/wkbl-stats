@@ -4,6 +4,30 @@ import {
   renderTeamRecentGames,
   renderTeamRoster,
 } from "./views/teams.js";
+import { renderLeadersGrid } from "./views/leaders.js";
+import { renderGamesList } from "./views/games.js";
+import {
+  renderNextGameHighlight,
+  renderRecentResults,
+  renderUpcomingGames,
+} from "./views/schedule.js";
+import {
+  renderCompareCards,
+  renderCompareSelected,
+  renderCompareSuggestions,
+} from "./views/compare.js";
+import {
+  renderPredictCards,
+  renderPredictFactors,
+  renderPredictPlayerInfo,
+  renderPredictSuggestions,
+} from "./views/predict.js";
+import {
+  renderCareerSummary,
+  renderPlayerGameLogTable,
+  renderPlayerSeasonTable,
+} from "./views/player-detail.js";
+import { renderBoxscoreRows } from "./views/game-detail.js";
 
 (function () {
   "use strict";
@@ -825,62 +849,22 @@ import {
         ? `${birthDate}${age !== null ? ` (만 ${age}세)` : ""}`
         : "-";
 
-      // Career summary
       const summary = $("playerCareerSummary");
       const seasons = Object.values(player.seasons || {});
-      if (seasons.length > 0) {
-        const totalGames = seasons.reduce((sum, s) => sum + s.gp, 0);
-        const avgPts = seasons.reduce((sum, s) => sum + s.pts * s.gp, 0) / totalGames;
-        const avgReb = seasons.reduce((sum, s) => sum + s.reb * s.gp, 0) / totalGames;
-        const avgAst = seasons.reduce((sum, s) => sum + s.ast * s.gp, 0) / totalGames;
-
-        // Get court margin
-        let courtMarginHtml = "";
-        if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
-          const courtMargin = WKBLDatabase.getPlayerCourtMargin(playerId);
-          if (courtMargin !== null) {
-            const marginClass = courtMargin >= 0 ? "positive" : "negative";
-            const marginSign = courtMargin >= 0 ? "+" : "";
-            courtMarginHtml = `<div class="career-stat career-stat--${marginClass}"><div class="career-stat-label">코트마진</div><div class="career-stat-value">${marginSign}${courtMargin.toFixed(1)}</div></div>`;
-          }
-        }
-
-        summary.innerHTML = `
-          <div class="career-stat"><div class="career-stat-label">시즌</div><div class="career-stat-value">${seasons.length}</div></div>
-          <div class="career-stat"><div class="career-stat-label">총 경기</div><div class="career-stat-value">${totalGames}</div></div>
-          <div class="career-stat"><div class="career-stat-label">평균 득점</div><div class="career-stat-value">${avgPts.toFixed(1)}</div></div>
-          <div class="career-stat"><div class="career-stat-label">평균 리바운드</div><div class="career-stat-value">${avgReb.toFixed(1)}</div></div>
-          <div class="career-stat"><div class="career-stat-label">평균 어시스트</div><div class="career-stat-value">${avgAst.toFixed(1)}</div></div>
-          ${courtMarginHtml}
-        `;
-      }
+      const courtMargin =
+        state.dbInitialized && typeof WKBLDatabase !== "undefined"
+          ? WKBLDatabase.getPlayerCourtMargin(playerId)
+          : null;
+      renderCareerSummary({ summaryEl: summary, seasons, courtMargin });
 
       // Season stats table
       const sortedSeasons = seasons.sort((a, b) => a.season_id?.localeCompare(b.season_id));
-      const seasonBody = $("playerSeasonBody");
-      seasonBody.innerHTML = [...sortedSeasons].reverse().map((s) => `
-        <tr>
-          <td>${s.season_label || "-"}</td>
-          <td>${s.team || "-"}</td>
-          <td>${s.gp}</td>
-          <td>${formatNumber(s.min)}</td>
-          <td>${formatNumber(s.pts)}</td>
-          <td>${formatNumber(s.reb)}</td>
-          <td>${formatNumber(s.ast)}</td>
-          <td>${formatNumber(s.stl)}</td>
-          <td>${formatNumber(s.blk)}</td>
-          <td>${formatPct(s.fgp)}</td>
-          <td>${formatPct(s.tpp)}</td>
-          <td>${formatPct(s.ftp)}</td>
-          <td>${formatPct(s.ts_pct)}</td>
-          <td>${formatPct(s.efg_pct)}</td>
-          <td>${formatNumber(s.ast_to)}</td>
-          <td>${formatNumber(s.pir)}</td>
-          <td>${formatNumber(s.pts36)}</td>
-          <td>${formatNumber(s.reb36)}</td>
-          <td>${formatNumber(s.ast36)}</td>
-        </tr>
-      `).join("");
+      renderPlayerSeasonTable({
+        tbody: $("playerSeasonBody"),
+        seasons: sortedSeasons,
+        formatNumber,
+        formatPct,
+      });
 
       // Trend charts
       renderPlayerTrendChart(sortedSeasons);
@@ -902,23 +886,12 @@ import {
       renderGameLogChart(games);
 
       // Recent game log table
-      const gameLogBody = $("playerGameLogBody");
-      gameLogBody.innerHTML = games.map((g) => `
-        <tr>
-          <td>${formatDate(g.game_date)}</td>
-          <td>vs ${g.opponent}</td>
-          <td>${g.result}</td>
-          <td>${formatNumber(g.minutes, 0)}</td>
-          <td>${g.pts}</td>
-          <td>${g.reb}</td>
-          <td>${g.ast}</td>
-          <td>${g.stl}</td>
-          <td>${g.blk}</td>
-          <td>${g.fgm}/${g.fga}</td>
-          <td>${g.tpm}/${g.tpa}</td>
-          <td>${g.ftm}/${g.fta}</td>
-        </tr>
-      `).join("");
+      renderPlayerGameLogTable({
+        tbody: $("playerGameLogBody"),
+        games,
+        formatDate,
+        formatNumber,
+      });
 
     } catch (error) {
       console.error("Failed to load player:", error);
@@ -1469,27 +1442,7 @@ import {
 
     try {
       const games = await fetchGames(state.currentSeason);
-
-      const container = $("gamesList");
-      container.innerHTML = games.map((g) => `
-        <a href="#/games/${g.id}" class="game-card">
-          <div class="game-card-date">${formatDate(g.game_date)}</div>
-          <div class="game-card-matchup">
-            <div class="game-card-team away">
-              <span>${g.away_team_short || g.away_team_name}</span>
-              <span class="game-card-score">${g.away_score || "-"}</span>
-            </div>
-            <span>vs</span>
-            <div class="game-card-team home">
-              <span class="game-card-score">${g.home_score || "-"}</span>
-              <span>${g.home_team_short || g.home_team_name}</span>
-            </div>
-          </div>
-          <div class="game-card-result">
-            <span class="final">Final</span>
-          </div>
-        </a>
-      `).join("");
+      renderGamesList({ container: $("gamesList"), games, formatDate });
 
     } catch (error) {
       console.error("Failed to load games:", error);
@@ -1726,85 +1679,16 @@ import {
         return { cls, title };
       }
 
-      // Helper function to render player row with prediction
-      function renderPlayerRow(p, isHome) {
-        const pred = predictionMap[p.player_id];
-        const cmSign = p.court_margin !== null ? (p.court_margin >= 0 ? "+" : "") : "";
-        const cmClass = p.court_margin !== null ? (p.court_margin >= 0 ? "stat-positive" : "stat-negative") : "";
-
-        const ptsPred = getPredStyle(pred, p.pts, "pts");
-        const rebPred = getPredStyle(pred, p.reb, "reb");
-        const astPred = getPredStyle(pred, p.ast, "ast");
-
-        return `
-          <tr class="${pred?.is_starter ? 'starter-row' : ''}">
-            <td>
-              <a href="#/players/${p.player_id}">${p.player_name}</a>
-              ${pred?.is_starter ? '<span class="starter-badge">선발</span>' : ''}
-            </td>
-            <td>${formatNumber(p.minutes, 0)}</td>
-            <td class="${ptsPred.cls}" title="${ptsPred.title}">${p.pts}</td>
-            <td class="${rebPred.cls}" title="${rebPred.title}">${p.reb}</td>
-            <td class="${astPred.cls}" title="${astPred.title}">${p.ast}</td>
-            <td>${p.stl}</td>
-            <td>${p.blk}</td>
-            <td class="hide-mobile">${p.tov}</td>
-            <td class="hide-mobile">${p.fgm}/${p.fga}</td>
-            <td class="hide-tablet">${p.tpm}/${p.tpa}</td>
-            <td class="hide-tablet">${p.ftm}/${p.fta}</td>
-            <td class="hide-tablet">${formatPct(p.ts_pct)}</td>
-            <td class="hide-tablet">${p.pir}</td>
-            <td class="hide-tablet ${cmClass}">${p.court_margin !== null ? cmSign + p.court_margin : "-"}</td>
-          </tr>
-        `;
-      }
-
-      // Helper: render DNP row for predicted starter who didn't play
-      function renderDnpRow(pred) {
-        return `
-          <tr class="starter-row dnp-row">
-            <td>
-              <a href="#/players/${pred.player_id}">${pred.player_name || pred.player_id}</a>
-              <span class="starter-badge">선발</span>
-              <span class="dnp-badge">미출장</span>
-            </td>
-            <td>-</td>
-            <td title="예측: ${pred.predicted_pts.toFixed(1)}">-</td>
-            <td title="예측: ${pred.predicted_reb.toFixed(1)}">-</td>
-            <td title="예측: ${pred.predicted_ast.toFixed(1)}">-</td>
-            <td>-</td><td>-</td>
-            <td class="hide-mobile">-</td>
-            <td class="hide-mobile">-</td>
-            <td class="hide-tablet">-</td>
-            <td class="hide-tablet">-</td>
-            <td class="hide-tablet">-</td>
-            <td class="hide-tablet">-</td>
-            <td class="hide-tablet">-</td>
-          </tr>
-        `;
-      }
-
-      // Find predicted starters who didn't play
-      const playedPlayerIds = new Set([
-        ...(game.away_team_stats || []).map(p => p.player_id),
-        ...(game.home_team_stats || []).map(p => p.player_id),
-      ]);
-      const awayDnp = predictions.players.filter(p =>
-        p.is_starter && p.team_id === game.away_team_id && !playedPlayerIds.has(p.player_id)
-      );
-      const homeDnp = predictions.players.filter(p =>
-        p.is_starter && p.team_id === game.home_team_id && !playedPlayerIds.has(p.player_id)
-      );
-
-      // Away team stats
-      const awayBody = $("boxscoreAwayBody");
-      awayBody.innerHTML = (game.away_team_stats || []).map(p => renderPlayerRow(p, false)).join("")
-        + awayDnp.map(p => renderDnpRow(p)).join("");
-
-      // Home team stats
-      const homeBody = $("boxscoreHomeBody");
-      homeBody.innerHTML = (game.home_team_stats || []).map(p => renderPlayerRow(p, true)).join("")
-        + homeDnp.map(p => renderDnpRow(p)).join("");
+      const { awayRows, homeRows } = renderBoxscoreRows({
+        game,
+        predictions,
+        predictionMap,
+        getPredStyle,
+        formatNumber,
+        formatPct,
+      });
+      $("boxscoreAwayBody").innerHTML = awayRows;
+      $("boxscoreHomeBody").innerHTML = homeRows;
 
       // Show prediction legend if predictions exist
       const legendEl = $("boxscorePredictionLegend");
@@ -1828,28 +1712,11 @@ import {
 
     try {
       const categories = await fetchAllLeaders(state.currentSeason);
-
-      const grid = $("leadersGrid");
-      grid.innerHTML = LEADER_CATEGORIES.map((cat) => {
-        const leaders = categories[cat.key] || [];
-        return `
-          <div class="leader-card">
-            <h3>${cat.label}</h3>
-            <ul class="leader-list">
-              ${leaders.map((l) => `
-                <li class="leader-item">
-                  <span class="leader-rank">${l.rank}</span>
-                  <div class="leader-info">
-                    <div class="leader-name"><a href="#/players/${l.player_id}">${l.player_name}</a></div>
-                    <div class="leader-team">${l.team_name}</div>
-                  </div>
-                  <div class="leader-value">${l.value}</div>
-                </li>
-              `).join("")}
-            </ul>
-          </div>
-        `;
-      }).join("");
+      renderLeadersGrid({
+        grid: $("leadersGrid"),
+        categories,
+        leaderCategories: LEADER_CATEGORIES,
+      });
 
     } catch (error) {
       console.error("Failed to load leaders:", error);
@@ -2032,16 +1899,7 @@ import {
 
   function updateCompareSelected() {
     const container = $("compareSelected");
-    if (state.compareSelectedPlayers.length === 0) {
-      container.innerHTML = '<span class="compare-hint">최대 4명까지 선수를 선택할 수 있습니다</span>';
-    } else {
-      container.innerHTML = state.compareSelectedPlayers.map((p) => `
-        <div class="compare-tag" data-id="${p.id}">
-          <span>${p.name}</span>
-          <button class="compare-tag-remove" data-id="${p.id}">&times;</button>
-        </div>
-      `).join("");
-    }
+    renderCompareSelected({ container, selectedPlayers: state.compareSelectedPlayers });
 
     // Update button state
     $("compareBtn").disabled = state.compareSelectedPlayers.length < 2;
@@ -2059,21 +1917,14 @@ import {
     try {
       const result = await fetchSearch(query);
       state.compareSearchResults = result.players || [];
-
-      if (state.compareSearchResults.length === 0) {
-        suggestions.innerHTML = '<div class="compare-suggestion-item">검색 결과 없음</div>';
-      } else {
-        suggestions.innerHTML = state.compareSearchResults.map((p) => `
-          <div class="compare-suggestion-item" data-id="${p.id}" data-name="${p.name}" data-team="${p.team}">
-            <span class="compare-suggestion-name">${p.name}</span>
-            <span class="compare-suggestion-team">${p.team}</span>
-          </div>
-        `).join("");
-      }
+      renderCompareSuggestions({
+        container: suggestions,
+        players: state.compareSearchResults,
+      });
       suggestions.classList.add("active");
     } catch (error) {
       console.error("Search failed:", error);
-      suggestions.innerHTML = '<div class="compare-suggestion-item">검색 오류</div>';
+      renderCompareSuggestions({ container: suggestions, players: [], error: true });
       suggestions.classList.add("active");
     }
   }
@@ -2138,37 +1989,11 @@ import {
     renderCompareBarChart(players);
 
     // Player cards
-    const cardsContainer = $("compareCards");
-    cardsContainer.innerHTML = players.map((p) => `
-      <div class="compare-player-card">
-        <div class="compare-player-info">
-          <span class="compare-player-team">${p.team}</span>
-          <h3 class="compare-player-name"><a href="#/players/${p.id}">${p.name}</a></h3>
-          <div class="compare-player-meta">
-            <span>${p.position || "-"}</span>
-            <span>${p.height || "-"}</span>
-          </div>
-        </div>
-        <div class="compare-player-stats">
-          <div class="compare-stat-item">
-            <span class="compare-stat-label">GP</span>
-            <span class="compare-stat-value">${p.gp}</span>
-          </div>
-          <div class="compare-stat-item">
-            <span class="compare-stat-label">PTS</span>
-            <span class="compare-stat-value">${formatNumber(p.pts)}</span>
-          </div>
-          <div class="compare-stat-item">
-            <span class="compare-stat-label">REB</span>
-            <span class="compare-stat-value">${formatNumber(p.reb)}</span>
-          </div>
-          <div class="compare-stat-item">
-            <span class="compare-stat-label">AST</span>
-            <span class="compare-stat-value">${formatNumber(p.ast)}</span>
-          </div>
-        </div>
-      </div>
-    `).join("");
+    renderCompareCards({
+      container: $("compareCards"),
+      players,
+      formatNumber,
+    });
 
     // Bar chart comparison
     const barsContainer = $("compareBars");
@@ -2285,116 +2110,62 @@ import {
       recentGames = WKBLDatabase.getRecentGames(state.currentSeason, teamId, 10);
     }
 
-    // Render next game highlight with prediction
-    const nextGameCard = $("nextGameCard");
-    if (upcomingGames.length > 0) {
-      const next = upcomingGames[0];
-      nextGameCard.style.display = "block";
-      $("nextGameMatchup").textContent = `${next.away_team_short || next.away_team_name} vs ${next.home_team_short || next.home_team_name}`;
-      $("nextGameDate").textContent = formatFullDate(next.game_date);
+    renderNextGameHighlight({
+      nextGameCard: $("nextGameCard"),
+      next: upcomingGames[0],
+      formatFullDate,
+      getById: $,
+    });
 
-      // Calculate D-day
-      const gameDate = new Date(next.game_date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      gameDate.setHours(0, 0, 0, 0);
-      const diffDays = Math.ceil((gameDate - today) / (1000 * 60 * 60 * 24));
-
-      if (diffDays === 0) {
-        $("nextGameCountdown").textContent = "D-Day";
-      } else if (diffDays > 0) {
-        $("nextGameCountdown").textContent = `D-${diffDays}`;
-      } else {
-        $("nextGameCountdown").textContent = `D+${Math.abs(diffDays)}`;
-      }
-    } else {
-      nextGameCard.style.display = "none";
-    }
-
-    // Render upcoming games list with predictions
-    const upcomingList = $("upcomingGamesList");
-    if (upcomingGames.length > 0) {
-      upcomingList.innerHTML = upcomingGames.map((g) => {
-        // Get predictions for this game
-        let predHtml = "";
-        if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
-          const pred = WKBLDatabase.getGamePredictions(g.id);
-          if (pred.team) {
-            const awayProb = pred.team.away_win_prob?.toFixed(0) || "-";
-            const homeProb = pred.team.home_win_prob?.toFixed(0) || "-";
-            const awayPts = pred.team.away_predicted_pts?.toFixed(0) || "-";
-            const homePts = pred.team.home_predicted_pts?.toFixed(0) || "-";
-            predHtml = `
-              <div class="schedule-prediction">
-                <div class="schedule-pred-prob">
-                  <span class="pred-away">${awayProb}%</span>
-                  <span class="pred-label">승률</span>
-                  <span class="pred-home">${homeProb}%</span>
-                </div>
-                <div class="schedule-pred-score">
-                  <span class="pred-away">${awayPts}</span>
-                  <span class="pred-label">예상</span>
-                  <span class="pred-home">${homePts}</span>
-                </div>
-              </div>
-            `;
-          }
-        }
+    renderUpcomingGames({
+      container: $("upcomingGamesList"),
+      upcomingGames,
+      formatFullDate,
+      getPredictionHtml: (g) => {
+        if (!(state.dbInitialized && typeof WKBLDatabase !== "undefined")) return "";
+        const pred = WKBLDatabase.getGamePredictions(g.id);
+        if (!pred.team) return "";
+        const awayProb = pred.team.away_win_prob?.toFixed(0) || "-";
+        const homeProb = pred.team.home_win_prob?.toFixed(0) || "-";
+        const awayPts = pred.team.away_predicted_pts?.toFixed(0) || "-";
+        const homePts = pred.team.home_predicted_pts?.toFixed(0) || "-";
         return `
-          <a href="#/games/${g.id}" class="schedule-item upcoming">
-            <div class="schedule-item-date">${formatFullDate(g.game_date)}</div>
-            <div class="schedule-item-matchup">
-              <span class="schedule-team away">${g.away_team_short || g.away_team_name}</span>
-              <span class="schedule-vs">vs</span>
-              <span class="schedule-team home">${g.home_team_short || g.home_team_name}</span>
+          <div class="schedule-prediction">
+            <div class="schedule-pred-prob">
+              <span class="pred-away">${awayProb}%</span>
+              <span class="pred-label">승률</span>
+              <span class="pred-home">${homeProb}%</span>
             </div>
-            ${predHtml}
-          </a>
+            <div class="schedule-pred-score">
+              <span class="pred-away">${awayPts}</span>
+              <span class="pred-label">예상</span>
+              <span class="pred-home">${homePts}</span>
+            </div>
+          </div>
         `;
-      }).join("");
-    } else {
-      upcomingList.innerHTML = '<div class="schedule-empty">예정된 경기가 없습니다</div>';
-    }
+      },
+    });
 
-    // Render recent results with prediction comparison
-    const recentList = $("recentResultsList");
-    if (recentGames.length > 0) {
-      recentList.innerHTML = recentGames.map((g) => {
-        const homeWin = g.home_score > g.away_score;
-
-        // Get predictions for comparison
-        let predCompareHtml = "";
-        if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
-          const pred = WKBLDatabase.getGamePredictions(g.id);
-          if (pred.team) {
-            const predictedHomeWin = pred.team.home_win_prob > 50;
-            const isCorrect = homeWin === predictedHomeWin;
-            const awayPts = pred.team.away_predicted_pts?.toFixed(0) || "-";
-            const homePts = pred.team.home_predicted_pts?.toFixed(0) || "-";
-            predCompareHtml = `
-              <div class="schedule-pred-compare ${isCorrect ? 'correct' : 'incorrect'}">
-                <span class="pred-result-badge">${isCorrect ? '적중' : '실패'}</span>
-                <span class="pred-expected">예측: ${awayPts}-${homePts}</span>
-              </div>
-            `;
-          }
-        }
-
+    renderRecentResults({
+      container: $("recentResultsList"),
+      recentGames,
+      formatFullDate,
+      getPredictionCompareHtml: (g, homeWin) => {
+        if (!(state.dbInitialized && typeof WKBLDatabase !== "undefined")) return "";
+        const pred = WKBLDatabase.getGamePredictions(g.id);
+        if (!pred.team) return "";
+        const predictedHomeWin = pred.team.home_win_prob > 50;
+        const isCorrect = homeWin === predictedHomeWin;
+        const awayPts = pred.team.away_predicted_pts?.toFixed(0) || "-";
+        const homePts = pred.team.home_predicted_pts?.toFixed(0) || "-";
         return `
-          <a href="#/games/${g.id}" class="schedule-item result">
-            <div class="schedule-item-date">${formatFullDate(g.game_date)}</div>
-            <div class="schedule-item-matchup">
-              <span class="schedule-team away ${!homeWin ? 'winner' : ''}">${g.away_team_short || g.away_team_name}</span>
-              <span class="schedule-score">${g.away_score} - ${g.home_score}</span>
-              <span class="schedule-team home ${homeWin ? 'winner' : ''}">${g.home_team_short || g.home_team_name}</span>
-            </div>
-            ${predCompareHtml}
-          </a>
+          <div class="schedule-pred-compare ${isCorrect ? "correct" : "incorrect"}">
+            <span class="pred-result-badge">${isCorrect ? "적중" : "실패"}</span>
+            <span class="pred-expected">예측: ${awayPts}-${homePts}</span>
+          </div>
         `;
-      }).join("");
-    } else {
-      recentList.innerHTML = '<div class="schedule-empty">최근 경기 결과가 없습니다</div>';
-    }
+      },
+    });
   }
 
   function formatFullDate(dateStr) {
@@ -2436,21 +2207,11 @@ import {
     try {
       const result = await fetchSearch(query);
       const players = result.players || [];
-
-      if (players.length === 0) {
-        suggestions.innerHTML = '<div class="predict-suggestion-item">검색 결과 없음</div>';
-      } else {
-        suggestions.innerHTML = players.map((p) => `
-          <div class="predict-suggestion-item" data-id="${p.id}" data-name="${p.name}" data-team="${p.team}">
-            <span class="predict-suggestion-name">${p.name}</span>
-            <span class="predict-suggestion-team">${p.team}</span>
-          </div>
-        `).join("");
-      }
+      renderPredictSuggestions({ container: suggestions, players });
       suggestions.classList.add("active");
     } catch (error) {
       console.error("Predict search failed:", error);
-      suggestions.innerHTML = '<div class="predict-suggestion-item">검색 오류</div>';
+      renderPredictSuggestions({ container: suggestions, players: [], error: true });
       suggestions.classList.add("active");
     }
   }
@@ -2480,49 +2241,9 @@ import {
       // Calculate predictions
       const prediction = calculatePrediction(gamelog, player);
 
-      // Render player info
-      $("predictPlayerInfo").innerHTML = `
-        <div class="predict-player-card">
-          <span class="predict-player-team">${player.team || "-"}</span>
-          <h3 class="predict-player-name">${player.name}</h3>
-          <div class="predict-player-meta">
-            <span>${player.position || "-"}</span>
-            <span>${player.height || "-"}</span>
-          </div>
-        </div>
-      `;
-
-      // Render prediction cards
-      const stats = [
-        { key: "pts", label: "득점", unit: "PTS" },
-        { key: "reb", label: "리바운드", unit: "REB" },
-        { key: "ast", label: "어시스트", unit: "AST" },
-      ];
-
-      $("predictCards").innerHTML = stats.map((stat) => {
-        const pred = prediction[stat.key];
-        return `
-          <div class="predict-stat-card">
-            <div class="predict-stat-label">${stat.label}</div>
-            <div class="predict-stat-value">${pred.predicted.toFixed(1)}</div>
-            <div class="predict-stat-range">${pred.low.toFixed(1)} - ${pred.high.toFixed(1)}</div>
-            <div class="predict-stat-trend ${pred.trend}">${pred.trendLabel}</div>
-          </div>
-        `;
-      }).join("");
-
-      // Render factors
-      $("predictFactors").innerHTML = `
-        <div class="predict-factors-card">
-          <h4>예측 근거</h4>
-          <ul class="predict-factors-list">
-            <li>최근 5경기 평균: ${prediction.recent5Avg.pts.toFixed(1)}점 / ${prediction.recent5Avg.reb.toFixed(1)}리바 / ${prediction.recent5Avg.ast.toFixed(1)}어시</li>
-            <li>최근 10경기 평균: ${prediction.recent10Avg.pts.toFixed(1)}점 / ${prediction.recent10Avg.reb.toFixed(1)}리바 / ${prediction.recent10Avg.ast.toFixed(1)}어시</li>
-            <li>시즌 평균: ${prediction.seasonAvg.pts.toFixed(1)}점 / ${prediction.seasonAvg.reb.toFixed(1)}리바 / ${prediction.seasonAvg.ast.toFixed(1)}어시</li>
-            <li>예측 모델: (최근 5경기 × 60%) + (최근 10경기 × 40%)</li>
-          </ul>
-        </div>
-      `;
+      renderPredictPlayerInfo({ container: $("predictPlayerInfo"), player });
+      renderPredictCards({ container: $("predictCards"), prediction });
+      renderPredictFactors({ container: $("predictFactors"), prediction });
 
       // Render trend chart
       renderPredictTrendChart(gamelog, prediction);
