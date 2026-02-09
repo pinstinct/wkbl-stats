@@ -235,30 +235,12 @@ const WKBLDatabase = (function () {
       const playerIds = new Set(players.map((p) => p.id));
       let noGamesRows = [];
 
-      if (activeOnly) {
-        let noGamesSql = `
-          SELECT
-            p.id,
-            p.name,
-            p.position as pos,
-            p.height,
-            p.birth_date,
-            p.is_active,
-            t.name as team,
-            t.id as team_id
-          FROM players p
-          LEFT JOIN teams t ON p.team_id = t.id
-          WHERE p.is_active = 1
-        `;
-        const noGamesParams = [];
+      {
+        const latestSeasonRow = queryOne(
+          "SELECT MAX(season_id) AS max_season FROM games",
+        );
+        const isLatestSeason = latestSeasonRow?.max_season === seasonId;
 
-        if (teamId && teamId !== "all") {
-          noGamesSql += " AND p.team_id = ?";
-          noGamesParams.push(teamId);
-        }
-
-        noGamesRows = query(noGamesSql, noGamesParams);
-      } else {
         let rosterSql = `
           SELECT
             p.id,
@@ -293,6 +275,10 @@ const WKBLDatabase = (function () {
         `;
         const rosterParams = [seasonId, seasonId];
 
+        if (activeOnly) {
+          rosterSql += " AND p.is_active = 1";
+        }
+
         if (teamId && teamId !== "all") {
           rosterSql += " AND last_team.team_id = ?";
           rosterParams.push(teamId);
@@ -300,36 +286,38 @@ const WKBLDatabase = (function () {
 
         noGamesRows = query(rosterSql, rosterParams);
 
-        // Fallback: players with no games up to this season, use current team (approximation)
-        let fallbackSql = `
-          SELECT
-            p.id,
-            p.name,
-            p.position as pos,
-            p.height,
-            p.birth_date,
-            p.is_active,
-            t.name as team,
-            t.id as team_id
-          FROM players p
-          LEFT JOIN teams t ON p.team_id = t.id
-          WHERE p.is_active = 1
-            AND p.team_id IS NOT NULL
-            AND p.id NOT IN (
-              SELECT pg.player_id
-              FROM player_games pg
-              JOIN games g ON pg.game_id = g.id
-              WHERE g.season_id <= ?
-            )
-        `;
-        const fallbackParams = [seasonId];
+        if (isLatestSeason) {
+          // For current season only: include active roster players with no career games yet.
+          let fallbackSql = `
+            SELECT
+              p.id,
+              p.name,
+              p.position as pos,
+              p.height,
+              p.birth_date,
+              p.is_active,
+              t.name as team,
+              t.id as team_id
+            FROM players p
+            LEFT JOIN teams t ON p.team_id = t.id
+            WHERE p.is_active = 1
+              AND p.team_id IS NOT NULL
+              AND p.id NOT IN (
+                SELECT pg.player_id
+                FROM player_games pg
+                JOIN games g ON pg.game_id = g.id
+                WHERE g.season_id <= ?
+              )
+          `;
+          const fallbackParams = [seasonId];
 
-        if (teamId && teamId !== "all") {
-          fallbackSql += " AND p.team_id = ?";
-          fallbackParams.push(teamId);
+          if (teamId && teamId !== "all") {
+            fallbackSql += " AND p.team_id = ?";
+            fallbackParams.push(teamId);
+          }
+
+          noGamesRows = noGamesRows.concat(query(fallbackSql, fallbackParams));
         }
-
-        noGamesRows = noGamesRows.concat(query(fallbackSql, fallbackParams));
       }
 
       for (const p of noGamesRows) {

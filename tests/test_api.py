@@ -2,6 +2,7 @@
 Tests for api.py - FastAPI REST API endpoints.
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -9,6 +10,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "tools"))
+
+
+def load_contract_fixture(name: str) -> dict:
+    """Load API contract fixture JSON from tests/fixtures."""
+    fixture_path = Path(__file__).parent / "fixtures" / name
+    return json.loads(fixture_path.read_text(encoding="utf-8"))
 
 
 @pytest.fixture
@@ -147,6 +154,75 @@ class TestPlayersEndpoint:
         # Must use historical team <= requested season, not current players.team_id
         assert by_id["095998"]["team_id"] == sample_team["id"]
 
+    def test_get_players_contract_fixture(self, client, sample_player, sample_season):
+        """players response should match contract fixture for core stat fields."""
+        fixture = load_contract_fixture("api_contracts.json")
+        expected = fixture["players"]["sample_player_core_stats"]
+
+        response = client.get(
+            f"/players?season={sample_season['season_id']}&active_only=true&include_no_games=false"
+        )
+        assert response.status_code == 200
+        rows = response.json()["players"]
+        by_id = {p["id"]: p for p in rows}
+        assert sample_player["player_id"] in by_id
+        row = by_id[sample_player["player_id"]]
+
+        for key, value in expected.items():
+            assert row[key] == value
+
+    def test_get_players_past_season_excludes_future_only_active_rookie(
+        self, client, sample_team, sample_team2
+    ):
+        """Past-season filter must not include players with no career games up to that season."""
+        import database
+
+        database.insert_season("045", "2024-25", "2024-10-01", "2025-03-31")
+        database.insert_season("047", "2026-27", "2026-10-01", "2027-03-31")
+
+        # Active player appears in players table now, but has no games up to season 045.
+        database.insert_player(
+            player_id="095996",
+            name="미래데뷔선수",
+            team_id=sample_team["id"],
+            position="G",
+            height="173cm",
+            birth_date="2003-01-01",
+            is_active=1,
+        )
+
+        # This player debuts later in 047 for a different team.
+        database.insert_game(
+            game_id="04701001",
+            season_id="047",
+            game_date="2026-10-10",
+            home_team_id=sample_team2["id"],
+            away_team_id=sample_team["id"],
+            home_score=66,
+            away_score=64,
+        )
+        database.insert_player_game(
+            game_id="04701001",
+            player_id="095996",
+            team_id=sample_team2["id"],
+            stats={
+                "minutes": 5,
+                "pts": 0,
+                "reb": 1,
+                "ast": 0,
+                "stl": 0,
+                "blk": 0,
+                "tov": 0,
+            },
+        )
+
+        response = client.get(
+            f"/players?season=045&active_only=true&include_no_games=true&team={sample_team['id']}"
+        )
+        assert response.status_code == 200
+        ids = {p["id"] for p in response.json()["players"]}
+        assert "095996" not in ids
+
 
 class TestPlayerDetailEndpoint:
     """Tests for /players/{id} endpoint."""
@@ -274,6 +350,27 @@ class TestTeamDetailEndpoint:
         assert response.status_code == 200
         recent_ids = {g["game_id"] for g in response.json().get("recent_games", [])}
         assert "04601999" not in recent_ids
+
+    def test_get_team_detail_contract_fixture(self, client, sample_team, sample_season):
+        """team detail response should follow stable shape/value contract."""
+        fixture = load_contract_fixture("api_contracts.json")
+        expected = fixture["team_detail"]["sample_team_core"]
+
+        response = client.get(
+            f"/teams/{sample_team['id']}?season={sample_season['season_id']}"
+        )
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["id"] == expected["id"]
+        assert data["name"] == expected["name"]
+        assert isinstance(data["roster"], list)
+        assert isinstance(data["recent_games"], list)
+        assert len(data["recent_games"]) >= 1
+
+        recent = data["recent_games"][0]
+        for key, value in expected["latest_recent_game"].items():
+            assert recent[key] == value
 
 
 class TestGamesEndpoint:

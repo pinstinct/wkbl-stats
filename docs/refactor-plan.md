@@ -157,13 +157,18 @@
   - `idx_player_games_team_game (team_id, game_id)`
   - `idx_player_games_player_game (player_id, game_id)`
   - `idx_games_season_date_id (season_id, game_date, id)`
+- 완료: SQL/API 공통 계약 문서화 (`docs/sql-query-contract.md`)
 - 추가: API 회귀 테스트
   - `test_get_players_include_no_games_inactive_historical_team_inference`
   - `test_get_team_detail_roster_includes_active_no_games_player`
   - `test_get_team_detail_recent_games_excludes_future_games`
+  - `test_get_players_contract_fixture`
+  - `test_get_team_detail_contract_fixture`
 - 추가: DB 스키마 인덱스 회귀 테스트
   - `test_init_db_creates_performance_indexes`
-- 상태: P3-1 완료, P3-2(SQL 공통 스펙/스냅샷) 진행 중
+- 추가: 계약 fixture 파일
+  - `tests/fixtures/api_contracts.json`
+- 상태: P3-1 완료, P3-2(SQL 공통 스펙/스냅샷) 완료, team_rosters 스키마 도입 검토는 후속 과제
 
 ### P4 (테스트 보강)
 

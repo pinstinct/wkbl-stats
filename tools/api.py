@@ -248,35 +248,11 @@ def _get_no_games_rows(
     conn: Any, season_id: str, team_id: Optional[str], active_only: bool
 ) -> list[Any]:
     """Build gp=0 rows for the requested season with historical team inference."""
-    if active_only:
-        no_games_query = """
-            SELECT
-                p.id,
-                p.name,
-                p.position as pos,
-                p.height,
-                p.is_active,
-                t.name as team,
-                t.id as team_id
-            FROM players p
-            LEFT JOIN teams t ON p.team_id = t.id
-            WHERE p.is_active = 1
-        """
-        params: list[Any] = []
-        if team_id:
-            no_games_query += " AND p.team_id = ?"
-            params.append(team_id)
-        no_games_query += """
-            AND NOT EXISTS (
-                SELECT 1
-                FROM player_games pg
-                JOIN games g ON pg.game_id = g.id
-                WHERE pg.player_id = p.id
-                  AND g.season_id = ?
-            )
-        """
-        params.append(season_id)
-        return conn.execute(no_games_query, params).fetchall()
+    max_season_row = conn.execute(
+        "SELECT MAX(season_id) AS max_season FROM games"
+    ).fetchone()
+    max_season = dict(max_season_row)["max_season"] if max_season_row else None
+    is_latest_season = max_season == season_id
 
     historical_query = """
         SELECT
@@ -310,10 +286,15 @@ def _get_no_games_rows(
         )
     """
     historical_params: list[Any] = [season_id, season_id]
+    if active_only:
+        historical_query += " AND p.is_active = 1"
     if team_id:
         historical_query += " AND last_team.team_id = ?"
         historical_params.append(team_id)
     rows = conn.execute(historical_query, historical_params).fetchall()
+
+    if not is_latest_season:
+        return [dict(row) for row in rows]
 
     fallback_query = """
         SELECT
@@ -336,6 +317,8 @@ def _get_no_games_rows(
           )
     """
     fallback_params: list[Any] = [season_id]
+    if active_only:
+        fallback_query += " AND p.is_active = 1"
     if team_id:
         fallback_query += " AND p.team_id = ?"
         fallback_params.append(team_id)

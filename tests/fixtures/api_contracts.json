@@ -1,0 +1,41 @@
+{
+  "players": {
+    "sample_player_core_stats": {
+      "id": "095001",
+      "name": "테스트선수",
+      "team_id": "samsung",
+      "gp": 1,
+      "min": 32.5,
+      "pts": 18.0,
+      "reb": 5.0,
+      "ast": 4.0,
+      "stl": 2.0,
+      "blk": 1.0,
+      "tov": 3.0,
+      "fgp": 0.5,
+      "tpp": 0.4,
+      "ftp": 0.667,
+      "ts_pct": 0.587,
+      "efg_pct": 0.571,
+      "pir": 19.0,
+      "ast_to": 1.33,
+      "pts36": 19.9,
+      "reb36": 5.5,
+      "ast36": 4.4
+    }
+  },
+  "team_detail": {
+    "sample_team_core": {
+      "id": "samsung",
+      "name": "삼성생명",
+      "latest_recent_game": {
+        "game_id": "04601001",
+        "date": "2025-10-18",
+        "opponent": "KB스타즈",
+        "is_home": true,
+        "result": "W",
+        "score": "75-68"
+      }
+    }
+  }
+}
