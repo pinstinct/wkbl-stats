@@ -1532,6 +1532,56 @@ body {
   .detail-table .hide-mobile {
     display: none;
   }
+
+  /* Teams standings: fix rank/team columns and scroll the rest */
+  #standingsTable {
+    border-collapse: separate;
+    border-spacing: 0;
+    min-width: 720px;
+    width: max-content;
+  }
+
+  #standingsTable th,
+  #standingsTable td {
+    padding: 8px 6px;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  #standingsTable th:nth-child(1),
+  #standingsTable td:nth-child(1) {
+    position: sticky;
+    left: 0;
+    min-width: 42px;
+    width: 42px;
+    max-width: 42px;
+    z-index: 6;
+  }
+
+  #standingsTable th:nth-child(2),
+  #standingsTable td:nth-child(2) {
+    position: sticky;
+    left: 42px;
+    min-width: 88px;
+    width: 88px;
+    max-width: 88px;
+    z-index: 5;
+  }
+
+  #standingsTable th:nth-child(1),
+  #standingsTable th:nth-child(2) {
+    background: var(--surface-2);
+  }
+
+  #standingsTable td:nth-child(1),
+  #standingsTable td:nth-child(2) {
+    background: var(--surface);
+  }
+
+  #standingsTable tbody tr:hover td:nth-child(1),
+  #standingsTable tbody tr:hover td:nth-child(2) {
+    background: rgba(217, 79, 49, 0.04);
+  }
 }
 
 @media (max-width: 480px) {
@@ -1542,6 +1592,30 @@ body {
 
   .detail-table .hide-tablet {
     display: none;
+  }
+
+  #standingsTable {
+    min-width: 640px;
+  }
+
+  #standingsTable th,
+  #standingsTable td {
+    padding: 6px 4px;
+  }
+
+  #standingsTable th:nth-child(1),
+  #standingsTable td:nth-child(1) {
+    min-width: 36px;
+    width: 36px;
+    max-width: 36px;
+  }
+
+  #standingsTable th:nth-child(2),
+  #standingsTable td:nth-child(2) {
+    left: 36px;
+    min-width: 76px;
+    width: 76px;
+    max-width: 76px;
   }
 }
 
