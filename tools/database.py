@@ -392,12 +392,18 @@ def insert_player(
     birth_date: Optional[str] = None,
     is_active: int = 1,
 ):
-    """Insert or update a player."""
+    """Insert or update a player, preserving existing profile data."""
     with get_connection() as conn:
         conn.execute(
-            """INSERT OR REPLACE INTO players
-               (id, name, team_id, position, height, birth_date, is_active)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO players (id, name, team_id, position, height, birth_date, is_active)
+               VALUES (?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(id) DO UPDATE SET
+                 name = excluded.name,
+                 team_id = excluded.team_id,
+                 position = COALESCE(excluded.position, players.position),
+                 height = COALESCE(excluded.height, players.height),
+                 birth_date = COALESCE(excluded.birth_date, players.birth_date),
+                 is_active = excluded.is_active""",
             (player_id, name, team_id, position, height, birth_date, is_active),
         )
         conn.commit()

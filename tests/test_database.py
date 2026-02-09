@@ -99,6 +99,43 @@ class TestPlayerOperations:
         assert row[1] == sample_player["name"]
         assert row[2] == sample_player["position"]
 
+    def test_insert_player_preserves_profile(self, test_db, sample_player):
+        """Test that re-inserting a player without profile data preserves existing profile."""
+        import database
+
+        with database.get_connection() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO teams (id, name) VALUES (?, ?)",
+                (sample_player["team_id"], "Test Team"),
+            )
+            conn.commit()
+
+        # Insert player with full profile
+        database.insert_player(**sample_player)
+
+        # Re-insert same player without profile data (simulates incremental ingest)
+        database.insert_player(
+            player_id=sample_player["player_id"],
+            name=sample_player["name"],
+            team_id=sample_player["team_id"],
+            position=None,
+            height=None,
+            birth_date=None,
+            is_active=1,
+        )
+
+        with database.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT position, height, birth_date FROM players WHERE id = ?",
+                (sample_player["player_id"],),
+            )
+            row = cursor.fetchone()
+
+        assert row[0] == sample_player["position"]
+        assert row[1] == sample_player["height"]
+        assert row[2] == sample_player["birth_date"]
+
 
 class TestGameOperations:
     """Tests for game-related database operations."""

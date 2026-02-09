@@ -1487,6 +1487,16 @@ def _save_to_db(
                 "pos": record.get("pos"),
             }
 
+    # Also include all loaded players (ensures profile data is always saved)
+    for p in active_players:
+        key = f"{p['name']}|{normalize_team(p['team'])}"
+        if key not in all_players:
+            all_players[key] = {
+                "name": p["name"],
+                "team": normalize_team(p["team"]),
+                "pos": p.get("pos"),
+            }
+
     # Insert all players (from game records + active players)
     players_inserted = 0
     for key, info in all_players.items():
