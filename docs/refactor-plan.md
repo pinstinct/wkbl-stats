@@ -182,6 +182,22 @@
 
 - 최근 발생했던 모바일 고정열/오버플로우 케이스를 체크리스트에 추가.
 
+### P4 진행 현황 (2026-02-09)
+
+- 완료: 프론트 순수 로직 테스트 추가(Vitest)
+  - `src/views/players-logic.test.js`
+  - `src/views/predict-logic.test.js`
+  - `src/views/schedule-logic.test.js`
+- 완료: 로직 분리(테스트 가능 구조)
+  - `src/views/players-logic.js` (`filterPlayers`, `sortPlayers`)
+  - `src/views/predict-logic.js` (`calculatePrediction`, `buildPredictionCompareState`)
+  - `src/views/schedule-logic.js` (`getDayCountdownLabel`)
+- 완료: 앱 연결
+  - `src/app.js`에서 선수 필터/정렬 및 예측 결과 배지 판정 로직을 순수 로직 모듈로 교체
+  - `src/views/schedule.js`에서 카운트다운 계산 로직을 순수 함수로 교체
+- 완료: 회귀 체크리스트 문서 추가 (`docs/regression-checklist.md`)
+- 상태: P4 완료
+
 ---
 
 ## 권장 구현 순서

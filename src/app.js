@@ -26,12 +26,17 @@ import {
   renderPredictSuggestions,
 } from "./views/predict.js";
 import {
+  buildPredictionCompareState,
+  calculatePrediction,
+} from "./views/predict-logic.js";
+import {
   renderCareerSummary,
   renderPlayerGameLogTable,
   renderPlayerSeasonTable,
 } from "./views/player-detail.js";
 import { renderBoxscoreRows } from "./views/game-detail.js";
 import { renderLineupPlayers, renderTotalStats } from "./views/home.js";
+import { filterPlayers, sortPlayers } from "./views/players-logic.js";
 import { createDataClient } from "./data/client.js";
 import { mountResponsiveNav } from "./ui/responsive-nav.js";
 import {
@@ -821,24 +826,14 @@ import {
     const team = $("teamSelect")?.value || "all";
     const pos = $("posSelect")?.value || "all";
     const search = $("searchInput")?.value.trim().toLowerCase() || "";
-
-    state.filtered = state.players.filter((player) => {
-      const matchTeam = team === "all" || player.team === team;
-      const matchPos = pos === "all" || player.pos === pos;
-      const matchSearch = !search || player.name.toLowerCase().includes(search);
-      return matchTeam && matchPos && matchSearch;
-    });
+    state.filtered = filterPlayers(state.players, { team, pos, search });
 
     sortAndRender();
   }
 
   function sortAndRender() {
     const { key, dir } = state.sort;
-    const sorted = [...state.filtered].sort((a, b) => {
-      const aVal = a[key] ?? 0;
-      const bVal = b[key] ?? 0;
-      return dir === "asc" ? aVal - bVal : bVal - aVal;
-    });
+    const sorted = sortPlayers(state.filtered, { key, dir });
 
     renderTable(sorted);
     if (sorted[0]) renderPlayerCard(sorted[0]);
@@ -2274,14 +2269,14 @@ import {
           return "";
         const pred = WKBLDatabase.getGamePredictions(g.id);
         if (!pred.team) return "";
-        const predictedHomeWin = pred.team.home_win_prob > 50;
-        const isCorrect = homeWin === predictedHomeWin;
-        const awayPts = pred.team.away_predicted_pts?.toFixed(0) || "-";
-        const homePts = pred.team.home_predicted_pts?.toFixed(0) || "-";
+        const result = buildPredictionCompareState({
+          homeWin,
+          teamPrediction: pred.team,
+        });
         return `
-          <div class="schedule-pred-compare ${isCorrect ? "correct" : "incorrect"}">
-            <span class="pred-result-badge">${isCorrect ? "적중" : "실패"}</span>
-            <span class="pred-expected">예측: ${awayPts}-${homePts}</span>
+          <div class="schedule-pred-compare ${result.resultClass}">
+            <span class="pred-result-badge">${result.badgeText}</span>
+            <span class="pred-expected">${result.expectedScoreText}</span>
           </div>
         `;
       },
@@ -2380,82 +2375,6 @@ import {
       $("predictPlayerInfo").innerHTML =
         `<div class="predict-error">예측 생성에 실패했습니다</div>`;
     }
-  }
-
-  function calculatePrediction(gamelog, player) {
-    // Get recent games (sorted by date, most recent first)
-    const games = gamelog.slice(0, 15);
-    const recent5 = games.slice(0, 5);
-    const recent10 = games.slice(0, 10);
-
-    // Calculate averages
-    const calcAvg = (arr, key) =>
-      arr.reduce((sum, g) => sum + (g[key] || 0), 0) / arr.length;
-
-    const recent5Avg = {
-      pts: calcAvg(recent5, "pts"),
-      reb: calcAvg(recent5, "reb"),
-      ast: calcAvg(recent5, "ast"),
-    };
-
-    const recent10Avg = {
-      pts: calcAvg(recent10, "pts"),
-      reb: calcAvg(recent10, "reb"),
-      ast: calcAvg(recent10, "ast"),
-    };
-
-    const seasonAvg = {
-      pts: calcAvg(games, "pts"),
-      reb: calcAvg(games, "reb"),
-      ast: calcAvg(games, "ast"),
-    };
-
-    // Calculate standard deviation
-    const calcStd = (arr, key, avg) => {
-      const variance =
-        arr.reduce((sum, g) => sum + Math.pow((g[key] || 0) - avg, 2), 0) /
-        arr.length;
-      return Math.sqrt(variance);
-    };
-
-    // Prediction formula: (recent 5 × 0.6) + (recent 10 × 0.4)
-    const predict = (key) => {
-      const base = recent5Avg[key] * 0.6 + recent10Avg[key] * 0.4;
-      const std = calcStd(games, key, seasonAvg[key]);
-
-      // Trend analysis
-      const trendDiff = recent5Avg[key] - seasonAvg[key];
-      const trendPct = seasonAvg[key] > 0 ? trendDiff / seasonAvg[key] : 0;
-
-      let trend = "stable";
-      let trendLabel = "보합";
-      let trendBonus = 0;
-
-      if (trendPct > 0.1) {
-        trend = "up";
-        trendLabel = "상승세 ↑";
-        trendBonus = base * 0.05;
-      } else if (trendPct < -0.1) {
-        trend = "down";
-        trendLabel = "하락세 ↓";
-        trendBonus = -base * 0.05;
-      }
-
-      const predicted = base + trendBonus;
-      const low = Math.max(0, predicted - std);
-      const high = predicted + std;
-
-      return { predicted, low, high, trend, trendLabel };
-    };
-
-    return {
-      pts: predict("pts"),
-      reb: predict("reb"),
-      ast: predict("ast"),
-      recent5Avg,
-      recent10Avg,
-      seasonAvg,
-    };
   }
 
   function renderPredictTrendChart(gamelog, prediction) {

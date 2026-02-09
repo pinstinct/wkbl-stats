@@ -1,3 +1,5 @@
+import { getDayCountdownLabel } from "./schedule-logic.js";
+
 export function renderNextGameHighlight({
   nextGameCard,
   next,
@@ -14,20 +16,9 @@ export function renderNextGameHighlight({
   getById("nextGameMatchup").textContent =
     `${next.away_team_short || next.away_team_name} vs ${next.home_team_short || next.home_team_name}`;
   getById("nextGameDate").textContent = formatFullDate(next.game_date);
-
-  const gameDate = new Date(next.game_date);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  gameDate.setHours(0, 0, 0, 0);
-  const diffDays = Math.ceil((gameDate - today) / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) {
-    getById("nextGameCountdown").textContent = "D-Day";
-  } else if (diffDays > 0) {
-    getById("nextGameCountdown").textContent = `D-${diffDays}`;
-  } else {
-    getById("nextGameCountdown").textContent = `D+${Math.abs(diffDays)}`;
-  }
+  getById("nextGameCountdown").textContent = getDayCountdownLabel(
+    next.game_date,
+  );
 }
 
 export function renderUpcomingGames({
