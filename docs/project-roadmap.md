@@ -10,7 +10,8 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - 2026-02-09 업데이트:
   - P0 완료(시즌 상수/스탯 계산 공통화, players 파라미터 계약)
   - P1 view 분리 대다수 완료(`src/views/*`)
-  - 프론트 테스트 전략을 Python 계약 테스트에서 Vitest로 전환
+  - P1 data/event 분리 1차 완료(`src/data/client.js`, `src/ui/responsive-nav.js`)
+  - 프론트 테스트 전략을 Python 계약 테스트에서 Vitest로 전환, `npm run test:front` 통과
 
 ## 현재 상태 (2026-02-04)
 

@@ -81,12 +81,10 @@ uv run python3 server.py
 # 백엔드/데이터 테스트
 uv run pytest -q
 
-# 프론트 뷰 단위 테스트 (Vitest)
-npm install
+# 프론트 단위 테스트 (Vitest)
+npm ci
 npm run test:front
 ```
-
-- 네트워크가 제한된 환경에서는 `npm install`이 실패할 수 있습니다.
 
 ## REST API
 
@@ -170,6 +168,8 @@ GitHub Pages로 정적 파일 호스팅 (sql.js로 브라우저에서 SQLite 쿼
 │   ├── db.js               # 브라우저 SQLite (sql.js 래퍼)
 │   ├── seasons.js          # 프론트 공유 시즌 상수
 │   ├── styles.css          # 반응형 스타일
+│   ├── data/               # 프론트 데이터 접근 레이어
+│   ├── ui/                 # 프론트 UI 바인딩 모듈
 │   └── views/              # 페이지별 렌더링 모듈
 ├── data/
 │   ├── wkbl-active.json    # 현역 선수 스탯 (자동 생성)

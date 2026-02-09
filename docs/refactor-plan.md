@@ -7,11 +7,11 @@
 ## 점검 결과 요약
 
 - 테스트 상태: `uv run pytest -q` 기준 **57 passed**.
-- 프론트 테스트: Vitest 테스트 파일 추가(`src/views/*.test.js`), 현재 환경은 npm registry DNS 제한으로 실행 확인 불가.
+- 프론트 테스트: `npm run test:front` 기준 **21 passed (11 files)**.
 - 현재 병목 파일:
-  - `src/app.js` 3,181 lines
+  - `src/app.js` 2,750 lines
   - `src/styles.css` 3,427 lines
-  - `src/db.js` 1,227 lines
+  - `src/db.js` 1,220 lines
   - `tools/ingest_wkbl.py` 2,452 lines
 - 최근 UI 반응형 이슈(고정열/모바일 간격/네비게이션)는 다수 해결됨.
 - 따라서 다음 단계의 핵심은 **기능 추가보다 구조 분리/중복 제거**.
@@ -88,7 +88,10 @@
 - 추가: `src/views/teams.js` (`renderStandingsTable`, `renderTeamRoster`, `renderTeamRecentGames`)
 - 추가: `src/views/games.js`, `src/views/game-detail.js`, `src/views/schedule.js`, `src/views/leaders.js`, `src/views/compare.js`, `src/views/predict.js`
 - 변경: `src/app.js`에서 각 페이지 렌더링을 view 모듈 호출로 전환
-- 남음: `home` 렌더링 분리(선택), 데이터 접근 레이어 분리(`src/data/*`), 이벤트 바인딩 `mount/unmount`화
+- 완료: 데이터 접근 레이어 1차 도입 (`src/data/client.js`) 및 기존 `fetch*` 래퍼 통합
+- 완료: 내비게이션 이벤트 `mount/unmount` 분리 (`src/ui/responsive-nav.js`)
+- 추가: `src/views/player-detail.test.js`, `src/data/client.test.js`, `src/ui/responsive-nav.test.js`
+- 남음: `home` 렌더링 분리(선택), compare/predict/global-search 이벤트도 `mount/unmount` 패턴으로 단계적 전환
 
 ### P2 (CSS 유지보수성)
 

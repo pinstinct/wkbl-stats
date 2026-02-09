@@ -28,6 +28,8 @@ import {
   renderPlayerSeasonTable,
 } from "./views/player-detail.js";
 import { renderBoxscoreRows } from "./views/game-detail.js";
+import { createDataClient } from "./data/client.js";
+import { mountResponsiveNav } from "./ui/responsive-nav.js";
 
 (function () {
   "use strict";
@@ -72,6 +74,8 @@ import { renderBoxscoreRows } from "./views/game-detail.js";
     compareSelectedPlayers: [],
     compareSearchResults: [],
   };
+
+  let unmountResponsiveNav = null;
 
   // =============================================================================
   // Utility Functions
@@ -148,18 +152,19 @@ import { renderBoxscoreRows } from "./views/game-detail.js";
     }
   }
 
-  async function fetchPlayers(season) {
-    // Try local database (sql.js)
-    await initLocalDb();
-    if (state.dbInitialized) {
-      const isCurrentSeason = season === CONFIG.defaultSeason;
-      const activeOnly = season !== "all" && isCurrentSeason;
-      const includeNoGames = season !== "all";
-      const seasonId = season === "all" ? null : season;
-      return WKBLDatabase.getPlayers(seasonId, null, activeOnly, includeNoGames);
-    }
+  const dataClient = createDataClient({
+    initDb: initLocalDb,
+    getDb: () => (state.dbInitialized && typeof WKBLDatabase !== "undefined" ? WKBLDatabase : null),
+    getSeasonLabel: (season) => SEASONS[season] || season,
+  });
 
-    // Fallback to JSON file
+  async function fetchPlayers(season) {
+    const dbRows = await dataClient.getPlayers({
+      season,
+      defaultSeason: CONFIG.defaultSeason,
+    });
+    if (dbRows.length > 0 || state.dbInitialized) return dbRows;
+
     const res = await fetch(CONFIG.dataPath);
     if (!res.ok) throw new Error("Data not found");
     const data = await res.json();
@@ -167,100 +172,47 @@ import { renderBoxscoreRows } from "./views/game-detail.js";
   }
 
   async function fetchPlayerDetail(playerId) {
-    await initLocalDb();
-    if (state.dbInitialized) {
-      const player = WKBLDatabase.getPlayerDetail(playerId);
-      if (player) return player;
-    }
-    throw new Error("Player not found");
+    return dataClient.getPlayerDetail(playerId);
   }
 
   async function fetchPlayerGamelog(playerId) {
-    await initLocalDb();
-    if (state.dbInitialized) {
-      return WKBLDatabase.getPlayerGamelog(playerId);
-    }
-    return [];
+    return dataClient.getPlayerGamelog(playerId);
   }
 
   async function fetchTeams() {
-    await initLocalDb();
-    if (state.dbInitialized) {
-      return { teams: WKBLDatabase.getTeams() };
-    }
-    return { teams: [] };
+    return dataClient.getTeams();
   }
 
   async function fetchStandings(season) {
-    await initLocalDb();
-    if (state.dbInitialized) {
-      const standings = WKBLDatabase.getStandings(season);
-      return {
-        season: season,
-        season_label: SEASONS[season] || season,
-        standings: standings,
-      };
-    }
-    return { standings: [] };
+    return dataClient.getStandings(season);
   }
 
   async function fetchTeamDetail(teamId, season) {
-    await initLocalDb();
-    if (state.dbInitialized) {
-      const team = WKBLDatabase.getTeamDetail(teamId, season);
-      if (team) return { season: season, ...team };
-    }
-    throw new Error("Team not found");
+    return dataClient.getTeamDetail(teamId, season);
   }
 
   async function fetchGames(season) {
-    await initLocalDb();
-    if (state.dbInitialized) {
-      // Exclude future games (home_score IS NULL)
-      return WKBLDatabase.getGames(season, null, null, 50, 0, true);
-    }
-    return [];
+    return dataClient.getGames(season);
   }
 
   async function fetchGameBoxscore(gameId) {
-    await initLocalDb();
-    if (state.dbInitialized) {
-      const boxscore = WKBLDatabase.getGameBoxscore(gameId);
-      if (boxscore) return boxscore;
-    }
-    throw new Error("Game not found");
+    return dataClient.getGameBoxscore(gameId);
   }
 
   async function fetchLeaders(season, category, limit = 10) {
-    await initLocalDb();
-    if (state.dbInitialized) {
-      return WKBLDatabase.getLeaders(season, category, limit);
-    }
-    return [];
+    return dataClient.getLeaders(season, category, limit);
   }
 
   async function fetchAllLeaders(season) {
-    await initLocalDb();
-    if (state.dbInitialized) {
-      return WKBLDatabase.getLeadersAll(season, 5);
-    }
-    return {};
+    return dataClient.getLeadersAll(season);
   }
 
   async function fetchSearch(query, limit = 10) {
-    await initLocalDb();
-    if (state.dbInitialized) {
-      return WKBLDatabase.search(query, limit);
-    }
-    return { players: [], teams: [] };
+    return dataClient.search(query, limit);
   }
 
   async function fetchComparePlayers(playerIds, season) {
-    await initLocalDb();
-    if (state.dbInitialized) {
-      return WKBLDatabase.getPlayerComparison(playerIds, season);
-    }
-    return [];
+    return dataClient.getPlayerComparison(playerIds, season);
   }
 
   // =============================================================================
@@ -2554,29 +2506,17 @@ import { renderBoxscoreRows } from "./views/game-detail.js";
     const mainNav = $("mainNav");
     const navToggle = $("navToggle");
     const navMenu = $("navMenu");
+    if (unmountResponsiveNav) {
+      unmountResponsiveNav();
+      unmountResponsiveNav = null;
+    }
     if (mainNav && navToggle && navMenu) {
-      const closeNavMenu = () => {
-        mainNav.classList.remove("open");
-        navToggle.setAttribute("aria-expanded", "false");
-      };
-
-      navToggle.addEventListener("click", () => {
-        const isOpen = mainNav.classList.toggle("open");
-        navToggle.setAttribute("aria-expanded", String(isOpen));
-      });
-
-      navMenu.addEventListener("click", (e) => {
-        if (e.target.closest(".nav-link") || e.target.closest("#globalSearchBtn")) {
-          closeNavMenu();
-        }
-      });
-
-      document.addEventListener("click", (e) => {
-        if (!mainNav.contains(e.target)) closeNavMenu();
-      });
-
-      window.addEventListener("resize", () => {
-        if (window.innerWidth > 980) closeNavMenu();
+      unmountResponsiveNav = mountResponsiveNav({
+        mainNav,
+        navToggle,
+        navMenu,
+        documentRef: document,
+        windowRef: window,
       });
     }
 
