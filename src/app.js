@@ -1617,15 +1617,36 @@
         const homeActualWin = game.home_score > game.away_score;
         const homePredictedWin = predictions.team.home_win_prob > 50;
         const predictionCorrect = homeActualWin === homePredictedWin;
-        const awayPredPts = predictions.team.away_predicted_pts?.toFixed(0) || "-";
-        const homePredPts = predictions.team.home_predicted_pts?.toFixed(0) || "-";
-        const awayDiff = predictions.team.away_predicted_pts !== null && predictions.team.away_predicted_pts !== undefined
-          ? Math.round((game.away_score - predictions.team.away_predicted_pts) * 10) / 10
-          : null;
-        const homeDiff = predictions.team.home_predicted_pts !== null && predictions.team.home_predicted_pts !== undefined
-          ? Math.round((game.home_score - predictions.team.home_predicted_pts) * 10) / 10
-          : null;
         const diffClass = (diff) => diff === null ? "" : (diff >= 0 ? "stat-positive" : "stat-negative");
+
+        // Calculate team totals from player predictions
+        const sumPred = (teamId, stat) => predictions.players
+          .filter(p => p.team_id === teamId)
+          .reduce((s, p) => s + (p[`predicted_${stat}`] || 0), 0);
+        const sumActual = (stats, stat) => (stats || []).reduce((s, p) => s + (p[stat] || 0), 0);
+
+        const stats = ["pts", "reb", "ast"];
+        const statLabels = { pts: "득점", reb: "리바운드", ast: "어시스트" };
+        const teams = [
+          { id: game.away_team_id, name: game.away_team_name, stats: game.away_team_stats,
+            predPts: predictions.team.away_predicted_pts, actualPts: game.away_score },
+          { id: game.home_team_id, name: game.home_team_name, stats: game.home_team_stats,
+            predPts: predictions.team.home_predicted_pts, actualPts: game.home_score },
+        ];
+
+        const tableRows = teams.map(t => {
+          const cells = stats.map(stat => {
+            const pred = stat === "pts" ? t.predPts : sumPred(t.id, stat);
+            const actual = stat === "pts" ? t.actualPts : sumActual(t.stats, stat);
+            const diff = pred != null ? Math.round((actual - pred) * 10) / 10 : null;
+            return `
+              <td>${pred != null ? pred.toFixed(0) : "-"}</td>
+              <td>${actual}</td>
+              <td class="${diffClass(diff)}">${diff !== null ? (diff >= 0 ? "+" : "") + formatNumber(diff, 0) : "-"}</td>
+            `;
+          }).join("");
+          return `<tr><td class="pred-team-label">${t.name}</td>${cells}</tr>`;
+        }).join("");
 
         predictionSection.innerHTML = `
           <div class="prediction-summary">
@@ -1650,30 +1671,23 @@
             <div class="pred-result ${predictionCorrect ? 'correct' : 'incorrect'}">
               ${predictionCorrect ? '✓ 예측 적중' : '✗ 예측 실패'}
             </div>
-            <div class="pred-score-comparison">
-              <div class="pred-score-item">
-                <span>예상 점수</span>
-                <span>${awayPredPts} - ${homePredPts}</span>
-              </div>
-              <div class="pred-score-item">
-                <span>실제 점수</span>
-                <span>${game.away_score} - ${game.home_score}</span>
-              </div>
-            </div>
-            <div class="pred-score-compare-table">
-              <div class="pred-score-row">
-                <span class="pred-team-label">${game.away_team_name}</span>
-                <span class="pred-score-cell">예측 ${awayPredPts}</span>
-                <span class="pred-score-cell">실제 ${game.away_score}</span>
-                <span class="pred-score-cell ${diffClass(awayDiff)}">차이 ${awayDiff !== null ? formatNumber(awayDiff, 0) : "-"}</span>
-              </div>
-              <div class="pred-score-row">
-                <span class="pred-team-label">${game.home_team_name}</span>
-                <span class="pred-score-cell">예측 ${homePredPts}</span>
-                <span class="pred-score-cell">실제 ${game.home_score}</span>
-                <span class="pred-score-cell ${diffClass(homeDiff)}">차이 ${homeDiff !== null ? formatNumber(homeDiff, 0) : "-"}</span>
-              </div>
-            </div>
+            <table class="pred-stats-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th colspan="3">득점</th>
+                  <th colspan="3">리바운드</th>
+                  <th colspan="3">어시스트</th>
+                </tr>
+                <tr>
+                  <th></th>
+                  <th>예측</th><th>실제</th><th>차이</th>
+                  <th>예측</th><th>실제</th><th>차이</th>
+                  <th>예측</th><th>실제</th><th>차이</th>
+                </tr>
+              </thead>
+              <tbody>${tableRows}</tbody>
+            </table>
           </div>
         `;
         predictionSection.style.display = "block";

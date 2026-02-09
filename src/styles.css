@@ -2441,31 +2441,50 @@ body {
   margin-bottom: 8px;
 }
 
-.pred-score-compare-table {
+.pred-stats-table {
+  width: 100%;
   margin-top: 12px;
-  display: grid;
-  gap: 6px;
-}
-
-.pred-score-row {
-  display: grid;
-  grid-template-columns: 1.3fr 1fr 1fr 1fr;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
+  border-collapse: collapse;
   font-size: 12px;
 }
 
-.pred-team-label {
+.pred-stats-table th,
+.pred-stats-table td {
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.pred-stats-table thead tr:first-child th:not(:first-child) {
+  border-bottom: none;
+  padding-bottom: 2px;
+  font-weight: 600;
+}
+
+.pred-stats-table thead tr:last-child th {
+  padding-top: 0;
+  font-weight: 400;
+  color: rgba(var(--ink-rgb), 0.5);
+  font-size: 11px;
+}
+
+.pred-stats-table tbody tr {
+  border-top: 1px solid var(--line);
+}
+
+.pred-stats-table .pred-team-label {
+  text-align: left;
   font-weight: 600;
   color: rgba(var(--ink-rgb), 0.7);
 }
 
-.pred-score-cell {
-  text-align: center;
-  color: rgba(var(--ink-rgb), 0.7);
+@media (max-width: 600px) {
+  .pred-stats-table {
+    font-size: 11px;
+  }
+  .pred-stats-table th,
+  .pred-stats-table td {
+    padding: 4px 3px;
+  }
 }
 
 .prediction-explanation {
