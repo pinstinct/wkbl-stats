@@ -21,20 +21,27 @@
           <h1>Stats Explorer</h1>
         </a>
       </div>
-      <nav class="nav-links">
-        <a href="#/" class="nav-link">홈</a>
-        <a href="#/players" class="nav-link">선수</a>
-        <a href="#/teams" class="nav-link">팀</a>
-        <a href="#/games" class="nav-link">경기</a>
-        <a href="#/schedule" class="nav-link">일정</a>
-        <a href="#/leaders" class="nav-link">리더</a>
-        <a href="#/compare" class="nav-link">비교</a>
-        <a href="#/predict" class="nav-link">예측</a>
-        <button id="globalSearchBtn" class="nav-search-btn" title="검색 (Ctrl+K)">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-          </svg>
+      <nav class="nav-links" id="mainNav">
+        <button id="navToggle" class="nav-toggle" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="navMenu">
+          <span></span>
+          <span></span>
+          <span></span>
         </button>
+        <div class="nav-menu" id="navMenu">
+          <a href="#/" class="nav-link">홈</a>
+          <a href="#/players" class="nav-link">선수</a>
+          <a href="#/teams" class="nav-link">팀</a>
+          <a href="#/games" class="nav-link">경기</a>
+          <a href="#/schedule" class="nav-link">일정</a>
+          <a href="#/leaders" class="nav-link">리더</a>
+          <a href="#/compare" class="nav-link">비교</a>
+          <a href="#/predict" class="nav-link">예측</a>
+          <button id="globalSearchBtn" class="nav-search-btn" title="검색 (Ctrl+K)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+          </button>
+        </div>
       </nav>
     </header>
 

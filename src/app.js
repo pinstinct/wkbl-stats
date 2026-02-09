@@ -267,6 +267,12 @@
   async function handleRoute() {
     const { path, id } = getRoute();
     updateNavLinks();
+    const mainNav = $("mainNav");
+    const navToggle = $("navToggle");
+    if (mainNav && mainNav.classList.contains("open")) {
+      mainNav.classList.remove("open");
+      if (navToggle) navToggle.setAttribute("aria-expanded", "false");
+    }
 
     try {
       switch (path) {
@@ -2915,6 +2921,36 @@
   // =============================================================================
 
   function initEventListeners() {
+    // Mobile nav menu
+    const mainNav = $("mainNav");
+    const navToggle = $("navToggle");
+    const navMenu = $("navMenu");
+    if (mainNav && navToggle && navMenu) {
+      const closeNavMenu = () => {
+        mainNav.classList.remove("open");
+        navToggle.setAttribute("aria-expanded", "false");
+      };
+
+      navToggle.addEventListener("click", () => {
+        const isOpen = mainNav.classList.toggle("open");
+        navToggle.setAttribute("aria-expanded", String(isOpen));
+      });
+
+      navMenu.addEventListener("click", (e) => {
+        if (e.target.closest(".nav-link") || e.target.closest("#globalSearchBtn")) {
+          closeNavMenu();
+        }
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!mainNav.contains(e.target)) closeNavMenu();
+      });
+
+      window.addEventListener("resize", () => {
+        if (window.innerWidth > 980) closeNavMenu();
+      });
+    }
+
     // Season selects
     ["seasonSelect", "teamsSeasonSelect", "gamesSeasonSelect", "leadersSeasonSelect", "compareSeasonSelect", "scheduleSeasonSelect", "predictSeasonSelect"].forEach((id) => {
       const el = $(id);
