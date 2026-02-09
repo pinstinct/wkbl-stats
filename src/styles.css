@@ -348,6 +348,30 @@ body {
   cursor: help;
 }
 
+/* Sticky first column (player name) */
+#statsTable th[data-key="name"],
+#statsTable td:first-child {
+  min-width: 88px;
+}
+
+#statsTable th[data-key="name"] {
+  position: sticky;
+  left: 0;
+  z-index: 6;
+  background: var(--surface);
+}
+
+#statsTable td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--surface);
+}
+
+#statsTable tbody tr:hover td:first-child {
+  background: rgba(217, 79, 49, 0.06);
+}
+
 #statsTable tbody tr {
   cursor: pointer;
 }
@@ -497,12 +521,6 @@ body {
   #statsTable td {
     padding: 8px 6px;
     border-bottom: 1px solid var(--line);
-  }
-
-  /* Sticky first column (player name) */
-  #statsTable th:first-child,
-  #statsTable td:first-child {
-    min-width: 88px;
   }
 
   .detail-table {
