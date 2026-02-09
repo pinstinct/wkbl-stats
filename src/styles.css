@@ -12,27 +12,6 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f1115;
-    --ink: #eef1f6;
-    --ink-rgb: 238, 241, 246;
-    --accent: #e8744f;
-    --accent-2: #4b7ec4;
-    --surface: #151a23;
-    --surface-2: #10151f;
-    --line: rgba(var(--ink-rgb), 0.12);
-    --shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
-    color-scheme: dark;
-  }
-
-  .bg-grid {
-    background-image:
-      radial-gradient(circle at 20% 20%, rgba(232, 116, 79, 0.12), transparent 45%),
-      radial-gradient(circle at 80% 0%, rgba(75, 126, 196, 0.15), transparent 40%),
-      linear-gradient(120deg, rgba(15, 17, 21, 0.8), transparent 50%);
-  }
-}
 
 * {
   box-sizing: border-box;
