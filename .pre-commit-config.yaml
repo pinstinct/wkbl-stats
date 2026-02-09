@@ -1,16 +1,29 @@
 repos:
-    - repo: https://github.com/astral-sh/ruff-pre-commit
-      rev: v0.14.14
-      hooks:
-        - id: ruff-check
-          args: [--fix]
-        - id: ruff-format
-    - repo: https://github.com/pre-commit/mirrors-mypy
-      rev: v1.19.1
-      hooks:
-        - id: mypy
-    - repo: https://github.com/pycqa/bandit
-      rev: 1.9.3
-      hooks:
-        - id: bandit
-          args: ["-x", "tests"]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.14
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.19.1
+    hooks:
+      - id: mypy
+  - repo: https://github.com/pycqa/bandit
+    rev: 1.9.3
+    hooks:
+      - id: bandit
+        args: ["-x", "tests"]
+  - repo: local
+    hooks:
+      - id: front-lint-security
+        name: Frontend lint/security (eslint)
+        entry: npx eslint
+        language: system
+        types_or: [javascript]
+        files: ^(src/.*\.js|vitest\.config\.js)$
+      - id: front-format-check
+        name: Frontend format check (prettier)
+        entry: npx prettier --check
+        language: system
+        types_or: [javascript, css, html, json, markdown, yaml]

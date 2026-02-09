@@ -3,10 +3,18 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lint:front": "eslint \"src/**/*.js\" \"vitest.config.js\"",
+    "format:front": "prettier --write \"src/**/*.js\" \"index.html\" \"vitest.config.js\" \"package.json\"",
+    "format:front:check": "prettier --check \"src/**/*.js\" \"index.html\" \"vitest.config.js\" \"package.json\"",
     "test:front": "vitest run",
     "test:front:watch": "vitest"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "eslint-plugin-security": "^3.0.1",
+    "globals": "^16.4.0",
+    "prettier": "^3.6.2",
     "vitest": "^2.1.8"
   }
 }
