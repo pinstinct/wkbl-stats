@@ -15,6 +15,8 @@ from pydantic import BaseModel
 
 from config import CURRENT_SEASON, SEASON_CODES, setup_logging
 from database import get_connection, init_db
+from season_utils import resolve_season
+from stats import compute_advanced_stats
 
 logger = setup_logging("api")
 
@@ -150,6 +152,7 @@ def get_players(
     season_id: Optional[str] = None,
     team_id: Optional[str] = None,
     active_only: bool = True,
+    include_no_games: bool = False,
 ) -> list[dict]:
     """Get all players with their season stats."""
     query = """
@@ -202,54 +205,64 @@ def get_players(
         result = []
         for row in rows:
             d = dict(row)
-            # Calculate percentages
-            d["fgp"] = (
-                round(d["total_fgm"] / d["total_fga"], 3) if d["total_fga"] else 0.0
-            )
-            d["tpp"] = (
-                round(d["total_tpm"] / d["total_tpa"], 3) if d["total_tpa"] else 0.0
-            )
-            d["ftp"] = (
-                round(d["total_ftm"] / d["total_fta"], 3) if d["total_fta"] else 0.0
-            )
-            # Round averages
             for key in ["min", "pts", "reb", "ast", "stl", "blk", "tov"]:
                 d[key] = round(d[key], 1) if d[key] else 0.0
+            result.append(compute_advanced_stats(d))
 
-            # Advanced stats
-            pts = d["pts"] * d["gp"]
-            fga = d["total_fga"] or 0
-            fta = d["total_fta"] or 0
-            fgm = d["total_fgm"] or 0
-            tpm = d["total_tpm"] or 0
-            ftm = d["total_ftm"] or 0
+        if include_no_games and season_id and active_only:
+            player_ids = {p["id"] for p in result}
+            no_games_query = """
+                SELECT
+                    p.id,
+                    p.name,
+                    p.position as pos,
+                    p.height,
+                    p.is_active,
+                    t.name as team,
+                    t.id as team_id
+                FROM players p
+                LEFT JOIN teams t ON p.team_id = t.id
+                WHERE p.is_active = 1
+            """
+            no_games_params: list[Any] = []
+            if team_id:
+                no_games_query += " AND p.team_id = ?"
+                no_games_params.append(team_id)
+            no_games_query += """
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM player_games pg
+                    JOIN games g ON pg.game_id = g.id
+                    WHERE pg.player_id = p.id
+                      AND g.season_id = ?
+                )
+            """
+            no_games_params.append(season_id)
 
-            # TS% = PTS / (2 × (FGA + 0.44 × FTA))
-            tsa = 2 * (fga + 0.44 * fta)
-            d["ts_pct"] = round(pts / tsa, 3) if tsa > 0 else 0.0
-
-            # eFG% = (FGM + 0.5 × 3PM) / FGA
-            d["efg_pct"] = round((fgm + 0.5 * tpm) / fga, 3) if fga > 0 else 0.0
-
-            # PIR = (PTS + REB + AST + STL + BLK - TO - (FGA-FGM) - (FTA-FTM)) / GP
-            reb = d["reb"] * d["gp"]
-            ast = d["ast"] * d["gp"]
-            stl = d["stl"] * d["gp"]
-            blk = d["blk"] * d["gp"]
-            tov = d["tov"] * d["gp"]
-            pir_total = pts + reb + ast + stl + blk - tov - (fga - fgm) - (fta - ftm)
-            d["pir"] = round(pir_total / d["gp"], 1) if d["gp"] > 0 else 0.0
-
-            # AST/TO ratio
-            d["ast_to"] = round(d["ast"] / d["tov"], 2) if d["tov"] > 0 else 0.0
-
-            # Per 36 minutes stats
-            min_avg = d["min"] if d["min"] > 0 else 1
-            d["pts36"] = round(d["pts"] * 36 / min_avg, 1)
-            d["reb36"] = round(d["reb"] * 36 / min_avg, 1)
-            d["ast36"] = round(d["ast"] * 36 / min_avg, 1)
-
-            result.append(d)
+            no_games_rows = conn.execute(no_games_query, no_games_params).fetchall()
+            for row in no_games_rows:
+                d = dict(row)
+                if d["id"] in player_ids:
+                    continue
+                d.update(
+                    {
+                        "gp": 0,
+                        "min": 0.0,
+                        "pts": 0.0,
+                        "reb": 0.0,
+                        "ast": 0.0,
+                        "stl": 0.0,
+                        "blk": 0.0,
+                        "tov": 0.0,
+                        "total_fgm": 0,
+                        "total_fga": 0,
+                        "total_tpm": 0,
+                        "total_tpa": 0,
+                        "total_ftm": 0,
+                        "total_fta": 0,
+                    }
+                )
+                result.append(compute_advanced_stats(d))
 
         return result
 
@@ -304,52 +317,9 @@ def get_player_detail(player_id: str) -> Optional[dict]:
         result["seasons"] = {}
         for row in seasons:
             d = dict(row)
-            d["fgp"] = (
-                round(d["total_fgm"] / d["total_fga"], 3) if d["total_fga"] else 0.0
-            )
-            d["tpp"] = (
-                round(d["total_tpm"] / d["total_tpa"], 3) if d["total_tpa"] else 0.0
-            )
-            d["ftp"] = (
-                round(d["total_ftm"] / d["total_fta"], 3) if d["total_fta"] else 0.0
-            )
             for key in ["min", "pts", "reb", "ast", "stl", "blk", "tov"]:
                 d[key] = round(d[key], 1) if d[key] else 0.0
-
-            # Advanced stats
-            pts = d["pts"] * d["gp"]
-            fga = d["total_fga"] or 0
-            fta = d["total_fta"] or 0
-            fgm = d["total_fgm"] or 0
-            tpm = d["total_tpm"] or 0
-            ftm = d["total_ftm"] or 0
-
-            # TS% = PTS / (2 × (FGA + 0.44 × FTA))
-            tsa = 2 * (fga + 0.44 * fta)
-            d["ts_pct"] = round(pts / tsa, 3) if tsa > 0 else 0.0
-
-            # eFG% = (FGM + 0.5 × 3PM) / FGA
-            d["efg_pct"] = round((fgm + 0.5 * tpm) / fga, 3) if fga > 0 else 0.0
-
-            # PIR = (PTS + REB + AST + STL + BLK - TO - (FGA-FGM) - (FTA-FTM)) / GP
-            reb = d["reb"] * d["gp"]
-            ast = d["ast"] * d["gp"]
-            stl = d["stl"] * d["gp"]
-            blk = d["blk"] * d["gp"]
-            tov = d["tov"] * d["gp"]
-            pir_total = pts + reb + ast + stl + blk - tov - (fga - fgm) - (fta - ftm)
-            d["pir"] = round(pir_total / d["gp"], 1) if d["gp"] > 0 else 0.0
-
-            # AST/TO ratio
-            d["ast_to"] = round(d["ast"] / d["tov"], 2) if d["tov"] > 0 else 0.0
-
-            # Per 36 minutes stats
-            min_avg = d["min"] if d["min"] > 0 else 1
-            d["pts36"] = round(d["pts"] * 36 / min_avg, 1)
-            d["reb36"] = round(d["reb"] * 36 / min_avg, 1)
-            d["ast36"] = round(d["ast"] * 36 / min_avg, 1)
-
-            result["seasons"][d["season_id"]] = d
+            result["seasons"][d["season_id"]] = compute_advanced_stats(d)
 
         # Recent game log (last 10 games)
         games = conn.execute(
@@ -849,15 +819,19 @@ def api_get_players(
     ),
     team: str = Query(default=None, description="Team ID filter"),
     active_only: bool = Query(default=True, description="Only active players"),
+    include_no_games: bool = Query(
+        default=True,
+        description="Include active players with no games for selected season",
+    ),
 ):
     """Get all players with their season statistics."""
-    if season == "all":
-        season_id = None
-        season_label = "전체"
-    else:
-        season_id = season or max(SEASON_CODES.keys())
-        season_label = SEASON_CODES.get(season_id, season_id)
-    players = get_players(season_id, team_id=team, active_only=active_only)
+    season_id, season_label = resolve_season(season)
+    players = get_players(
+        season_id,
+        team_id=team,
+        active_only=active_only,
+        include_no_games=include_no_games,
+    )
     return {
         "season": season_id or "all",
         "season_label": season_label,
@@ -874,7 +848,11 @@ def api_compare_players(
     season: str = Query(default=None, description="Season code"),
 ):
     """Compare multiple players' stats."""
-    season_id = season or max(SEASON_CODES.keys())
+    season_id, season_label = resolve_season(season)
+    if season_id is None:
+        raise HTTPException(
+            status_code=400, detail="Comparison does not support season=all"
+        )
     player_ids = [pid.strip() for pid in ids.split(",") if pid.strip()]
 
     if len(player_ids) < 2:
@@ -885,7 +863,7 @@ def api_compare_players(
     players = get_player_comparison(player_ids, season_id)
     return {
         "season": season_id,
-        "season_label": SEASON_CODES.get(season_id, season_id),
+        "season_label": season_label,
         "players": players,
     }
 
@@ -924,7 +902,11 @@ def api_get_team(
     season: str = Query(default=None, description="Season code"),
 ):
     """Get team details with roster and standings."""
-    season_id = season or max(SEASON_CODES.keys())
+    season_id, _ = resolve_season(season)
+    if season_id is None:
+        raise HTTPException(
+            status_code=400, detail="Team detail does not support season=all"
+        )
     team = get_team_detail(team_id, season_id)
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
@@ -940,7 +922,11 @@ def api_get_games(
     offset: int = Query(default=0, ge=0, description="Offset for pagination"),
 ):
     """Get games list with optional filters."""
-    season_id = season or max(SEASON_CODES.keys())
+    season_id, _ = resolve_season(season)
+    if season_id is None:
+        raise HTTPException(
+            status_code=400, detail="Games list does not support season=all"
+        )
     games = get_games(
         season_id, team_id=team, game_type=game_type, limit=limit, offset=offset
     )
@@ -994,7 +980,11 @@ def api_get_leaders(
     limit: int = Query(default=10, le=50, description="Number of leaders"),
 ):
     """Get statistical leaders for a category."""
-    season_id = season or max(SEASON_CODES.keys())
+    season_id, _ = resolve_season(season)
+    if season_id is None:
+        raise HTTPException(
+            status_code=400, detail="Leaders does not support season=all"
+        )
     leaders = get_leaders(season_id, category=category, limit=limit)
     return {
         "season": season_id,
@@ -1009,7 +999,11 @@ def api_get_all_leaders(
     limit: int = Query(default=5, le=20, description="Leaders per category"),
 ):
     """Get leaders for all major categories."""
-    season_id = season or max(SEASON_CODES.keys())
+    season_id, season_label = resolve_season(season)
+    if season_id is None:
+        raise HTTPException(
+            status_code=400, detail="Leaders does not support season=all"
+        )
     categories = ["pts", "reb", "ast", "stl", "blk"]
 
     categories_data: dict[str, list[dict]] = {}
@@ -1018,7 +1012,7 @@ def api_get_all_leaders(
 
     return {
         "season": season_id,
-        "season_label": SEASON_CODES.get(season_id, season_id),
+        "season_label": season_label,
         "categories": categories_data,
     }
 
@@ -1078,41 +1072,9 @@ def get_player_comparison(player_ids: list[str], season_id: str) -> list[dict]:
         result = []
         for row in rows:
             d = dict(row)
-            d["fgp"] = (
-                round(d["total_fgm"] / d["total_fga"], 3) if d["total_fga"] else 0
-            )
-            d["tpp"] = (
-                round(d["total_tpm"] / d["total_tpa"], 3) if d["total_tpa"] else 0
-            )
-            d["ftp"] = (
-                round(d["total_ftm"] / d["total_fta"], 3) if d["total_fta"] else 0
-            )
             for key in ["min", "pts", "reb", "ast", "stl", "blk", "tov"]:
                 d[key] = round(d[key], 1) if d[key] else 0
-
-            # Advanced stats
-            pts = d["pts"] * d["gp"]
-            fga = d["total_fga"] or 0
-            fta = d["total_fta"] or 0
-            fgm = d["total_fgm"] or 0
-            tpm = d["total_tpm"] or 0
-
-            # TS% = PTS / (2 × (FGA + 0.44 × FTA))
-            tsa = 2 * (fga + 0.44 * fta)
-            d["ts_pct"] = round(pts / tsa, 3) if tsa > 0 else 0
-
-            # eFG% = (FGM + 0.5 × 3PM) / FGA
-            d["efg_pct"] = round((fgm + 0.5 * tpm) / fga, 3) if fga > 0 else 0
-
-            # PIR = (PTS + REB + AST + STL + BLK - TO - (FGA-FGM) - (FTA-FTM)) / GP
-            ftm = d["total_ftm"] or 0
-            reb = d["reb"] * d["gp"]
-            ast = d["ast"] * d["gp"]
-            stl = d["stl"] * d["gp"]
-            blk = d["blk"] * d["gp"]
-            tov = d["tov"] * d["gp"]
-            pir_total = pts + reb + ast + stl + blk - tov - (fga - fgm) - (fta - ftm)
-            d["pir"] = round(pir_total / d["gp"], 1) if d["gp"] > 0 else 0
+            d = compute_advanced_stats(d)
 
             # Clean up internal fields
             for key in [

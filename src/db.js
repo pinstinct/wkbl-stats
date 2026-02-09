@@ -15,14 +15,7 @@ const WKBLDatabase = (function () {
   let db = null;
   let initPromise = null;
 
-  const SEASON_CODES = {
-    "046": "2025-26",
-    "045": "2024-25",
-    "044": "2023-24",
-    "043": "2022-23",
-    "042": "2021-22",
-    "041": "2020-21",
-  };
+  const SEASON_CODES = window.WKBLShared?.SEASON_CODES || {};
 
   // =============================================================================
   // Initialization

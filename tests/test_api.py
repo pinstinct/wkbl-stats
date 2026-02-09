@@ -58,6 +58,37 @@ class TestPlayersEndpoint:
         data = response.json()
         assert "players" in data
 
+    def test_get_players_include_no_games_toggle(
+        self, client, sample_team, sample_season
+    ):
+        """include_no_games should control zero-game active roster visibility."""
+        import database
+
+        # Active player with no games in season
+        database.insert_player(
+            player_id="095999",
+            name="무경기선수",
+            team_id=sample_team["id"],
+            position="G",
+            height="170cm",
+            birth_date="2000-01-01",
+            is_active=1,
+        )
+
+        include_resp = client.get(
+            f"/players?season={sample_season['season_id']}&active_only=true&include_no_games=true"
+        )
+        assert include_resp.status_code == 200
+        include_ids = {p["id"] for p in include_resp.json()["players"]}
+        assert "095999" in include_ids
+
+        exclude_resp = client.get(
+            f"/players?season={sample_season['season_id']}&active_only=true&include_no_games=false"
+        )
+        assert exclude_resp.status_code == 200
+        exclude_ids = {p["id"] for p in exclude_resp.json()["players"]}
+        assert "095999" not in exclude_ids
+
 
 class TestPlayerDetailEndpoint:
     """Tests for /players/{id} endpoint."""

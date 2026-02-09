@@ -5,20 +5,18 @@
   // Configuration
   // =============================================================================
 
+  const SHARED = window.WKBLShared;
+  if (!SHARED || !SHARED.SEASON_CODES || !SHARED.DEFAULT_SEASON) {
+    throw new Error("WKBLShared season config is required");
+  }
+
   const CONFIG = {
     dataPath: "./data/wkbl-active.json",
     debounceDelay: 150,
-    defaultSeason: "046",
+    defaultSeason: SHARED.DEFAULT_SEASON,
   };
 
-  const SEASONS = {
-    "046": "2025-26",
-    "045": "2024-25",
-    "044": "2023-24",
-    "043": "2022-23",
-    "042": "2021-22",
-    "041": "2020-21",
-  };
+  const SEASONS = SHARED.SEASON_CODES;
 
   const LEADER_CATEGORIES = [
     { key: "pts", label: "득점", unit: "PPG" },
