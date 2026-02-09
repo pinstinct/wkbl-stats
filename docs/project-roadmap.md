@@ -1,6 +1,7 @@
 # WKBL Stats 프로젝트 로드맵
 
 ## 목표
+
 Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 
 ## 리팩토링 계획 (2026-02-06 추가)
@@ -11,15 +12,16 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
   - P0 완료(시즌 상수/스탯 계산 공통화, players 파라미터 계약)
   - P1 완료(view/data/ui 이벤트 분리: `src/views/*`, `src/data/client.js`, `src/ui/*.js`)
   - 프론트 테스트 전략을 Python 계약 테스트에서 Vitest로 전환, `npm run test:front` 통과
+  - `pre-commit`에 프론트 검사 체인 추가(`eslint` 보안 규칙 + `prettier --check`)
 
 ## 현재 상태 (2026-02-04)
 
-| 단계 | 상태 | 설명 |
-|------|------|------|
-| Phase 1 | ✅ 완료 | SQLite DB 기반 구축, 증분 업데이트 |
-| Phase 2 | ✅ 완료 | 팀 순위, 역대 시즌, 플레이오프 분리 |
-| Phase 3 | ✅ 완료 | REST API 서버 구축 |
-| Phase 4 | ✅ 완료 | 선수/팀/경기 상세 페이지, 리더보드 |
+| 단계    | 상태    | 설명                                          |
+| ------- | ------- | --------------------------------------------- |
+| Phase 1 | ✅ 완료 | SQLite DB 기반 구축, 증분 업데이트            |
+| Phase 2 | ✅ 완료 | 팀 순위, 역대 시즌, 플레이오프 분리           |
+| Phase 3 | ✅ 완료 | REST API 서버 구축                            |
+| Phase 4 | ✅ 완료 | 선수/팀/경기 상세 페이지, 리더보드            |
 | Phase 5 | ✅ 완료 | 고급 기능 (선수 비교, 트렌드 차트, 전역 검색) |
 
 ---
@@ -28,21 +30,21 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 
 ### WKBL Data Lab (datalab.wkbl.or.kr)
 
-| 카테고리 | 엔드포인트 | 데이터 | 상태 |
-|----------|-----------|--------|------|
-| **경기별 선수 박스스코어** | `record_player.asp` | MIN, PTS, REB, AST, STL, BLK, TO, FG, 3P, FT | ✅ 사용 중 |
-| **경기별 팀 기록** | `record_team.asp` | 속공, 페인트존, 2/3점 득점, REB, AST, STL, BLK, TO, PF | ✅ 사용 중 |
-| **경기 목록** | `game/list/month` | 시즌별 game_id, 날짜, 팀 | ✅ 사용 중 |
-| **선수 랭킹 (JSON)** | `playerAnalysis/search` | 득점/리바운드/어시스트/스틸/블록 Top 5 | 🆕 발견 |
+| 카테고리                   | 엔드포인트              | 데이터                                                 | 상태       |
+| -------------------------- | ----------------------- | ------------------------------------------------------ | ---------- |
+| **경기별 선수 박스스코어** | `record_player.asp`     | MIN, PTS, REB, AST, STL, BLK, TO, FG, 3P, FT           | ✅ 사용 중 |
+| **경기별 팀 기록**         | `record_team.asp`       | 속공, 페인트존, 2/3점 득점, REB, AST, STL, BLK, TO, PF | ✅ 사용 중 |
+| **경기 목록**              | `game/list/month`       | 시즌별 game_id, 날짜, 팀                               | ✅ 사용 중 |
+| **선수 랭킹 (JSON)**       | `playerAnalysis/search` | 득점/리바운드/어시스트/스틸/블록 Top 5                 | 🆕 발견    |
 
 ### WKBL 공식 사이트 (wkbl.or.kr)
 
-| 카테고리 | 엔드포인트 | 데이터 | 상태 |
-|----------|-----------|--------|------|
-| **현역 선수 목록** | `player/player_list.asp` | 이름, 팀, pno | ✅ 사용 중 |
-| **선수 프로필** | `player/detail.asp` | 포지션, 신장, 생년월일, 출신학교 | ✅ 사용 중 |
-| **팀 순위** | `ajax/ajax_team_rank.asp` | 순위, 승/패, 홈/원정 전적, 연속 기록, 최근 5경기 | ✅ 사용 중 |
-| **경기 일정** | `game/sch/inc_list_1_new.asp` | 날짜, 홈/원정팀, 점수, game_no | ✅ 사용 중 |
+| 카테고리           | 엔드포인트                    | 데이터                                           | 상태       |
+| ------------------ | ----------------------------- | ------------------------------------------------ | ---------- |
+| **현역 선수 목록** | `player/player_list.asp`      | 이름, 팀, pno                                    | ✅ 사용 중 |
+| **선수 프로필**    | `player/detail.asp`           | 포지션, 신장, 생년월일, 출신학교                 | ✅ 사용 중 |
+| **팀 순위**        | `ajax/ajax_team_rank.asp`     | 순위, 승/패, 홈/원정 전적, 연속 기록, 최근 5경기 | ✅ 사용 중 |
+| **경기 일정**      | `game/sch/inc_list_1_new.asp` | 날짜, 홈/원정팀, 점수, game_no                   | ✅ 사용 중 |
 
 ### 수집 현황
 
@@ -138,6 +140,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 ## 3. 단계별 개발 계획
 
 ### Phase 1: 데이터 기반 구축 ✅ 완료
+
 - [x] SQLite DB 스키마 구현 (`tools/database.py`)
 - [x] 기존 ingest 스크립트를 DB 저장으로 전환 (`--save-db` 옵션)
 - [x] 경기별 raw 데이터 저장 (player_games 테이블)
@@ -146,6 +149,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] home/away 팀 구분 개선 (현재 동일 팀으로 표시됨)
 
 ### Phase 2: 데이터 수집 확장 ✅ 완료
+
 - [x] WKBL Data Lab 추가 엔드포인트 탐색
 - [x] 팀 스탯 수집 (`--fetch-team-stats` 옵션, `team_games` 테이블)
 - [x] 팀 순위 수집 (`--fetch-standings` 옵션, `team_standings` 테이블)
@@ -155,10 +159,12 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] 데이터베이스 메타데이터 테이블 (`_meta_descriptions`)
 
 **참고:**
+
 - team_games: 슈팅 시도 횟수가 아닌 득점(two_pts, three_pts)만 제공
 - team_standings: 최근 10경기가 아닌 5경기(last5) 데이터 제공
 
 ### Phase 3: API 서버 구축 ✅ 완료
+
 - [x] FastAPI로 REST API 구현 (`tools/api.py`)
 - [x] 선수 조회 API (`/api/players`, `/api/players/{id}`, `/api/players/{id}/gamelog`)
 - [x] 팀 조회 API (`/api/teams`, `/api/teams/{id}`)
@@ -168,6 +174,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] OpenAPI 자동 문서화 (`/api/docs`, `/api/redoc`)
 
 ### Phase 4: 프론트엔드 확장 ✅ 완료
+
 - [x] 모바일 반응형 테이블 (선수명 고정 + 가로 스크롤)
 - [x] 선수 카드에 GP(출전 경기 수) 표시
 - [x] 2차 지표 섹션 추가 (TS%, eFG%, AST/TO, PIR, PER36)
@@ -179,6 +186,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] 리더보드 (`#/leaders` - 득점/리바운드/어시스트/스틸/블록 부문별 Top 5)
 
 ### Phase 5: 고급 기능 ✅ 완료
+
 - [x] 선수 비교 도구 (`#/compare` - 최대 4명 선수 비교, 바 차트 시각화)
 - [x] 트렌드 차트 (Chart.js 기반 시즌별 득점/리바운드/어시스트 추이)
 - [x] 검색 기능 강화 (전역 검색 모달, Ctrl+K 단축키, 선수/팀 통합 검색)
@@ -190,26 +198,26 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 
 ## 4. 기술 스택
 
-| 영역 | 기술 | 비고 |
-|------|------|------|
-| **DB** | SQLite | `data/wkbl.db` |
-| **Backend** | FastAPI + uvicorn | REST API + 정적 파일 서빙 |
-| **Frontend** | Vanilla JS + Chart.js | SPA (hash-based routing) |
-| **Package Manager** | uv | `pyproject.toml` + `uv.lock` |
-| **Code Quality** | pre-commit (ruff, mypy, bandit) | 자동 린팅/포맷팅 |
-| **Hosting** | GitHub Pages | 정적 프론트엔드 |
-| **Data Update** | GitHub Actions | 매일 자동 업데이트 |
+| 영역                | 기술                                              | 비고                               |
+| ------------------- | ------------------------------------------------- | ---------------------------------- |
+| **DB**              | SQLite                                            | `data/wkbl.db`                     |
+| **Backend**         | FastAPI + uvicorn                                 | REST API + 정적 파일 서빙          |
+| **Frontend**        | Vanilla JS + Chart.js                             | SPA (hash-based routing)           |
+| **Package Manager** | uv                                                | `pyproject.toml` + `uv.lock`       |
+| **Code Quality**    | pre-commit (ruff, mypy, bandit, eslint, prettier) | Python + Frontend 자동 린팅/포맷팅 |
+| **Hosting**         | GitHub Pages                                      | 정적 프론트엔드                    |
+| **Data Update**     | GitHub Actions                                    | 매일 자동 업데이트                 |
 
 ---
 
 ## 5. 무료 호스팅 전략
 
-| 서비스 | 용도 | 무료 티어 |
-|--------|------|-----------|
-| **GitHub Pages** | 정적 프론트엔드 | 무제한 |
-| **Railway/Render** | API 서버 | 월 500시간 |
-| **Supabase** | PostgreSQL DB | 500MB |
-| **PlanetScale** | MySQL DB | 1GB |
+| 서비스             | 용도            | 무료 티어  |
+| ------------------ | --------------- | ---------- |
+| **GitHub Pages**   | 정적 프론트엔드 | 무제한     |
+| **Railway/Render** | API 서버        | 월 500시간 |
+| **Supabase**       | PostgreSQL DB   | 500MB      |
+| **PlanetScale**    | MySQL DB        | 1GB        |
 
 ---
 
@@ -223,11 +231,11 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 
 ## 7. 향후 개선 아이디어
 
-| 기능 | 설명 | 우선순위 |
-|------|------|----------|
-| 시즌 비교 | 두 시즌의 팀/선수 스탯 비교 | 낮음 |
-| 고급 지표 추가 | PER, WS, VORP 등 NBA 고급 지표 | 중간 |
-| PWA 지원 | 오프라인 접근, 앱 설치 | 낮음 |
-| 알림 기능 | 경기 결과, 선수 하이라이트 알림 | 낮음 |
-| 다크 모드 | 테마 전환 지원 | 낮음 |
-| i18n | 영어 지원 | 낮음 |
+| 기능           | 설명                            | 우선순위 |
+| -------------- | ------------------------------- | -------- |
+| 시즌 비교      | 두 시즌의 팀/선수 스탯 비교     | 낮음     |
+| 고급 지표 추가 | PER, WS, VORP 등 NBA 고급 지표  | 중간     |
+| PWA 지원       | 오프라인 접근, 앱 설치          | 낮음     |
+| 알림 기능      | 경기 결과, 선수 하이라이트 알림 | 낮음     |
+| 다크 모드      | 테마 전환 지원                  | 낮음     |
+| i18n           | 영어 지원                       | 낮음     |
