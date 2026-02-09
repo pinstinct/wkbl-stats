@@ -1053,7 +1053,7 @@ body {
 }
 
 .dnp-row {
-  opacity: 0.55;
+  opacity: 1;
 }
 
 .dnp-badge {
@@ -1064,6 +1064,22 @@ body {
   border-radius: 4px;
   margin-left: 4px;
   vertical-align: middle;
+}
+
+/* Keep DNP badges inside sticky player column on mobile */
+.dnp-row td:first-child {
+  white-space: normal !important;
+  line-height: 1.3;
+}
+
+.dnp-row td:first-child a {
+  display: block;
+}
+
+.dnp-row .starter-badge,
+.dnp-row .dnp-badge {
+  margin-left: 0;
+  margin-top: 4px;
 }
 
 /* =============================================================================
@@ -1637,6 +1653,55 @@ body {
     width: 46px;
     max-width: 46px;
   }
+
+  /* Game detail: mobile density + sticky player column */
+  #view-game .detail-section {
+    padding: 12px;
+  }
+
+  #view-game .detail-section h3 {
+    margin-bottom: 10px;
+  }
+
+  #view-game .table-wrap {
+    padding-bottom: 2px;
+  }
+
+  #view-game .boxscore-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    min-width: 760px;
+    width: max-content;
+  }
+
+  #view-game .boxscore-table th,
+  #view-game .boxscore-table td {
+    padding: 7px 5px;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  #view-game .boxscore-table th:first-child,
+  #view-game .boxscore-table td:first-child {
+    position: sticky;
+    left: 0;
+    min-width: 92px;
+    width: 92px;
+    max-width: 92px;
+    z-index: 6;
+  }
+
+  #view-game .boxscore-table th:first-child {
+    background: var(--surface-2);
+  }
+
+  #view-game .boxscore-table td:first-child {
+    background: var(--surface);
+  }
+
+  #view-game .boxscore-table tbody tr:hover td:first-child {
+    background: rgba(217, 79, 49, 0.04);
+  }
 }
 
 @media (max-width: 480px) {
@@ -1715,6 +1780,27 @@ body {
     min-width: 40px;
     width: 40px;
     max-width: 40px;
+  }
+
+  #view-game .detail-section {
+    padding: 10px;
+  }
+
+  #view-game .boxscore-table {
+    min-width: 700px;
+  }
+
+  #view-game .boxscore-table th,
+  #view-game .boxscore-table td {
+    padding: 6px 4px;
+    font-size: 11px;
+  }
+
+  #view-game .boxscore-table th:first-child,
+  #view-game .boxscore-table td:first-child {
+    min-width: 82px;
+    width: 82px;
+    max-width: 82px;
   }
 }
 
@@ -2847,7 +2933,7 @@ body {
 
 .schedule-item {
   display: grid;
-  grid-template-columns: 80px 1fr;
+  grid-template-columns: 72px minmax(0, 1fr);
   gap: 16px;
   padding: 12px;
   border-radius: 8px;
@@ -2855,6 +2941,7 @@ body {
   text-decoration: none;
   color: inherit;
   transition: background 0.15s;
+  min-width: 0;
 }
 
 .schedule-item:hover {
@@ -2867,18 +2954,32 @@ body {
 }
 
 .schedule-item-matchup {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   font-weight: 500;
+  min-width: 0;
 }
 
 .schedule-team {
   flex: 1;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .schedule-team.away {
   text-align: right;
+}
+
+.schedule-team.home {
+  text-align: left;
 }
 
 .schedule-team.winner {
@@ -2907,7 +3008,7 @@ body {
 /* Schedule item with prediction */
 .schedule-item.upcoming,
 .schedule-item.result {
-  grid-template-columns: 80px 1fr auto;
+  grid-template-columns: 72px minmax(0, 1fr) minmax(88px, auto);
 }
 
 .schedule-prediction {
@@ -2973,6 +3074,46 @@ body {
 .schedule-pred-compare .pred-expected {
   color: rgba(var(--ink-rgb), 0.6);
   font-size: 11px;
+}
+
+@media (max-width: 1320px) {
+  .schedule-section {
+    padding: 20px;
+  }
+
+  .schedule-item {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .schedule-item.upcoming,
+  .schedule-item.result {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .schedule-item-date {
+    font-size: 12px;
+  }
+
+  .schedule-item-matchup {
+    gap: 6px;
+  }
+
+  .schedule-team {
+    -webkit-line-clamp: 3;
+  }
+
+  .schedule-prediction,
+  .schedule-pred-compare {
+    grid-column: 2;
+    border-left: none;
+    border-top: 1px solid var(--line);
+    padding-left: 0;
+    padding-top: 8px;
+    margin-top: 2px;
+    min-width: 0;
+  }
 }
 
 @media (max-width: 480px) {
