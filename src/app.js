@@ -1783,21 +1783,29 @@
         predictionSection.style.display = "none";
       }
 
+      // Helper: get prediction class and tooltip for a stat
+      function getPredStyle(pred, actual, statKey) {
+        if (!pred || game.home_score === null) return { cls: "", title: "" };
+        const predicted = pred[`predicted_${statKey}`];
+        const low = pred[`predicted_${statKey}_low`];
+        const high = pred[`predicted_${statKey}_high`];
+        if (predicted == null) return { cls: "", title: "" };
+        const diff = actual - predicted;
+        const withinRange = actual >= low && actual <= high;
+        const cls = withinRange ? "pred-hit" : (diff > 0 ? "pred-over" : "pred-under");
+        const title = `예측: ${predicted.toFixed(1)} (${low.toFixed(1)}~${high.toFixed(1)})`;
+        return { cls, title };
+      }
+
       // Helper function to render player row with prediction
       function renderPlayerRow(p, isHome) {
         const pred = predictionMap[p.player_id];
         const cmSign = p.court_margin !== null ? (p.court_margin >= 0 ? "+" : "") : "";
         const cmClass = p.court_margin !== null ? (p.court_margin >= 0 ? "stat-positive" : "stat-negative") : "";
 
-        // Calculate prediction accuracy for PTS
-        let predClass = "";
-        let predInfo = "";
-        if (pred && game.home_score !== null) {
-          const diff = p.pts - pred.predicted_pts;
-          const withinRange = p.pts >= pred.predicted_pts_low && p.pts <= pred.predicted_pts_high;
-          predClass = withinRange ? "pred-hit" : (diff > 0 ? "pred-over" : "pred-under");
-          predInfo = `예측: ${pred.predicted_pts.toFixed(1)} (${pred.predicted_pts_low.toFixed(1)}~${pred.predicted_pts_high.toFixed(1)})`;
-        }
+        const ptsPred = getPredStyle(pred, p.pts, "pts");
+        const rebPred = getPredStyle(pred, p.reb, "reb");
+        const astPred = getPredStyle(pred, p.ast, "ast");
 
         return `
           <tr class="${pred?.is_starter ? 'starter-row' : ''}">
@@ -1806,9 +1814,9 @@
               ${pred?.is_starter ? '<span class="starter-badge">선발</span>' : ''}
             </td>
             <td>${formatNumber(p.minutes, 0)}</td>
-            <td class="${predClass}" title="${predInfo}">${p.pts}</td>
-            <td>${p.reb}</td>
-            <td>${p.ast}</td>
+            <td class="${ptsPred.cls}" title="${ptsPred.title}">${p.pts}</td>
+            <td class="${rebPred.cls}" title="${rebPred.title}">${p.reb}</td>
+            <td class="${astPred.cls}" title="${astPred.title}">${p.ast}</td>
             <td>${p.stl}</td>
             <td>${p.blk}</td>
             <td class="hide-mobile">${p.tov}</td>
@@ -1822,13 +1830,52 @@
         `;
       }
 
+      // Helper: render DNP row for predicted starter who didn't play
+      function renderDnpRow(pred) {
+        return `
+          <tr class="starter-row dnp-row">
+            <td>
+              <a href="#/players/${pred.player_id}">${pred.player_name || pred.player_id}</a>
+              <span class="starter-badge">선발</span>
+              <span class="dnp-badge">미출장</span>
+            </td>
+            <td>-</td>
+            <td title="예측: ${pred.predicted_pts.toFixed(1)}">-</td>
+            <td title="예측: ${pred.predicted_reb.toFixed(1)}">-</td>
+            <td title="예측: ${pred.predicted_ast.toFixed(1)}">-</td>
+            <td>-</td><td>-</td>
+            <td class="hide-mobile">-</td>
+            <td class="hide-mobile">-</td>
+            <td class="hide-tablet">-</td>
+            <td class="hide-tablet">-</td>
+            <td class="hide-tablet">-</td>
+            <td class="hide-tablet">-</td>
+            <td class="hide-tablet">-</td>
+          </tr>
+        `;
+      }
+
+      // Find predicted starters who didn't play
+      const playedPlayerIds = new Set([
+        ...(game.away_team_stats || []).map(p => p.player_id),
+        ...(game.home_team_stats || []).map(p => p.player_id),
+      ]);
+      const awayDnp = predictions.players.filter(p =>
+        p.is_starter && p.team_id === game.away_team_id && !playedPlayerIds.has(p.player_id)
+      );
+      const homeDnp = predictions.players.filter(p =>
+        p.is_starter && p.team_id === game.home_team_id && !playedPlayerIds.has(p.player_id)
+      );
+
       // Away team stats
       const awayBody = $("boxscoreAwayBody");
-      awayBody.innerHTML = (game.away_team_stats || []).map(p => renderPlayerRow(p, false)).join("");
+      awayBody.innerHTML = (game.away_team_stats || []).map(p => renderPlayerRow(p, false)).join("")
+        + awayDnp.map(p => renderDnpRow(p)).join("");
 
       // Home team stats
       const homeBody = $("boxscoreHomeBody");
-      homeBody.innerHTML = (game.home_team_stats || []).map(p => renderPlayerRow(p, true)).join("");
+      homeBody.innerHTML = (game.home_team_stats || []).map(p => renderPlayerRow(p, true)).join("")
+        + homeDnp.map(p => renderDnpRow(p)).join("");
 
       // Show prediction legend if predictions exist
       const legendEl = $("boxscorePredictionLegend");
