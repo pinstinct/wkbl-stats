@@ -6,7 +6,7 @@
 
 ## 점검 결과 요약
 
-- 테스트 상태: `uv run pytest -q` 기준 **54 passed**.
+- 테스트 상태: `uv run pytest -q` 기준 **60 passed**.
 - 현재 병목 파일:
   - `src/app.js` 3,181 lines
   - `src/styles.css` 3,427 lines
@@ -78,6 +78,13 @@
 6. 이벤트 바인딩 책임 분리
 - 현재 `init()`에 다수 리스너가 집중되어 있음.
 - 뷰별 `mount/unmount`로 분리해 중복 바인딩/사이드이펙트 리스크 축소.
+
+### P1 진행 현황 (2026-02-09)
+
+- 진행: `players` 뷰 분리 1차 완료
+- 추가: `src/views/players.js` (`renderPlayersTable`, `renderPlayerSummaryCard`)
+- 변경: `src/app.js`에서 players 테이블/요약카드 렌더링을 view 모듈 호출로 전환
+- 남음: `player-detail`, `teams`, `games`, `schedule`, `leaders`, `compare`, `predict` 순차 분리
 
 ### P2 (CSS 유지보수성)
 
