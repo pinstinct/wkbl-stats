@@ -252,6 +252,29 @@ class TestTeamDetailEndpoint:
         roster_ids = {p["id"] for p in response.json().get("roster", [])}
         assert "095997" in roster_ids
 
+    def test_get_team_detail_recent_games_excludes_future_games(
+        self, client, sample_team, sample_team2, sample_season
+    ):
+        """Recent games should only include completed games with scores."""
+        import database
+
+        database.insert_game(
+            game_id="04601999",
+            season_id=sample_season["season_id"],
+            game_date="2026-03-10",
+            home_team_id=sample_team["id"],
+            away_team_id=sample_team2["id"],
+            home_score=None,
+            away_score=None,
+        )
+
+        response = client.get(
+            f"/teams/{sample_team['id']}?season={sample_season['season_id']}"
+        )
+        assert response.status_code == 200
+        recent_ids = {g["game_id"] for g in response.json().get("recent_games", [])}
+        assert "04601999" not in recent_ids
+
 
 class TestGamesEndpoint:
     """Tests for /games endpoint."""

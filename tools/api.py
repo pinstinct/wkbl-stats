@@ -602,6 +602,8 @@ def get_team_detail(team_id: str, season_id: str) -> Optional[dict]:
             JOIN teams at ON g.away_team_id = at.id
             WHERE g.season_id = ?
               AND (g.home_team_id = ? OR g.away_team_id = ?)
+              AND g.home_score IS NOT NULL
+              AND g.away_score IS NOT NULL
             ORDER BY g.game_date DESC
             LIMIT 10""",
             (season_id, team_id, team_id),

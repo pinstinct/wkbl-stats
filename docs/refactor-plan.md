@@ -152,10 +152,18 @@
 
 - 완료: `/players`의 `include_no_games`를 `active_only=false`까지 확장해 과거 시즌 마지막 소속팀(`<= season`) 기준으로 `gp=0` 선수 팀 추론
 - 완료: `/teams/{id}` 상세 로스터에 `해당 시즌 출전 선수 + 현역 gp=0 선수`를 함께 포함하도록 정합성 보강
+- 완료: `/teams/{id}` 상세 `recent_games`를 완료 경기(득점 존재)만 반환하도록 쿼리 계약 정렬 (`src/db.js`와 동작 일치)
+- 완료: 시즌/팀/선수 조회 경로용 복합 인덱스 추가
+  - `idx_player_games_team_game (team_id, game_id)`
+  - `idx_player_games_player_game (player_id, game_id)`
+  - `idx_games_season_date_id (season_id, game_date, id)`
 - 추가: API 회귀 테스트
   - `test_get_players_include_no_games_inactive_historical_team_inference`
   - `test_get_team_detail_roster_includes_active_no_games_player`
-- 상태: P3-1(시즌 로스터 정합성) 완료, P3-2(SQL 공통 스펙/스냅샷) 진행 중
+  - `test_get_team_detail_recent_games_excludes_future_games`
+- 추가: DB 스키마 인덱스 회귀 테스트
+  - `test_init_db_creates_performance_indexes`
+- 상태: P3-1 완료, P3-2(SQL 공통 스펙/스냅샷) 진행 중
 
 ### P4 (테스트 보강)
 

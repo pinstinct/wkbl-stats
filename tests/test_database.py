@@ -45,6 +45,24 @@ class TestDatabaseInit:
         database.init_db()
         database.init_db()
 
+    def test_init_db_creates_performance_indexes(self, test_db):
+        """Test that composite indexes for season/team roster queries are created."""
+        import database
+
+        with database.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='index'")
+            indexes = {row[0] for row in cursor.fetchall()}
+
+        expected_indexes = {
+            "idx_player_games_team_game",
+            "idx_player_games_player_game",
+            "idx_games_season_date_id",
+        }
+        assert expected_indexes.issubset(indexes), (
+            f"Missing indexes: {expected_indexes - indexes}"
+        )
+
 
 class TestSeasonOperations:
     """Tests for season-related database operations."""
