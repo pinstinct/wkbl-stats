@@ -1,11 +1,17 @@
-export function renderPredictSuggestions({ container, players, error = false }) {
+export function renderPredictSuggestions({
+  container,
+  players,
+  error = false,
+}) {
   if (!container) return;
   if (error) {
-    container.innerHTML = '<div class="predict-suggestion-item">검색 오류</div>';
+    container.innerHTML =
+      '<div class="predict-suggestion-item">검색 오류</div>';
     return;
   }
   if (players.length === 0) {
-    container.innerHTML = '<div class="predict-suggestion-item">검색 결과 없음</div>';
+    container.innerHTML =
+      '<div class="predict-suggestion-item">검색 결과 없음</div>';
     return;
   }
 
@@ -16,7 +22,7 @@ export function renderPredictSuggestions({ container, players, error = false }) 
             <span class="predict-suggestion-name">${p.name}</span>
             <span class="predict-suggestion-team">${p.team}</span>
           </div>
-        `
+        `,
     )
     .join("");
 }

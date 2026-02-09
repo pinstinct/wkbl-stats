@@ -209,37 +209,14 @@ def get_players(
                 d[key] = round(d[key], 1) if d[key] else 0.0
             result.append(compute_advanced_stats(d))
 
-        if include_no_games and season_id and active_only:
+        if include_no_games and season_id:
             player_ids = {p["id"] for p in result}
-            no_games_query = """
-                SELECT
-                    p.id,
-                    p.name,
-                    p.position as pos,
-                    p.height,
-                    p.is_active,
-                    t.name as team,
-                    t.id as team_id
-                FROM players p
-                LEFT JOIN teams t ON p.team_id = t.id
-                WHERE p.is_active = 1
-            """
-            no_games_params: list[Any] = []
-            if team_id:
-                no_games_query += " AND p.team_id = ?"
-                no_games_params.append(team_id)
-            no_games_query += """
-                AND NOT EXISTS (
-                    SELECT 1
-                    FROM player_games pg
-                    JOIN games g ON pg.game_id = g.id
-                    WHERE pg.player_id = p.id
-                      AND g.season_id = ?
-                )
-            """
-            no_games_params.append(season_id)
-
-            no_games_rows = conn.execute(no_games_query, no_games_params).fetchall()
+            no_games_rows = _get_no_games_rows(
+                conn=conn,
+                season_id=season_id,
+                team_id=team_id,
+                active_only=active_only,
+            )
             for row in no_games_rows:
                 d = dict(row)
                 if d["id"] in player_ids:
@@ -265,6 +242,111 @@ def get_players(
                 result.append(compute_advanced_stats(d))
 
         return result
+
+
+def _get_no_games_rows(
+    conn: Any, season_id: str, team_id: Optional[str], active_only: bool
+) -> list[Any]:
+    """Build gp=0 rows for the requested season with historical team inference."""
+    if active_only:
+        no_games_query = """
+            SELECT
+                p.id,
+                p.name,
+                p.position as pos,
+                p.height,
+                p.is_active,
+                t.name as team,
+                t.id as team_id
+            FROM players p
+            LEFT JOIN teams t ON p.team_id = t.id
+            WHERE p.is_active = 1
+        """
+        params: list[Any] = []
+        if team_id:
+            no_games_query += " AND p.team_id = ?"
+            params.append(team_id)
+        no_games_query += """
+            AND NOT EXISTS (
+                SELECT 1
+                FROM player_games pg
+                JOIN games g ON pg.game_id = g.id
+                WHERE pg.player_id = p.id
+                  AND g.season_id = ?
+            )
+        """
+        params.append(season_id)
+        return conn.execute(no_games_query, params).fetchall()
+
+    historical_query = """
+        SELECT
+            p.id,
+            p.name,
+            p.position as pos,
+            p.height,
+            p.is_active,
+            t.name as team,
+            t.id as team_id
+        FROM players p
+        JOIN (
+            SELECT pg.player_id, pg.team_id
+            FROM player_games pg
+            JOIN games g ON pg.game_id = g.id
+            WHERE g.season_id = (
+                SELECT MAX(g2.season_id)
+                FROM player_games pg2
+                JOIN games g2 ON pg2.game_id = g2.id
+                WHERE pg2.player_id = pg.player_id
+                  AND g2.season_id <= ?
+            )
+            GROUP BY pg.player_id
+        ) last_team ON last_team.player_id = p.id
+        JOIN teams t ON last_team.team_id = t.id
+        WHERE p.id NOT IN (
+            SELECT pg.player_id
+            FROM player_games pg
+            JOIN games g ON pg.game_id = g.id
+            WHERE g.season_id = ?
+        )
+    """
+    historical_params: list[Any] = [season_id, season_id]
+    if team_id:
+        historical_query += " AND last_team.team_id = ?"
+        historical_params.append(team_id)
+    rows = conn.execute(historical_query, historical_params).fetchall()
+
+    fallback_query = """
+        SELECT
+            p.id,
+            p.name,
+            p.position as pos,
+            p.height,
+            p.is_active,
+            t.name as team,
+            t.id as team_id
+        FROM players p
+        LEFT JOIN teams t ON p.team_id = t.id
+        WHERE p.is_active = 1
+          AND p.team_id IS NOT NULL
+          AND p.id NOT IN (
+              SELECT pg.player_id
+              FROM player_games pg
+              JOIN games g ON pg.game_id = g.id
+              WHERE g.season_id <= ?
+          )
+    """
+    fallback_params: list[Any] = [season_id]
+    if team_id:
+        fallback_query += " AND p.team_id = ?"
+        fallback_params.append(team_id)
+
+    # Deduplicate players that may appear in both result sets.
+    deduped = {dict(row)["id"]: dict(row) for row in rows}
+    for row in conn.execute(fallback_query, fallback_params).fetchall():
+        d = dict(row)
+        deduped.setdefault(d["id"], d)
+
+    return list(deduped.values())
 
 
 def get_player_detail(player_id: str) -> Optional[dict]:
@@ -459,16 +541,32 @@ def get_team_detail(team_id: str, season_id: str) -> Optional[dict]:
 
         result = dict(team)
 
-        # Current roster (players who played for this team this season)
+        # Current roster (played in season + active gp=0 players on current roster)
         roster = conn.execute(
-            """SELECT DISTINCT
-                p.id, p.name, p.position, p.height, p.is_active
-            FROM player_games pg
-            JOIN players p ON pg.player_id = p.id
-            JOIN games g ON pg.game_id = g.id
-            WHERE pg.team_id = ? AND g.season_id = ?
-            ORDER BY p.name""",
-            (team_id, season_id),
+            """SELECT id, name, position, height, is_active
+            FROM (
+                SELECT DISTINCT
+                    p.id, p.name, p.position, p.height, p.is_active
+                FROM player_games pg
+                JOIN players p ON pg.player_id = p.id
+                JOIN games g ON pg.game_id = g.id
+                WHERE pg.team_id = ? AND g.season_id = ?
+                UNION
+                SELECT
+                    p.id, p.name, p.position, p.height, p.is_active
+                FROM players p
+                WHERE p.team_id = ?
+                  AND p.is_active = 1
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM player_games pg
+                      JOIN games g ON pg.game_id = g.id
+                      WHERE pg.player_id = p.id
+                        AND g.season_id = ?
+                  )
+            )
+            ORDER BY name""",
+            (team_id, season_id, team_id, season_id),
         ).fetchall()
         result["roster"] = [dict(p) for p in roster]
 

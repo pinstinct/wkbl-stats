@@ -22,9 +22,27 @@ describe("predict view", () => {
     const cards = { innerHTML: "" };
     const factors = { innerHTML: "" };
     const prediction = {
-      pts: { predicted: 10.1, low: 8.1, high: 12.1, trend: "up", trendLabel: "상승" },
-      reb: { predicted: 5.1, low: 4.1, high: 6.1, trend: "stable", trendLabel: "보합" },
-      ast: { predicted: 3.1, low: 2.1, high: 4.1, trend: "down", trendLabel: "하락" },
+      pts: {
+        predicted: 10.1,
+        low: 8.1,
+        high: 12.1,
+        trend: "up",
+        trendLabel: "상승",
+      },
+      reb: {
+        predicted: 5.1,
+        low: 4.1,
+        high: 6.1,
+        trend: "stable",
+        trendLabel: "보합",
+      },
+      ast: {
+        predicted: 3.1,
+        low: 2.1,
+        high: 4.1,
+        trend: "down",
+        trendLabel: "하락",
+      },
       recent5Avg: { pts: 10, reb: 5, ast: 3 },
       recent10Avg: { pts: 9, reb: 4, ast: 2 },
       seasonAvg: { pts: 8, reb: 4, ast: 2 },

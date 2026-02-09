@@ -20,7 +20,7 @@ export function renderGamesList({ container, games, formatDate }) {
             <span class="final">Final</span>
           </div>
         </a>
-      `
+      `,
     )
     .join("");
 }

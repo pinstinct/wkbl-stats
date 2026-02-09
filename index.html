@@ -6,7 +6,10 @@
     <title>WKBL Stats</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="./src/styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js"></script>
@@ -23,7 +26,14 @@
         </a>
       </div>
       <nav class="nav-links" id="mainNav">
-        <button id="navToggle" class="nav-toggle" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="navMenu">
+        <button
+          id="navToggle"
+          class="nav-toggle"
+          type="button"
+          aria-label="메뉴 열기"
+          aria-expanded="false"
+          aria-controls="navMenu"
+        >
           <span></span>
           <span></span>
           <span></span>
@@ -37,9 +47,21 @@
           <a href="#/leaders" class="nav-link">리더</a>
           <a href="#/compare" class="nav-link">비교</a>
           <a href="#/predict" class="nav-link">예측</a>
-          <button id="globalSearchBtn" class="nav-search-btn" title="검색 (Ctrl+K)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          <button
+            id="globalSearchBtn"
+            class="nav-search-btn"
+            title="검색 (Ctrl+K)"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
             </svg>
           </button>
         </div>
@@ -47,10 +69,16 @@
     </header>
 
     <!-- Global Search Modal -->
-    <div id="searchModal" class="search-modal" style="display: none;">
+    <div id="searchModal" class="search-modal" style="display: none">
       <div class="search-modal-backdrop"></div>
       <div class="search-modal-content">
-        <input type="text" id="globalSearchInput" class="search-modal-input" placeholder="선수 또는 팀 검색..." autocomplete="off" />
+        <input
+          type="text"
+          id="globalSearchInput"
+          class="search-modal-input"
+          placeholder="선수 또는 팀 검색..."
+          autocomplete="off"
+        />
         <div class="search-modal-results" id="globalSearchResults"></div>
         <div class="search-modal-footer">
           <span><kbd>↑↓</kbd> 이동</span>
@@ -68,7 +96,7 @@
           <div class="main-prediction-date" id="mainPredictionDate"></div>
         </div>
 
-        <div class="main-game-card" id="mainGameCard" style="display: none;">
+        <div class="main-game-card" id="mainGameCard" style="display: none">
           <div class="main-game-matchup">
             <div class="main-team away-team" id="mainAwayTeam">
               <span class="team-name">-</span>
@@ -86,12 +114,12 @@
           </div>
         </div>
 
-        <div class="main-no-game" id="mainNoGame" style="display: none;">
+        <div class="main-no-game" id="mainNoGame" style="display: none">
           <p>예정된 경기가 없습니다.</p>
           <a href="#/schedule" class="schedule-link">전체 일정 보기</a>
         </div>
 
-        <div class="main-lineup-grid" id="mainLineupGrid" style="display: none;">
+        <div class="main-lineup-grid" id="mainLineupGrid" style="display: none">
           <!-- Away Team Lineup -->
           <div class="main-lineup-section away">
             <div class="lineup-header">
@@ -125,14 +153,31 @@
           </div>
         </div>
 
-        <div class="prediction-explanation" id="predictionExplanation" style="display: none;">
+        <div
+          class="prediction-explanation"
+          id="predictionExplanation"
+          style="display: none"
+        >
           <details>
             <summary>예측 방식 안내</summary>
             <div class="explanation-content">
-              <p><strong>선수 스탯 예측:</strong> (최근 5경기 평균 × 60%) + (최근 10경기 평균 × 40%)에 홈/어웨이 보정(홈 +5%, 원정 -3%)과 트렌드 보너스(상승세 +5%, 하락세 -5%)를 적용한 값입니다.</p>
-              <p><strong>신뢰 구간:</strong> 스탯 아래 작은 숫자는 예측값 ± 표준편차 범위입니다.</p>
-              <p><strong>추천 라인업:</strong> PIR(Performance Index Rating) 기준 상위 5명을 포지션 밸런스를 고려해 선정합니다.</p>
-              <p><strong>승률:</strong> 예상 팀 스탯, 시즌 승률, 홈/어웨이 기록을 종합하여 계산합니다.</p>
+              <p>
+                <strong>선수 스탯 예측:</strong> (최근 5경기 평균 × 60%) + (최근
+                10경기 평균 × 40%)에 홈/어웨이 보정(홈 +5%, 원정 -3%)과 트렌드
+                보너스(상승세 +5%, 하락세 -5%)를 적용한 값입니다.
+              </p>
+              <p>
+                <strong>신뢰 구간:</strong> 스탯 아래 작은 숫자는 예측값 ±
+                표준편차 범위입니다.
+              </p>
+              <p>
+                <strong>추천 라인업:</strong> PIR(Performance Index Rating) 기준
+                상위 5명을 포지션 밸런스를 고려해 선정합니다.
+              </p>
+              <p>
+                <strong>승률:</strong> 예상 팀 스탯, 시즌 승률, 홈/어웨이 기록을
+                종합하여 계산합니다.
+              </p>
             </div>
           </details>
         </div>
@@ -144,7 +189,7 @@
       </section>
 
       <!-- Players List View -->
-      <section id="view-players" class="view" style="display: none;">
+      <section id="view-players" class="view" style="display: none">
         <div class="controls">
           <label class="control">
             시즌
@@ -198,26 +243,132 @@
                 <tr>
                   <th data-key="name">선수</th>
                   <th data-key="team" class="hide-mobile">팀</th>
-                  <th data-key="pos" class="hide-mobile" title="포지션 (G: 가드, F: 포워드, C: 센터)">POS</th>
-                  <th data-key="gp" class="hide-tablet" title="Games Played - 출전 경기 수">GP</th>
-                  <th data-key="min" class="hide-tablet" title="Minutes - 경기당 평균 출전 시간">MIN</th>
+                  <th
+                    data-key="pos"
+                    class="hide-mobile"
+                    title="포지션 (G: 가드, F: 포워드, C: 센터)"
+                  >
+                    POS
+                  </th>
+                  <th
+                    data-key="gp"
+                    class="hide-tablet"
+                    title="Games Played - 출전 경기 수"
+                  >
+                    GP
+                  </th>
+                  <th
+                    data-key="min"
+                    class="hide-tablet"
+                    title="Minutes - 경기당 평균 출전 시간"
+                  >
+                    MIN
+                  </th>
                   <th data-key="pts" title="Points - 경기당 평균 득점">PTS</th>
-                  <th data-key="reb" title="Rebounds - 경기당 평균 리바운드">REB</th>
-                  <th data-key="ast" title="Assists - 경기당 평균 어시스트">AST</th>
-                  <th data-key="stl" class="hide-mobile" title="Steals - 경기당 평균 스틸">STL</th>
-                  <th data-key="blk" class="hide-mobile" title="Blocks - 경기당 평균 블록">BLK</th>
-                  <th data-key="tov" class="hide-tablet" title="Turnovers - 경기당 평균 턴오버">TOV</th>
-                  <th data-key="fgp" class="hide-tablet" title="Field Goal % - 야투 성공률 (2점+3점)">FG%</th>
-                  <th data-key="tpp" class="hide-tablet" title="3-Point % - 3점슛 성공률">3P%</th>
-                  <th data-key="ftp" class="hide-tablet" title="Free Throw % - 자유투 성공률">FT%</th>
-                  <th data-key="ts_pct" class="hide-mobile" title="True Shooting % - 모든 슛 시도(2점, 3점, 자유투)를 고려한 실제 슈팅 효율">TS%</th>
-                  <th data-key="efg_pct" class="hide-mobile" title="Effective FG% - 3점슛의 추가 가치를 반영한 야투율">eFG%</th>
-                  <th data-key="ast_to" class="hide-tablet" title="Assist to Turnover Ratio - 어시스트 대 턴오버 비율">AST/TO</th>
-                  <th data-key="pir" class="hide-tablet" title="Performance Index Rating - 종합 퍼포먼스 지수 (유럽식 효율 지표)">PIR</th>
-                  <th data-key="court_margin" class="hide-tablet" title="Court Margin - 출전 시간 가중 득실차">코트마진</th>
-                  <th data-key="pts36" class="hide-tablet" title="Points per 36 Minutes - 36분당 득점">PTS/36</th>
-                  <th data-key="reb36" class="hide-tablet" title="Rebounds per 36 Minutes - 36분당 리바운드">REB/36</th>
-                  <th data-key="ast36" class="hide-tablet" title="Assists per 36 Minutes - 36분당 어시스트">AST/36</th>
+                  <th data-key="reb" title="Rebounds - 경기당 평균 리바운드">
+                    REB
+                  </th>
+                  <th data-key="ast" title="Assists - 경기당 평균 어시스트">
+                    AST
+                  </th>
+                  <th
+                    data-key="stl"
+                    class="hide-mobile"
+                    title="Steals - 경기당 평균 스틸"
+                  >
+                    STL
+                  </th>
+                  <th
+                    data-key="blk"
+                    class="hide-mobile"
+                    title="Blocks - 경기당 평균 블록"
+                  >
+                    BLK
+                  </th>
+                  <th
+                    data-key="tov"
+                    class="hide-tablet"
+                    title="Turnovers - 경기당 평균 턴오버"
+                  >
+                    TOV
+                  </th>
+                  <th
+                    data-key="fgp"
+                    class="hide-tablet"
+                    title="Field Goal % - 야투 성공률 (2점+3점)"
+                  >
+                    FG%
+                  </th>
+                  <th
+                    data-key="tpp"
+                    class="hide-tablet"
+                    title="3-Point % - 3점슛 성공률"
+                  >
+                    3P%
+                  </th>
+                  <th
+                    data-key="ftp"
+                    class="hide-tablet"
+                    title="Free Throw % - 자유투 성공률"
+                  >
+                    FT%
+                  </th>
+                  <th
+                    data-key="ts_pct"
+                    class="hide-mobile"
+                    title="True Shooting % - 모든 슛 시도(2점, 3점, 자유투)를 고려한 실제 슈팅 효율"
+                  >
+                    TS%
+                  </th>
+                  <th
+                    data-key="efg_pct"
+                    class="hide-mobile"
+                    title="Effective FG% - 3점슛의 추가 가치를 반영한 야투율"
+                  >
+                    eFG%
+                  </th>
+                  <th
+                    data-key="ast_to"
+                    class="hide-tablet"
+                    title="Assist to Turnover Ratio - 어시스트 대 턴오버 비율"
+                  >
+                    AST/TO
+                  </th>
+                  <th
+                    data-key="pir"
+                    class="hide-tablet"
+                    title="Performance Index Rating - 종합 퍼포먼스 지수 (유럽식 효율 지표)"
+                  >
+                    PIR
+                  </th>
+                  <th
+                    data-key="court_margin"
+                    class="hide-tablet"
+                    title="Court Margin - 출전 시간 가중 득실차"
+                  >
+                    코트마진
+                  </th>
+                  <th
+                    data-key="pts36"
+                    class="hide-tablet"
+                    title="Points per 36 Minutes - 36분당 득점"
+                  >
+                    PTS/36
+                  </th>
+                  <th
+                    data-key="reb36"
+                    class="hide-tablet"
+                    title="Rebounds per 36 Minutes - 36분당 리바운드"
+                  >
+                    REB/36
+                  </th>
+                  <th
+                    data-key="ast36"
+                    class="hide-tablet"
+                    title="Assists per 36 Minutes - 36분당 어시스트"
+                  >
+                    AST/36
+                  </th>
                 </tr>
               </thead>
               <tbody id="statsBody"></tbody>
@@ -227,7 +378,7 @@
       </section>
 
       <!-- Player Detail View -->
-      <section id="view-player" class="view" style="display: none;">
+      <section id="view-player" class="view" style="display: none">
         <div class="page-header">
           <a href="#/players" class="back-link">&larr; 선수 목록</a>
         </div>
@@ -333,7 +484,7 @@
       </section>
 
       <!-- Teams List View -->
-      <section id="view-teams" class="view" style="display: none;">
+      <section id="view-teams" class="view" style="display: none">
         <div class="page-header">
           <h2>팀 순위</h2>
           <select id="teamsSeasonSelect" class="season-select"></select>
@@ -371,7 +522,7 @@
       </section>
 
       <!-- Team Detail View -->
-      <section id="view-team" class="view" style="display: none;">
+      <section id="view-team" class="view" style="display: none">
         <div class="page-header">
           <a href="#/teams" class="back-link">&larr; 팀 순위</a>
         </div>
@@ -418,7 +569,7 @@
       </section>
 
       <!-- Games List View -->
-      <section id="view-games" class="view" style="display: none;">
+      <section id="view-games" class="view" style="display: none">
         <div class="page-header">
           <h2>경기 일정</h2>
           <select id="gamesSeasonSelect" class="season-select"></select>
@@ -427,7 +578,7 @@
       </section>
 
       <!-- Game Detail View (Boxscore) -->
-      <section id="view-game" class="view" style="display: none;">
+      <section id="view-game" class="view" style="display: none">
         <div class="page-header">
           <a href="#/games" class="back-link">&larr; 경기 목록</a>
         </div>
@@ -448,7 +599,11 @@
           </div>
 
           <!-- Prediction Summary -->
-          <div id="boxscorePrediction" class="boxscore-prediction" style="display: none;"></div>
+          <div
+            id="boxscorePrediction"
+            class="boxscore-prediction"
+            style="display: none"
+          ></div>
 
           <div class="detail-section">
             <h3 id="boxscoreAwayTeamName">원정팀</h3>
@@ -468,7 +623,9 @@
                     <th class="hide-tablet">3P</th>
                     <th class="hide-tablet">FT</th>
                     <th class="hide-tablet" title="True Shooting %">TS%</th>
-                    <th class="hide-tablet" title="Performance Index Rating">PIR</th>
+                    <th class="hide-tablet" title="Performance Index Rating">
+                      PIR
+                    </th>
                     <th class="hide-tablet" title="코트마진">+/-</th>
                   </tr>
                 </thead>
@@ -495,7 +652,9 @@
                     <th class="hide-tablet">3P</th>
                     <th class="hide-tablet">FT</th>
                     <th class="hide-tablet" title="True Shooting %">TS%</th>
-                    <th class="hide-tablet" title="Performance Index Rating">PIR</th>
+                    <th class="hide-tablet" title="Performance Index Rating">
+                      PIR
+                    </th>
                     <th class="hide-tablet" title="코트마진">+/-</th>
                   </tr>
                 </thead>
@@ -505,7 +664,11 @@
           </div>
 
           <!-- Prediction Legend -->
-          <div id="boxscorePredictionLegend" class="prediction-legend" style="display: none;">
+          <div
+            id="boxscorePredictionLegend"
+            class="prediction-legend"
+            style="display: none"
+          >
             <span class="legend-title">예측 비교:</span>
             <span class="legend-item pred-hit">예측 범위 내</span>
             <span class="legend-item pred-over">예측 초과</span>
@@ -516,7 +679,7 @@
       </section>
 
       <!-- Leaders View -->
-      <section id="view-leaders" class="view" style="display: none;">
+      <section id="view-leaders" class="view" style="display: none">
         <div class="page-header">
           <h2>리더보드</h2>
           <select id="leadersSeasonSelect" class="season-select"></select>
@@ -525,7 +688,7 @@
       </section>
 
       <!-- Compare View -->
-      <section id="view-compare" class="view" style="display: none;">
+      <section id="view-compare" class="view" style="display: none">
         <div class="page-header">
           <h2>선수 비교</h2>
           <select id="compareSeasonSelect" class="season-select"></select>
@@ -533,14 +696,19 @@
 
         <div class="compare-search">
           <div class="compare-search-box">
-            <input type="text" id="compareSearchInput" placeholder="선수 검색..." autocomplete="off" />
+            <input
+              type="text"
+              id="compareSearchInput"
+              placeholder="선수 검색..."
+              autocomplete="off"
+            />
             <div class="compare-suggestions" id="compareSuggestions"></div>
           </div>
           <div class="compare-selected" id="compareSelected"></div>
           <button id="compareBtn" class="compare-btn" disabled>비교하기</button>
         </div>
 
-        <div class="compare-result" id="compareResult" style="display: none;">
+        <div class="compare-result" id="compareResult" style="display: none">
           <div class="compare-cards" id="compareCards"></div>
 
           <div class="compare-charts-grid">
@@ -577,7 +745,7 @@
       </section>
 
       <!-- Schedule View -->
-      <section id="view-schedule" class="view" style="display: none;">
+      <section id="view-schedule" class="view" style="display: none">
         <div class="page-header">
           <h2>경기 일정</h2>
           <div class="schedule-filters">
@@ -590,7 +758,7 @@
 
         <div class="schedule-content">
           <!-- Next Game Highlight -->
-          <div class="next-game-card" id="nextGameCard" style="display: none;">
+          <div class="next-game-card" id="nextGameCard" style="display: none">
             <div class="next-game-label">다음 경기</div>
             <div class="next-game-countdown" id="nextGameCountdown"></div>
             <div class="next-game-matchup" id="nextGameMatchup"></div>
@@ -618,7 +786,7 @@
       </section>
 
       <!-- Predict View -->
-      <section id="view-predict" class="view" style="display: none;">
+      <section id="view-predict" class="view" style="display: none">
         <div class="page-header">
           <h2>선수 활약 예측</h2>
           <select id="predictSeasonSelect" class="season-select"></select>
@@ -626,12 +794,17 @@
 
         <div class="predict-search">
           <div class="predict-search-box">
-            <input type="text" id="predictSearchInput" placeholder="선수 검색..." autocomplete="off" />
+            <input
+              type="text"
+              id="predictSearchInput"
+              placeholder="선수 검색..."
+              autocomplete="off"
+            />
             <div class="predict-suggestions" id="predictSuggestions"></div>
           </div>
         </div>
 
-        <div class="predict-result" id="predictResult" style="display: none;">
+        <div class="predict-result" id="predictResult" style="display: none">
           <div class="predict-player-info" id="predictPlayerInfo"></div>
 
           <div class="predict-cards" id="predictCards"></div>
@@ -650,7 +823,10 @@
 
     <footer class="site-footer">
       <div>
-        데이터 출처: <a href="https://datalab.wkbl.or.kr/" target="_blank" rel="noopener">WKBL Data Lab</a>
+        데이터 출처:
+        <a href="https://datalab.wkbl.or.kr/" target="_blank" rel="noopener"
+          >WKBL Data Lab</a
+        >
       </div>
     </footer>
 

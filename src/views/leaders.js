@@ -18,7 +18,7 @@ export function renderLeadersGrid({ grid, categories, leaderCategories }) {
                   </div>
                   <div class="leader-value">${l.value}</div>
                 </li>
-              `
+              `,
                 )
                 .join("")}
             </ul>

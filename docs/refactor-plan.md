@@ -148,6 +148,15 @@
 - `src/db.js`와 `tools/api.py` 간 유사 쿼리 공통 스펙 문서화.
 - 동일 입력에 동일 출력이 나오는지 snapshot/fixture 테스트 추가.
 
+### P3 진행 현황 (2026-02-09)
+
+- 완료: `/players`의 `include_no_games`를 `active_only=false`까지 확장해 과거 시즌 마지막 소속팀(`<= season`) 기준으로 `gp=0` 선수 팀 추론
+- 완료: `/teams/{id}` 상세 로스터에 `해당 시즌 출전 선수 + 현역 gp=0 선수`를 함께 포함하도록 정합성 보강
+- 추가: API 회귀 테스트
+  - `test_get_players_include_no_games_inactive_historical_team_inference`
+  - `test_get_team_detail_roster_includes_active_no_games_player`
+- 상태: P3-1(시즌 로스터 정합성) 완료, P3-2(SQL 공통 스펙/스냅샷) 진행 중
+
 ### P4 (테스트 보강)
 
 11. 프론트 순수 함수 테스트 추가

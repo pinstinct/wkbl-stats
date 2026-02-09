@@ -8,7 +8,8 @@ export function renderBoxscoreRows({
 }) {
   function renderPlayerRow(p) {
     const pred = predictionMap[p.player_id];
-    const cmSign = p.court_margin !== null ? (p.court_margin >= 0 ? "+" : "") : "";
+    const cmSign =
+      p.court_margin !== null ? (p.court_margin >= 0 ? "+" : "") : "";
     const cmClass =
       p.court_margin !== null
         ? p.court_margin >= 0
@@ -75,13 +76,13 @@ export function renderBoxscoreRows({
     (p) =>
       p.is_starter &&
       p.team_id === game.away_team_id &&
-      !playedPlayerIds.has(p.player_id)
+      !playedPlayerIds.has(p.player_id),
   );
   const homeDnp = predictions.players.filter(
     (p) =>
       p.is_starter &&
       p.team_id === game.home_team_id &&
-      !playedPlayerIds.has(p.player_id)
+      !playedPlayerIds.has(p.player_id),
   );
 
   return {

@@ -34,7 +34,7 @@ export function renderPlayersTable({
         <td class="hide-tablet">${formatNumber(player.reb36)}</td>
         <td class="hide-tablet">${formatNumber(player.ast36)}</td>
       </tr>
-    `
+    `,
     )
     .join("");
 }

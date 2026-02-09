@@ -48,11 +48,19 @@ describe("responsive nav", () => {
 
     navToggle.emit("click");
     expect(classSet.has("open")).toBe(true);
-    expect(navToggle.setAttribute).toHaveBeenCalledWith("aria-expanded", "true");
+    expect(navToggle.setAttribute).toHaveBeenCalledWith(
+      "aria-expanded",
+      "true",
+    );
 
-    navMenu.emit("click", { target: { closest: (sel) => (sel === ".nav-link" ? {} : null) } });
+    navMenu.emit("click", {
+      target: { closest: (sel) => (sel === ".nav-link" ? {} : null) },
+    });
     expect(classSet.has("open")).toBe(false);
-    expect(navToggle.setAttribute).toHaveBeenCalledWith("aria-expanded", "false");
+    expect(navToggle.setAttribute).toHaveBeenCalledWith(
+      "aria-expanded",
+      "false",
+    );
   });
 
   it("closes on outside click and desktop resize and unmount detaches listeners", () => {
@@ -79,7 +87,13 @@ describe("responsive nav", () => {
     const documentRef = createEmitter();
     const windowRef = { ...createEmitter(), innerWidth: 1280 };
 
-    const unmount = mountResponsiveNav({ mainNav, navToggle, navMenu, documentRef, windowRef });
+    const unmount = mountResponsiveNav({
+      mainNav,
+      navToggle,
+      navMenu,
+      documentRef,
+      windowRef,
+    });
 
     documentRef.emit("click", { target: {} });
     expect(classSet.has("open")).toBe(false);

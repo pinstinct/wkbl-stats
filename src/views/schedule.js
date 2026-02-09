@@ -11,7 +11,8 @@ export function renderNextGameHighlight({
   }
 
   nextGameCard.style.display = "block";
-  getById("nextGameMatchup").textContent = `${next.away_team_short || next.away_team_name} vs ${next.home_team_short || next.home_team_name}`;
+  getById("nextGameMatchup").textContent =
+    `${next.away_team_short || next.away_team_name} vs ${next.home_team_short || next.home_team_name}`;
   getById("nextGameDate").textContent = formatFullDate(next.game_date);
 
   const gameDate = new Date(next.game_date);
@@ -29,10 +30,16 @@ export function renderNextGameHighlight({
   }
 }
 
-export function renderUpcomingGames({ container, upcomingGames, formatFullDate, getPredictionHtml }) {
+export function renderUpcomingGames({
+  container,
+  upcomingGames,
+  formatFullDate,
+  getPredictionHtml,
+}) {
   if (!container) return;
   if (upcomingGames.length === 0) {
-    container.innerHTML = '<div class="schedule-empty">예정된 경기가 없습니다</div>';
+    container.innerHTML =
+      '<div class="schedule-empty">예정된 경기가 없습니다</div>';
     return;
   }
 
@@ -54,10 +61,16 @@ export function renderUpcomingGames({ container, upcomingGames, formatFullDate, 
     .join("");
 }
 
-export function renderRecentResults({ container, recentGames, formatFullDate, getPredictionCompareHtml }) {
+export function renderRecentResults({
+  container,
+  recentGames,
+  formatFullDate,
+  getPredictionCompareHtml,
+}) {
   if (!container) return;
   if (recentGames.length === 0) {
-    container.innerHTML = '<div class="schedule-empty">최근 경기 결과가 없습니다</div>';
+    container.innerHTML =
+      '<div class="schedule-empty">최근 경기 결과가 없습니다</div>';
     return;
   }
 

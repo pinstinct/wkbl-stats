@@ -16,7 +16,7 @@ export function renderStandingsTable({ tbody, standings }) {
           <td class="hide-tablet">${t.streak || "-"}</td>
           <td class="hide-tablet">${t.last5 || "-"}</td>
         </tr>
-      `
+      `,
     )
     .join("");
 }
@@ -31,7 +31,7 @@ export function renderTeamRoster({ tbody, roster }) {
           <td>${p.position || "-"}</td>
           <td>${p.height || "-"}</td>
         </tr>
-      `
+      `,
     )
     .join("");
 }
@@ -48,7 +48,7 @@ export function renderTeamRecentGames({ tbody, games, formatDate }) {
           <td>${g.result}</td>
           <td>${g.score}</td>
         </tr>
-      `
+      `,
     )
     .join("");
 }

@@ -1,4 +1,7 @@
-import { renderPlayerSummaryCard, renderPlayersTable } from "./views/players.js";
+import {
+  renderPlayerSummaryCard,
+  renderPlayersTable,
+} from "./views/players.js";
 import {
   renderStandingsTable,
   renderTeamRecentGames,
@@ -127,7 +130,10 @@ import {
     const today = new Date();
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birth.getDate())
+    ) {
       age--;
     }
     return age;
@@ -163,7 +169,10 @@ import {
 
   const dataClient = createDataClient({
     initDb: initLocalDb,
-    getDb: () => (state.dbInitialized && typeof WKBLDatabase !== "undefined" ? WKBLDatabase : null),
+    getDb: () =>
+      state.dbInitialized && typeof WKBLDatabase !== "undefined"
+        ? WKBLDatabase
+        : null,
     getSeasonLabel: (season) => SEASONS[season] || season,
   });
 
@@ -243,7 +252,10 @@ import {
     document.querySelectorAll(".nav-link").forEach((link) => {
       const href = link.getAttribute("href").slice(1);
       const linkPath = href.split("/")[1] || "";
-      link.classList.toggle("active", linkPath === path || (linkPath === "" && path === ""));
+      link.classList.toggle(
+        "active",
+        linkPath === path || (linkPath === "" && path === ""),
+      );
     });
   }
 
@@ -330,9 +342,10 @@ import {
     // Initialize database first
     await initLocalDb();
 
-    let nextGame = state.dbInitialized && typeof WKBLDatabase !== "undefined"
-      ? WKBLDatabase.getNextGame(state.currentSeason)
-      : null;
+    let nextGame =
+      state.dbInitialized && typeof WKBLDatabase !== "undefined"
+        ? WKBLDatabase.getNextGame(state.currentSeason)
+        : null;
 
     const mainGameCard = $("mainGameCard");
     const mainNoGame = $("mainNoGame");
@@ -340,8 +353,16 @@ import {
 
     // If no upcoming game, get most recent game and show as "recent matchup preview"
     let isRecentGame = false;
-    if (!nextGame && state.dbInitialized && typeof WKBLDatabase !== "undefined") {
-      const recentGames = WKBLDatabase.getRecentGames(state.currentSeason, null, 1);
+    if (
+      !nextGame &&
+      state.dbInitialized &&
+      typeof WKBLDatabase !== "undefined"
+    ) {
+      const recentGames = WKBLDatabase.getRecentGames(
+        state.currentSeason,
+        null,
+        1,
+      );
       if (recentGames.length > 0) {
         nextGame = recentGames[0];
         isRecentGame = true;
@@ -364,21 +385,24 @@ import {
     $("predictionExplanation").style.display = "block";
 
     // Get team standings for records
-    const standings = state.dbInitialized && typeof WKBLDatabase !== "undefined"
-      ? WKBLDatabase.getStandings(state.currentSeason)
-      : [];
-    const standingsMap = new Map(standings.map(s => [s.team_id, s]));
+    const standings =
+      state.dbInitialized && typeof WKBLDatabase !== "undefined"
+        ? WKBLDatabase.getStandings(state.currentSeason)
+        : [];
+    const standingsMap = new Map(standings.map((s) => [s.team_id, s]));
 
     // Populate game card
     const homeStanding = standingsMap.get(nextGame.home_team_id);
     const awayStanding = standingsMap.get(nextGame.away_team_id);
 
-    $("mainHomeTeam").querySelector(".team-name").textContent = nextGame.home_team_short || nextGame.home_team_name;
+    $("mainHomeTeam").querySelector(".team-name").textContent =
+      nextGame.home_team_short || nextGame.home_team_name;
     $("mainHomeTeam").querySelector(".team-record").textContent = homeStanding
       ? `${homeStanding.wins}승 ${homeStanding.losses}패`
       : "-";
 
-    $("mainAwayTeam").querySelector(".team-name").textContent = nextGame.away_team_short || nextGame.away_team_name;
+    $("mainAwayTeam").querySelector(".team-name").textContent =
+      nextGame.away_team_short || nextGame.away_team_name;
     $("mainAwayTeam").querySelector(".team-record").textContent = awayStanding
       ? `${awayStanding.wins}승 ${awayStanding.losses}패`
       : "-";
@@ -395,11 +419,14 @@ import {
       const score = `${nextGame.away_score || 0} - ${nextGame.home_score || 0}`;
       $("mainCountdown").textContent = score;
       $("mainPredictionTitle").textContent = "최근 경기 분석";
-      $("mainPredictionDate").textContent = formatFullDate(nextGame.game_date) + " 경기 결과";
+      $("mainPredictionDate").textContent =
+        formatFullDate(nextGame.game_date) + " 경기 결과";
     } else {
-      $("mainCountdown").textContent = diffDays === 0 ? "TODAY" : `D-${diffDays}`;
+      $("mainCountdown").textContent =
+        diffDays === 0 ? "TODAY" : `D-${diffDays}`;
       $("mainPredictionTitle").textContent = "다음 경기 예측";
-      $("mainPredictionDate").textContent = formatFullDate(nextGame.game_date) + " 경기";
+      $("mainPredictionDate").textContent =
+        formatFullDate(nextGame.game_date) + " 경기";
     }
 
     // Format game time
@@ -427,24 +454,43 @@ import {
       }
 
       // Calculate predictions for each player
-      const homePredictions = await Promise.all(homeLineup.map(p => getPlayerPrediction(p, true)));
-      const awayPredictions = await Promise.all(awayLineup.map(p => getPlayerPrediction(p, false)));
+      const homePredictions = await Promise.all(
+        homeLineup.map((p) => getPlayerPrediction(p, true)),
+      );
+      const awayPredictions = await Promise.all(
+        awayLineup.map((p) => getPlayerPrediction(p, false)),
+      );
 
       // Calculate win probability
-      const homeStrength = calculateTeamStrength(homePredictions, homeStanding, true);
-      const awayStrength = calculateTeamStrength(awayPredictions, awayStanding, false);
+      const homeStrength = calculateTeamStrength(
+        homePredictions,
+        homeStanding,
+        true,
+      );
+      const awayStrength = calculateTeamStrength(
+        awayPredictions,
+        awayStanding,
+        false,
+      );
       const totalStrength = homeStrength + awayStrength;
-      const homeWinProb = totalStrength > 0 ? (homeStrength / totalStrength * 100).toFixed(0) : 50;
+      const homeWinProb =
+        totalStrength > 0
+          ? ((homeStrength / totalStrength) * 100).toFixed(0)
+          : 50;
       const awayWinProb = 100 - homeWinProb;
 
       // Render lineups
-      $("homeLineupTitle").textContent = `${nextGame.home_team_short || nextGame.home_team_name} 추천 라인업 (홈)`;
-      $("awayLineupTitle").textContent = `${nextGame.away_team_short || nextGame.away_team_name} 추천 라인업 (원정)`;
+      $("homeLineupTitle").textContent =
+        `${nextGame.home_team_short || nextGame.home_team_name} 추천 라인업 (홈)`;
+      $("awayLineupTitle").textContent =
+        `${nextGame.away_team_short || nextGame.away_team_name} 추천 라인업 (원정)`;
 
       $("homeWinProb").textContent = homeWinProb + "%";
       $("awayWinProb").textContent = awayWinProb + "%";
-      $("homeWinProb").className = `prob-value ${homeWinProb >= 50 ? "prob-high" : "prob-low"}`;
-      $("awayWinProb").className = `prob-value ${awayWinProb >= 50 ? "prob-high" : "prob-low"}`;
+      $("homeWinProb").className =
+        `prob-value ${homeWinProb >= 50 ? "prob-high" : "prob-low"}`;
+      $("awayWinProb").className =
+        `prob-value ${awayWinProb >= 50 ? "prob-high" : "prob-low"}`;
 
       renderLineupPlayers({
         container: $("homeLineupPlayers"),
@@ -483,7 +529,7 @@ import {
   async function getTeamRoster(teamId) {
     if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
       const players = WKBLDatabase.getTeamRoster(teamId, state.currentSeason);
-      return players.filter(p => p.gp > 0); // Only players with game time
+      return players.filter((p) => p.gp > 0); // Only players with game time
     }
     return [];
   }
@@ -514,7 +560,7 @@ import {
     // Second pass: fill remaining spots with best available
     for (const player of sorted) {
       if (lineup.length >= 5) break;
-      if (!lineup.find(p => p.id === player.id)) {
+      if (!lineup.find((p) => p.id === player.id)) {
         lineup.push(player);
       }
     }
@@ -526,14 +572,18 @@ import {
     // Get recent games for prediction
     let recentGames = [];
     if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
-      recentGames = WKBLDatabase.getPlayerGamelog(player.id, state.currentSeason, 10);
+      recentGames = WKBLDatabase.getPlayerGamelog(
+        player.id,
+        state.currentSeason,
+        10,
+      );
     }
 
     const prediction = {
       player: player,
       pts: { pred: 0, low: 0, high: 0 },
       reb: { pred: 0, low: 0, high: 0 },
-      ast: { pred: 0, low: 0, high: 0 }
+      ast: { pred: 0, low: 0, high: 0 },
     };
 
     if (recentGames.length === 0) {
@@ -545,13 +595,19 @@ import {
     }
 
     // Calculate predictions for each stat
-    ["pts", "reb", "ast"].forEach(stat => {
-      const values = recentGames.map(g => g[stat] || 0);
+    ["pts", "reb", "ast"].forEach((stat) => {
+      const values = recentGames.map((g) => g[stat] || 0);
       const recent5 = values.slice(0, 5);
       const recent10 = values.slice(0, 10);
 
-      const avg5 = recent5.length > 0 ? recent5.reduce((a, b) => a + b, 0) / recent5.length : 0;
-      const avg10 = recent10.length > 0 ? recent10.reduce((a, b) => a + b, 0) / recent10.length : 0;
+      const avg5 =
+        recent5.length > 0
+          ? recent5.reduce((a, b) => a + b, 0) / recent5.length
+          : 0;
+      const avg10 =
+        recent10.length > 0
+          ? recent10.reduce((a, b) => a + b, 0) / recent10.length
+          : 0;
 
       // Weighted average: 60% recent 5, 40% recent 10
       let basePred = avg5 * 0.6 + avg10 * 0.4;
@@ -572,12 +628,16 @@ import {
       }
 
       // Standard deviation for confidence interval
-      const stdDev = Math.sqrt(values.reduce((acc, v) => acc + Math.pow(v - avg10, 2), 0) / values.length) || basePred * 0.15;
+      const stdDev =
+        Math.sqrt(
+          values.reduce((acc, v) => acc + Math.pow(v - avg10, 2), 0) /
+            values.length,
+        ) || basePred * 0.15;
 
       prediction[stat] = {
         pred: basePred,
         low: Math.max(0, basePred - stdDev),
-        high: basePred + stdDev
+        high: basePred + stdDev,
       };
     });
 
@@ -587,25 +647,32 @@ import {
   function calculateTeamStrength(predictions, standing, isHome) {
     // Base strength from predicted stats
     let strength = predictions.reduce((acc, p) => {
-      return acc + (p.pts.pred || 0) + (p.reb.pred || 0) * 0.5 + (p.ast.pred || 0) * 0.7;
+      return (
+        acc +
+        (p.pts.pred || 0) +
+        (p.reb.pred || 0) * 0.5 +
+        (p.ast.pred || 0) * 0.7
+      );
     }, 0);
 
     // Factor in team record
     if (standing) {
       const winPct = standing.win_pct || 0.5;
-      strength *= (0.5 + winPct);
+      strength *= 0.5 + winPct;
 
       // Home/away specific performance
       if (isHome && standing.home_wins !== undefined) {
-        const homeWinPct = standing.home_total > 0
-          ? standing.home_wins / standing.home_total
-          : 0.5;
-        strength *= (0.8 + homeWinPct * 0.4);
+        const homeWinPct =
+          standing.home_total > 0
+            ? standing.home_wins / standing.home_total
+            : 0.5;
+        strength *= 0.8 + homeWinPct * 0.4;
       } else if (!isHome && standing.away_wins !== undefined) {
-        const awayWinPct = standing.away_total > 0
-          ? standing.away_wins / standing.away_total
-          : 0.5;
-        strength *= (0.8 + awayWinPct * 0.4);
+        const awayWinPct =
+          standing.away_total > 0
+            ? standing.away_wins / standing.away_total
+            : 0.5;
+        strength *= 0.8 + awayWinPct * 0.4;
       }
     }
 
@@ -628,20 +695,65 @@ import {
     { key: "stl", label: "STL", desc: "Steals - 경기당 평균 스틸" },
     { key: "blk", label: "BLK", desc: "Blocks - 경기당 평균 블록" },
     { key: "tov", label: "TOV", desc: "Turnovers - 경기당 평균 턴오버" },
-    { key: "fgp", label: "FG%", format: "pct", desc: "Field Goal % - 야투 성공률" },
-    { key: "tpp", label: "3P%", format: "pct", desc: "3-Point % - 3점슛 성공률" },
-    { key: "ftp", label: "FT%", format: "pct", desc: "Free Throw % - 자유투 성공률" },
+    {
+      key: "fgp",
+      label: "FG%",
+      format: "pct",
+      desc: "Field Goal % - 야투 성공률",
+    },
+    {
+      key: "tpp",
+      label: "3P%",
+      format: "pct",
+      desc: "3-Point % - 3점슛 성공률",
+    },
+    {
+      key: "ftp",
+      label: "FT%",
+      format: "pct",
+      desc: "Free Throw % - 자유투 성공률",
+    },
   ];
 
   const advancedStats = [
     { key: "ts_pct", label: "TS%", format: "pct", desc: "True Shooting %" },
     { key: "efg_pct", label: "eFG%", format: "pct", desc: "Effective FG%" },
-    { key: "ast_to", label: "AST/TO", format: "ratio", desc: "Assist to Turnover Ratio" },
-    { key: "pir", label: "PIR", format: "number", desc: "Performance Index Rating" },
-    { key: "pts36", label: "PTS/36", format: "number", desc: "Points per 36 min" },
-    { key: "reb36", label: "REB/36", format: "number", desc: "Rebounds per 36 min" },
-    { key: "ast36", label: "AST/36", format: "number", desc: "Assists per 36 min" },
-    { key: "court_margin", label: "코트마진", format: "signed", desc: "Court Margin - 출전 시간 가중 득실차" },
+    {
+      key: "ast_to",
+      label: "AST/TO",
+      format: "ratio",
+      desc: "Assist to Turnover Ratio",
+    },
+    {
+      key: "pir",
+      label: "PIR",
+      format: "number",
+      desc: "Performance Index Rating",
+    },
+    {
+      key: "pts36",
+      label: "PTS/36",
+      format: "number",
+      desc: "Points per 36 min",
+    },
+    {
+      key: "reb36",
+      label: "REB/36",
+      format: "number",
+      desc: "Rebounds per 36 min",
+    },
+    {
+      key: "ast36",
+      label: "AST/36",
+      format: "number",
+      desc: "Assists per 36 min",
+    },
+    {
+      key: "court_margin",
+      label: "코트마진",
+      format: "signed",
+      desc: "Court Margin - 출전 시간 가중 득실차",
+    },
   ];
 
   async function loadPlayersPage() {
@@ -650,7 +762,8 @@ import {
     try {
       state.players = await fetchPlayers(state.currentSeason);
       if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
-        const seasonId = state.currentSeason === "all" ? null : state.currentSeason;
+        const seasonId =
+          state.currentSeason === "all" ? null : state.currentSeason;
         const playerIds = state.players.map((p) => p.id);
         const margins = WKBLDatabase.getPlayersCourtMargin(playerIds, seasonId);
         state.players.forEach((p) => {
@@ -661,7 +774,8 @@ import {
       applyFilters();
     } catch (error) {
       console.error("Failed to load players:", error);
-      $("statsBody").innerHTML = `<tr><td colspan="22" style="text-align:center;color:#c00;">데이터를 불러올 수 없습니다.</td></tr>`;
+      $("statsBody").innerHTML =
+        `<tr><td colspan="22" style="text-align:center;color:#c00;">데이터를 불러올 수 없습니다.</td></tr>`;
     }
   }
 
@@ -676,12 +790,14 @@ import {
         allOption.textContent = "전체";
         select.appendChild(allOption);
       }
-      Object.entries(SEASONS).sort((a, b) => b[0].localeCompare(a[0])).forEach(([code, label]) => {
-        const option = document.createElement("option");
-        option.value = code;
-        option.textContent = label;
-        select.appendChild(option);
-      });
+      Object.entries(SEASONS)
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .forEach(([code, label]) => {
+          const option = document.createElement("option");
+          option.value = code;
+          option.textContent = label;
+          select.appendChild(option);
+        });
       // Set default to current season (not "all")
       select.value = state.currentSeason;
     }
@@ -730,7 +846,13 @@ import {
 
   function renderTable(players) {
     const tbody = $("statsBody");
-    renderPlayersTable({ tbody, players, formatNumber, formatPct, formatSigned });
+    renderPlayersTable({
+      tbody,
+      players,
+      formatNumber,
+      formatPct,
+      formatSigned,
+    });
 
     state.currentSortedPlayers = players;
   }
@@ -778,7 +900,9 @@ import {
       renderCareerSummary({ summaryEl: summary, seasons, courtMargin });
 
       // Season stats table
-      const sortedSeasons = seasons.sort((a, b) => a.season_id?.localeCompare(b.season_id));
+      const sortedSeasons = seasons.sort((a, b) =>
+        a.season_id?.localeCompare(b.season_id),
+      );
       renderPlayerSeasonTable({
         tbody: $("playerSeasonBody"),
         seasons: sortedSeasons,
@@ -791,10 +915,15 @@ import {
       renderShootingEfficiencyChart(sortedSeasons);
 
       // Radar chart - need current season stats and all players for comparison
-      const currentSeasonStats = sortedSeasons.length > 0 ? sortedSeasons[sortedSeasons.length - 1] : null;
+      const currentSeasonStats =
+        sortedSeasons.length > 0
+          ? sortedSeasons[sortedSeasons.length - 1]
+          : null;
       if (currentSeasonStats) {
         try {
-          const allPlayers = await fetchPlayers(currentSeasonStats.season_id || state.currentSeason);
+          const allPlayers = await fetchPlayers(
+            currentSeasonStats.season_id || state.currentSeason,
+          );
           renderPlayerRadarChart(currentSeasonStats, allPlayers);
         } catch (e) {
           console.warn("Failed to load players for radar chart:", e);
@@ -812,7 +941,6 @@ import {
         formatDate,
         formatNumber,
       });
-
     } catch (error) {
       console.error("Failed to load player:", error);
       $("detailPlayerName").textContent = "선수를 찾을 수 없습니다";
@@ -835,7 +963,8 @@ import {
     }
 
     if (seasons.length < 2) {
-      canvas.parentElement.innerHTML = '<div style="text-align:center;color:rgba(27,28,31,0.5);padding:40px;">시즌 데이터가 부족합니다</div>';
+      canvas.parentElement.innerHTML =
+        '<div style="text-align:center;color:rgba(27,28,31,0.5);padding:40px;">시즌 데이터가 부족합니다</div>';
       return;
     }
 
@@ -921,7 +1050,8 @@ import {
     }
 
     if (seasons.length < 2) {
-      canvas.parentElement.innerHTML = '<div style="text-align:center;color:rgba(27,28,31,0.5);padding:40px;">시즌 데이터가 부족합니다</div>';
+      canvas.parentElement.innerHTML =
+        '<div style="text-align:center;color:rgba(27,28,31,0.5);padding:40px;">시즌 데이터가 부족합니다</div>';
       return;
     }
 
@@ -988,7 +1118,7 @@ import {
             padding: 12,
             cornerRadius: 8,
             callbacks: {
-              label: function(context) {
+              label: function (context) {
                 return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
               },
             },
@@ -1003,7 +1133,7 @@ import {
               color: "rgba(27, 28, 31, 0.08)",
             },
             ticks: {
-              callback: function(value) {
+              callback: function (value) {
                 return value + "%";
               },
             },
@@ -1070,7 +1200,7 @@ import {
             padding: 12,
             cornerRadius: 8,
             callbacks: {
-              label: function(context) {
+              label: function (context) {
                 return `리그 상위 ${100 - context.parsed.r}%`;
               },
             },
@@ -1113,7 +1243,8 @@ import {
     }
 
     if (!games || games.length === 0) {
-      canvas.parentElement.innerHTML = '<div style="text-align:center;color:rgba(27,28,31,0.5);padding:40px;">경기 기록이 없습니다</div>';
+      canvas.parentElement.innerHTML =
+        '<div style="text-align:center;color:rgba(27,28,31,0.5);padding:40px;">경기 기록이 없습니다</div>';
       return;
     }
 
@@ -1167,7 +1298,7 @@ import {
             padding: 12,
             cornerRadius: 8,
             callbacks: {
-              title: function(context) {
+              title: function (context) {
                 const idx = context[0].dataIndex;
                 const game = recentGames[idx];
                 return `${formatDate(game.game_date)} vs ${game.opponent}`;
@@ -1207,7 +1338,8 @@ import {
     }
 
     if (!standings || standings.length === 0) {
-      canvas.parentElement.innerHTML = '<div style="text-align:center;color:rgba(27,28,31,0.5);padding:40px;">데이터가 없습니다</div>';
+      canvas.parentElement.innerHTML =
+        '<div style="text-align:center;color:rgba(27,28,31,0.5);padding:40px;">데이터가 없습니다</div>';
       return;
     }
 
@@ -1282,7 +1414,7 @@ import {
             padding: 12,
             cornerRadius: 8,
             callbacks: {
-              afterBody: function(context) {
+              afterBody: function (context) {
                 const idx = context[0].dataIndex;
                 const team = sorted[idx];
                 return `승률: ${(team.win_pct * 100).toFixed(1)}%`;
@@ -1319,7 +1451,6 @@ import {
       renderStandingsChart(standings);
 
       renderStandingsTable({ tbody: $("standingsBody"), standings });
-
     } catch (error) {
       console.error("Failed to load standings:", error);
     }
@@ -1337,7 +1468,8 @@ import {
 
       if (team.standings) {
         const s = team.standings;
-        $("teamDetailStanding").textContent = `${s.rank}위 | ${s.wins}승 ${s.losses}패 (${(s.win_pct * 100).toFixed(1)}%)`;
+        $("teamDetailStanding").textContent =
+          `${s.rank}위 | ${s.wins}승 ${s.losses}패 (${(s.win_pct * 100).toFixed(1)}%)`;
       }
 
       renderTeamRoster({ tbody: $("teamRosterBody"), roster: team.roster });
@@ -1346,7 +1478,6 @@ import {
         games: team.recent_games,
         formatDate,
       });
-
     } catch (error) {
       console.error("Failed to load team:", error);
       $("teamDetailName").textContent = "팀을 찾을 수 없습니다";
@@ -1363,7 +1494,6 @@ import {
     try {
       const games = await fetchGames(state.currentSeason);
       renderGamesList({ container: $("gamesList"), games, formatDate });
-
     } catch (error) {
       console.error("Failed to load games:", error);
     }
@@ -1405,36 +1535,55 @@ import {
         const homeActualWin = game.home_score > game.away_score;
         const homePredictedWin = predictions.team.home_win_prob > 50;
         const predictionCorrect = homeActualWin === homePredictedWin;
-        const diffClass = (diff) => diff === null ? "" : (diff >= 0 ? "stat-positive" : "stat-negative");
+        const diffClass = (diff) =>
+          diff === null ? "" : diff >= 0 ? "stat-positive" : "stat-negative";
 
         // Calculate team totals from player predictions
-        const sumPred = (teamId, stat) => predictions.players
-          .filter(p => p.team_id === teamId)
-          .reduce((s, p) => s + (p[`predicted_${stat}`] || 0), 0);
-        const sumActual = (stats, stat) => (stats || []).reduce((s, p) => s + (p[stat] || 0), 0);
+        const sumPred = (teamId, stat) =>
+          predictions.players
+            .filter((p) => p.team_id === teamId)
+            .reduce((s, p) => s + (p[`predicted_${stat}`] || 0), 0);
+        const sumActual = (stats, stat) =>
+          (stats || []).reduce((s, p) => s + (p[stat] || 0), 0);
 
         const stats = ["pts", "reb", "ast"];
         const statLabels = { pts: "득점", reb: "리바운드", ast: "어시스트" };
         const teams = [
-          { id: game.away_team_id, name: game.away_team_name, stats: game.away_team_stats,
-            predPts: predictions.team.away_predicted_pts, actualPts: game.away_score },
-          { id: game.home_team_id, name: game.home_team_name, stats: game.home_team_stats,
-            predPts: predictions.team.home_predicted_pts, actualPts: game.home_score },
+          {
+            id: game.away_team_id,
+            name: game.away_team_name,
+            stats: game.away_team_stats,
+            predPts: predictions.team.away_predicted_pts,
+            actualPts: game.away_score,
+          },
+          {
+            id: game.home_team_id,
+            name: game.home_team_name,
+            stats: game.home_team_stats,
+            predPts: predictions.team.home_predicted_pts,
+            actualPts: game.home_score,
+          },
         ];
 
-        const tableRows = teams.map(t => {
-          const cells = stats.map(stat => {
-            const pred = stat === "pts" ? t.predPts : sumPred(t.id, stat);
-            const actual = stat === "pts" ? t.actualPts : sumActual(t.stats, stat);
-            const diff = pred != null ? Math.round((actual - pred) * 10) / 10 : null;
-            return `
+        const tableRows = teams
+          .map((t) => {
+            const cells = stats
+              .map((stat) => {
+                const pred = stat === "pts" ? t.predPts : sumPred(t.id, stat);
+                const actual =
+                  stat === "pts" ? t.actualPts : sumActual(t.stats, stat);
+                const diff =
+                  pred != null ? Math.round((actual - pred) * 10) / 10 : null;
+                return `
               <td>${pred != null ? pred.toFixed(0) : "-"}</td>
               <td>${actual}</td>
               <td class="${diffClass(diff)}">${diff !== null ? (diff >= 0 ? "+" : "") + formatNumber(diff, 0) : "-"}</td>
             `;
-          }).join("");
-          return `<tr><td class="pred-team-label">${t.name}</td>${cells}</tr>`;
-        }).join("");
+              })
+              .join("");
+            return `<tr><td class="pred-team-label">${t.name}</td>${cells}</tr>`;
+          })
+          .join("");
 
         predictionSection.innerHTML = `
           <div class="prediction-summary">
@@ -1444,7 +1593,7 @@ import {
                 <span class="pred-label">${game.away_team_name}</span>
                 <div class="pred-values">
                   <span class="pred-expected">예측: ${predictions.team.away_win_prob.toFixed(0)}%</span>
-                  <span class="pred-actual ${!homeActualWin ? 'winner' : ''}">${!homeActualWin ? '승리' : '패배'}</span>
+                  <span class="pred-actual ${!homeActualWin ? "winner" : ""}">${!homeActualWin ? "승리" : "패배"}</span>
                 </div>
               </div>
               <div class="pred-vs">VS</div>
@@ -1452,12 +1601,12 @@ import {
                 <span class="pred-label">${game.home_team_name}</span>
                 <div class="pred-values">
                   <span class="pred-expected">예측: ${predictions.team.home_win_prob.toFixed(0)}%</span>
-                  <span class="pred-actual ${homeActualWin ? 'winner' : ''}">${homeActualWin ? '승리' : '패배'}</span>
+                  <span class="pred-actual ${homeActualWin ? "winner" : ""}">${homeActualWin ? "승리" : "패배"}</span>
                 </div>
               </div>
             </div>
-            <div class="pred-result ${predictionCorrect ? 'correct' : 'incorrect'}">
-              ${predictionCorrect ? '✓ 예측 적중' : '✗ 예측 실패'}
+            <div class="pred-result ${predictionCorrect ? "correct" : "incorrect"}">
+              ${predictionCorrect ? "✓ 예측 적중" : "✗ 예측 실패"}
             </div>
             <table class="pred-stats-table">
               <thead>
@@ -1503,13 +1652,27 @@ import {
         };
 
         const formatRange = (low, high) => {
-          if (low === null || low === undefined || high === null || high === undefined) return "-";
+          if (
+            low === null ||
+            low === undefined ||
+            high === null ||
+            high === undefined
+          )
+            return "-";
           return `${formatNumber(low)}~${formatNumber(high)}`;
         };
 
-        const awayTotals = buildTeamTotals(predictions.players, game.away_team_id);
-        const homeTotals = buildTeamTotals(predictions.players, game.home_team_id);
-        const totalsHtml = awayTotals && homeTotals ? `
+        const awayTotals = buildTeamTotals(
+          predictions.players,
+          game.away_team_id,
+        );
+        const homeTotals = buildTeamTotals(
+          predictions.players,
+          game.home_team_id,
+        );
+        const totalsHtml =
+          awayTotals && homeTotals
+            ? `
           <div class="pred-total-stats">
             <div class="pred-total-team">
               <div class="pred-total-header">${game.away_team_name}</div>
@@ -1552,11 +1715,14 @@ import {
               </div>
             </div>
           </div>
-        ` : "";
+        `
+            : "";
 
         // Game not played yet - show prediction only
-        const awayPredPts = predictions.team.away_predicted_pts?.toFixed(0) || "-";
-        const homePredPts = predictions.team.home_predicted_pts?.toFixed(0) || "-";
+        const awayPredPts =
+          predictions.team.away_predicted_pts?.toFixed(0) || "-";
+        const homePredPts =
+          predictions.team.home_predicted_pts?.toFixed(0) || "-";
         predictionSection.innerHTML = `
           <div class="prediction-summary pending">
             <h3>경기 예측</h3>
@@ -1594,7 +1760,11 @@ import {
         if (predicted == null) return { cls: "", title: "" };
         const diff = actual - predicted;
         const withinRange = actual >= low && actual <= high;
-        const cls = withinRange ? "pred-hit" : (diff > 0 ? "pred-over" : "pred-under");
+        const cls = withinRange
+          ? "pred-hit"
+          : diff > 0
+            ? "pred-over"
+            : "pred-under";
         const title = `예측: ${predicted.toFixed(1)} (${low.toFixed(1)}~${high.toFixed(1)})`;
         return { cls, title };
       }
@@ -1617,7 +1787,6 @@ import {
       } else {
         legendEl.style.display = "none";
       }
-
     } catch (error) {
       console.error("Failed to load game:", error);
     }
@@ -1637,7 +1806,6 @@ import {
         categories,
         leaderCategories: LEADER_CATEGORIES,
       });
-
     } catch (error) {
       console.error("Failed to load leaders:", error);
     }
@@ -1690,13 +1858,19 @@ import {
     const labels = ["득점", "리바운드", "어시스트", "스틸", "블록"];
 
     // Normalize to max values among players
-    const maxValues = stats.map((stat) => Math.max(...players.map((p) => p[stat] || 0)));
+    const maxValues = stats.map((stat) =>
+      Math.max(...players.map((p) => p[stat] || 0)),
+    );
 
     const datasets = players.map((p, i) => ({
       label: p.name,
-      data: stats.map((stat, j) => maxValues[j] > 0 ? ((p[stat] || 0) / maxValues[j]) * 100 : 0),
+      data: stats.map((stat, j) =>
+        maxValues[j] > 0 ? ((p[stat] || 0) / maxValues[j]) * 100 : 0,
+      ),
       borderColor: COMPARE_COLORS[i % COMPARE_COLORS.length],
-      backgroundColor: COMPARE_COLORS[i % COMPARE_COLORS.length].replace(")", ", 0.2)").replace("rgb", "rgba"),
+      backgroundColor: COMPARE_COLORS[i % COMPARE_COLORS.length]
+        .replace(")", ", 0.2)")
+        .replace("rgb", "rgba"),
       borderWidth: 2,
       pointBackgroundColor: COMPARE_COLORS[i % COMPARE_COLORS.length],
     }));
@@ -1722,7 +1896,7 @@ import {
             padding: 12,
             cornerRadius: 8,
             callbacks: {
-              label: function(context) {
+              label: function (context) {
                 const idx = context.dataIndex;
                 const playerIdx = context.datasetIndex;
                 const stat = stats[idx];
@@ -1819,7 +1993,10 @@ import {
 
   function updateCompareSelected() {
     const container = $("compareSelected");
-    renderCompareSelected({ container, selectedPlayers: state.compareSelectedPlayers });
+    renderCompareSelected({
+      container,
+      selectedPlayers: state.compareSelectedPlayers,
+    });
 
     // Update button state
     $("compareBtn").disabled = state.compareSelectedPlayers.length < 2;
@@ -1844,7 +2021,11 @@ import {
       suggestions.classList.add("active");
     } catch (error) {
       console.error("Search failed:", error);
-      renderCompareSuggestions({ container: suggestions, players: [], error: true });
+      renderCompareSuggestions({
+        container: suggestions,
+        players: [],
+        error: true,
+      });
       suggestions.classList.add("active");
     }
   }
@@ -1869,7 +2050,9 @@ import {
   }
 
   function removeComparePlayer(playerId) {
-    state.compareSelectedPlayers = state.compareSelectedPlayers.filter((p) => p.id !== playerId);
+    state.compareSelectedPlayers = state.compareSelectedPlayers.filter(
+      (p) => p.id !== playerId,
+    );
     updateCompareSelected();
   }
 
@@ -1888,7 +2071,10 @@ import {
 
       // Add court margin data if available
       if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
-        const margins = WKBLDatabase.getPlayersCourtMargin(playerIds, state.currentSeason);
+        const margins = WKBLDatabase.getPlayersCourtMargin(
+          playerIds,
+          state.currentSeason,
+        );
         for (const p of players) {
           p.court_margin = margins[p.id] !== undefined ? margins[p.id] : null;
         }
@@ -1896,7 +2082,6 @@ import {
 
       renderCompareResult(players);
       $("compareResult").style.display = "block";
-
     } catch (error) {
       console.error("Comparison failed:", error);
       alert("비교에 실패했습니다.");
@@ -1925,10 +2110,11 @@ import {
         <div class="compare-bar-row">
           <div class="compare-bar-label">${stat.label}</div>
           <div class="compare-bar-container">
-            ${players.map((p, i) => {
-              const value = p[stat.key] || 0;
-              const width = maxValue > 0 ? (value / maxValue) * 100 : 0;
-              return `
+            ${players
+              .map((p, i) => {
+                const value = p[stat.key] || 0;
+                const width = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                return `
                 <div class="compare-bar-item">
                   <span class="compare-bar-name">${p.name}</span>
                   <div class="compare-bar-track">
@@ -1937,7 +2123,8 @@ import {
                   <span class="compare-bar-value">${formatNumber(value)}</span>
                 </div>
               `;
-            }).join("")}
+              })
+              .join("")}
           </div>
         </div>
       `;
@@ -1957,33 +2144,36 @@ import {
     tableBody.innerHTML = COMPARE_STATS.map((stat) => {
       const values = players.map((p) => p[stat.key]);
       const validValues = values.filter((v) => v !== null && v !== undefined);
-      const maxIdx = stat.key !== "tov" && validValues.length > 0
-        ? values.indexOf(Math.max(...validValues))
-        : -1;
+      const maxIdx =
+        stat.key !== "tov" && validValues.length > 0
+          ? values.indexOf(Math.max(...validValues))
+          : -1;
 
       return `
         <tr>
           <td>${stat.label}</td>
-          ${players.map((p, i) => {
-            const value = p[stat.key];
-            let formatted;
-            if (stat.format === "pct") {
-              formatted = formatPct(value);
-            } else if (stat.format === "int") {
-              formatted = value !== null ? Math.round(value) : "-";
-            } else if (stat.format === "signed") {
-              if (value === null || value === undefined) {
-                formatted = "-";
+          ${players
+            .map((p, i) => {
+              const value = p[stat.key];
+              let formatted;
+              if (stat.format === "pct") {
+                formatted = formatPct(value);
+              } else if (stat.format === "int") {
+                formatted = value !== null ? Math.round(value) : "-";
+              } else if (stat.format === "signed") {
+                if (value === null || value === undefined) {
+                  formatted = "-";
+                } else {
+                  const sign = value >= 0 ? "+" : "";
+                  formatted = sign + formatNumber(value);
+                }
               } else {
-                const sign = value >= 0 ? "+" : "";
-                formatted = sign + formatNumber(value);
+                formatted = formatNumber(value);
               }
-            } else {
-              formatted = formatNumber(value);
-            }
-            const isMax = i === maxIdx && maxIdx !== -1;
-            return `<td class="${isMax ? "compare-best" : ""}">${formatted}</td>`;
-          }).join("")}
+              const isMax = i === maxIdx && maxIdx !== -1;
+              return `<td class="${isMax ? "compare-best" : ""}">${formatted}</td>`;
+            })
+            .join("")}
         </tr>
       `;
     }).join("");
@@ -2026,8 +2216,16 @@ import {
     let recentGames = [];
 
     if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
-      upcomingGames = WKBLDatabase.getUpcomingGames(state.currentSeason, teamId, 10);
-      recentGames = WKBLDatabase.getRecentGames(state.currentSeason, teamId, 10);
+      upcomingGames = WKBLDatabase.getUpcomingGames(
+        state.currentSeason,
+        teamId,
+        10,
+      );
+      recentGames = WKBLDatabase.getRecentGames(
+        state.currentSeason,
+        teamId,
+        10,
+      );
     }
 
     renderNextGameHighlight({
@@ -2042,7 +2240,8 @@ import {
       upcomingGames,
       formatFullDate,
       getPredictionHtml: (g) => {
-        if (!(state.dbInitialized && typeof WKBLDatabase !== "undefined")) return "";
+        if (!(state.dbInitialized && typeof WKBLDatabase !== "undefined"))
+          return "";
         const pred = WKBLDatabase.getGamePredictions(g.id);
         if (!pred.team) return "";
         const awayProb = pred.team.away_win_prob?.toFixed(0) || "-";
@@ -2071,7 +2270,8 @@ import {
       recentGames,
       formatFullDate,
       getPredictionCompareHtml: (g, homeWin) => {
-        if (!(state.dbInitialized && typeof WKBLDatabase !== "undefined")) return "";
+        if (!(state.dbInitialized && typeof WKBLDatabase !== "undefined"))
+          return "";
         const pred = WKBLDatabase.getGamePredictions(g.id);
         if (!pred.team) return "";
         const predictedHomeWin = pred.team.home_win_prob > 50;
@@ -2131,7 +2331,11 @@ import {
       suggestions.classList.add("active");
     } catch (error) {
       console.error("Predict search failed:", error);
-      renderPredictSuggestions({ container: suggestions, players: [], error: true });
+      renderPredictSuggestions({
+        container: suggestions,
+        players: [],
+        error: true,
+      });
       suggestions.classList.add("active");
     }
   }
@@ -2152,7 +2356,8 @@ import {
 
       if (!gamelog || gamelog.length < 3) {
         $("predictResult").style.display = "block";
-        $("predictPlayerInfo").innerHTML = `<div class="predict-error">충분한 경기 데이터가 없습니다 (최소 3경기 필요)</div>`;
+        $("predictPlayerInfo").innerHTML =
+          `<div class="predict-error">충분한 경기 데이터가 없습니다 (최소 3경기 필요)</div>`;
         $("predictCards").innerHTML = "";
         $("predictFactors").innerHTML = "";
         return;
@@ -2169,11 +2374,11 @@ import {
       renderPredictTrendChart(gamelog, prediction);
 
       $("predictResult").style.display = "block";
-
     } catch (error) {
       console.error("Prediction failed:", error);
       $("predictResult").style.display = "block";
-      $("predictPlayerInfo").innerHTML = `<div class="predict-error">예측 생성에 실패했습니다</div>`;
+      $("predictPlayerInfo").innerHTML =
+        `<div class="predict-error">예측 생성에 실패했습니다</div>`;
     }
   }
 
@@ -2184,7 +2389,8 @@ import {
     const recent10 = games.slice(0, 10);
 
     // Calculate averages
-    const calcAvg = (arr, key) => arr.reduce((sum, g) => sum + (g[key] || 0), 0) / arr.length;
+    const calcAvg = (arr, key) =>
+      arr.reduce((sum, g) => sum + (g[key] || 0), 0) / arr.length;
 
     const recent5Avg = {
       pts: calcAvg(recent5, "pts"),
@@ -2206,7 +2412,9 @@ import {
 
     // Calculate standard deviation
     const calcStd = (arr, key, avg) => {
-      const variance = arr.reduce((sum, g) => sum + Math.pow((g[key] || 0) - avg, 2), 0) / arr.length;
+      const variance =
+        arr.reduce((sum, g) => sum + Math.pow((g[key] || 0) - avg, 2), 0) /
+        arr.length;
       return Math.sqrt(variance);
     };
 
@@ -2279,8 +2487,9 @@ import {
             backgroundColor: "rgba(217, 79, 49, 0.1)",
             tension: 0.3,
             fill: false,
-            pointRadius: (ctx) => ctx.dataIndex === games.length ? 8 : 4,
-            pointBackgroundColor: (ctx) => ctx.dataIndex === games.length ? "#d94f31" : "#fff",
+            pointRadius: (ctx) => (ctx.dataIndex === games.length ? 8 : 4),
+            pointBackgroundColor: (ctx) =>
+              ctx.dataIndex === games.length ? "#d94f31" : "#fff",
             pointBorderWidth: 2,
           },
           {
@@ -2290,8 +2499,9 @@ import {
             backgroundColor: "rgba(42, 93, 159, 0.1)",
             tension: 0.3,
             fill: false,
-            pointRadius: (ctx) => ctx.dataIndex === games.length ? 8 : 4,
-            pointBackgroundColor: (ctx) => ctx.dataIndex === games.length ? "#2a5d9f" : "#fff",
+            pointRadius: (ctx) => (ctx.dataIndex === games.length ? 8 : 4),
+            pointBackgroundColor: (ctx) =>
+              ctx.dataIndex === games.length ? "#2a5d9f" : "#fff",
             pointBorderWidth: 2,
           },
           {
@@ -2301,8 +2511,9 @@ import {
             backgroundColor: "rgba(16, 185, 129, 0.1)",
             tension: 0.3,
             fill: false,
-            pointRadius: (ctx) => ctx.dataIndex === games.length ? 8 : 4,
-            pointBackgroundColor: (ctx) => ctx.dataIndex === games.length ? "#10b981" : "#fff",
+            pointRadius: (ctx) => (ctx.dataIndex === games.length ? 8 : 4),
+            pointBackgroundColor: (ctx) =>
+              ctx.dataIndex === games.length ? "#10b981" : "#fff",
             pointBorderWidth: 2,
           },
         ],
@@ -2392,15 +2603,19 @@ import {
       const teams = data.teams || [];
 
       if (players.length === 0 && teams.length === 0) {
-        results.innerHTML = '<div class="search-no-results">검색 결과가 없습니다</div>';
+        results.innerHTML =
+          '<div class="search-no-results">검색 결과가 없습니다</div>';
         globalSearchIndex = -1;
         return;
       }
 
       let html = "";
       if (players.length > 0) {
-        html += '<div class="search-result-group"><div class="search-result-group-title">선수</div>';
-        html += players.map((p, i) => `
+        html +=
+          '<div class="search-result-group"><div class="search-result-group-title">선수</div>';
+        html += players
+          .map(
+            (p, i) => `
           <div class="search-result-item" data-type="player" data-id="${p.id}" data-index="${i}">
             <div class="search-result-icon">👤</div>
             <div class="search-result-info">
@@ -2408,13 +2623,18 @@ import {
               <div class="search-result-meta">${p.team} · ${p.position || "-"}</div>
             </div>
           </div>
-        `).join("");
+        `,
+          )
+          .join("");
         html += "</div>";
       }
 
       if (teams.length > 0) {
-        html += '<div class="search-result-group"><div class="search-result-group-title">팀</div>';
-        html += teams.map((t, i) => `
+        html +=
+          '<div class="search-result-group"><div class="search-result-group-title">팀</div>';
+        html += teams
+          .map(
+            (t, i) => `
           <div class="search-result-item" data-type="team" data-id="${t.id}" data-index="${players.length + i}">
             <div class="search-result-icon">🏀</div>
             <div class="search-result-info">
@@ -2422,7 +2642,9 @@ import {
               <div class="search-result-meta">${t.short_name}</div>
             </div>
           </div>
-        `).join("");
+        `,
+          )
+          .join("");
         html += "</div>";
       }
 
@@ -2489,7 +2711,15 @@ import {
     }
 
     // Season selects
-    ["seasonSelect", "teamsSeasonSelect", "gamesSeasonSelect", "leadersSeasonSelect", "compareSeasonSelect", "scheduleSeasonSelect", "predictSeasonSelect"].forEach((id) => {
+    [
+      "seasonSelect",
+      "teamsSeasonSelect",
+      "gamesSeasonSelect",
+      "leadersSeasonSelect",
+      "compareSeasonSelect",
+      "scheduleSeasonSelect",
+      "predictSeasonSelect",
+    ].forEach((id) => {
       const el = $(id);
       if (el) {
         el.addEventListener("change", (e) => {
@@ -2508,7 +2738,10 @@ import {
     // Search
     const searchInput = $("searchInput");
     if (searchInput) {
-      searchInput.addEventListener("input", debounce(applyFilters, CONFIG.debounceDelay));
+      searchInput.addEventListener(
+        "input",
+        debounce(applyFilters, CONFIG.debounceDelay),
+      );
     }
 
     // Table sorting
@@ -2519,7 +2752,10 @@ import {
           const key = th.dataset.key;
           if (!key) return;
           const isSame = state.sort.key === key;
-          state.sort = { key, dir: isSame && state.sort.dir === "desc" ? "asc" : "desc" };
+          state.sort = {
+            key,
+            dir: isSame && state.sort.dir === "desc" ? "asc" : "desc",
+          };
           sortAndRender();
         });
       });
@@ -2608,7 +2844,9 @@ import {
     try {
       await initLocalDb();
     } catch (e) {
-      console.warn("[app.js] Local database not available, using JSON fallback");
+      console.warn(
+        "[app.js] Local database not available, using JSON fallback",
+      );
     }
 
     initEventListeners();

@@ -18,7 +18,12 @@ export function createDataClient({ initDb, getDb, getSeasonLabel }) {
       const db = await withDb();
       if (!db) return [];
       const query = resolvePlayersQuery({ season, defaultSeason });
-      return db.getPlayers(query.seasonId, null, query.activeOnly, query.includeNoGames);
+      return db.getPlayers(
+        query.seasonId,
+        null,
+        query.activeOnly,
+        query.includeNoGames,
+      );
     },
 
     async getPlayerDetail(playerId) {

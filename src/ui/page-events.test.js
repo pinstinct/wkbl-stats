@@ -65,11 +65,19 @@ describe("page events", () => {
     expect(onSearch).toHaveBeenCalledWith("kim");
 
     byId.compareSuggestions.emit("click", {
-      target: { closest: () => ({ dataset: { id: "p1", name: "김", team: "A" } }) },
+      target: {
+        closest: () => ({ dataset: { id: "p1", name: "김", team: "A" } }),
+      },
     });
-    expect(onAddPlayer).toHaveBeenCalledWith({ id: "p1", name: "김", team: "A" });
+    expect(onAddPlayer).toHaveBeenCalledWith({
+      id: "p1",
+      name: "김",
+      team: "A",
+    });
 
-    byId.compareSelected.emit("click", { target: { classList: { contains: () => true }, dataset: { id: "p1" } } });
+    byId.compareSelected.emit("click", {
+      target: { classList: { contains: () => true }, dataset: { id: "p1" } },
+    });
     expect(onRemovePlayer).toHaveBeenCalledWith("p1");
 
     byId.compareBtn.emit("click");
@@ -83,7 +91,11 @@ describe("page events", () => {
   it("mounts and unmounts predict events", () => {
     const byId = {
       predictSearchInput: emitter(),
-      predictSuggestions: { ...emitter(), classList: classList(), innerHTML: "<div>x</div>" },
+      predictSuggestions: {
+        ...emitter(),
+        classList: classList(),
+        innerHTML: "<div>x</div>",
+      },
     };
     const documentRef = emitter();
     const getById = (id) => byId[id];
@@ -151,10 +163,16 @@ describe("page events", () => {
     byId.globalSearchInput.emit("input", { target: { value: "park" } });
     expect(onSearch).toHaveBeenCalledWith("park");
 
-    byId.globalSearchInput.emit("keydown", { key: "ArrowDown", preventDefault: vi.fn() });
+    byId.globalSearchInput.emit("keydown", {
+      key: "ArrowDown",
+      preventDefault: vi.fn(),
+    });
     expect(onNavigate).toHaveBeenCalledWith(1);
 
-    byId.globalSearchInput.emit("keydown", { key: "Enter", preventDefault: vi.fn() });
+    byId.globalSearchInput.emit("keydown", {
+      key: "Enter",
+      preventDefault: vi.fn(),
+    });
     expect(onSelect).toHaveBeenCalledTimes(1);
 
     byId.globalSearchResults.emit("click", {

@@ -9,15 +9,18 @@ WKBL Player Stats dashboard - displays Korean Women's Basketball League data in 
 ## Commands
 
 **Start server** (auto-ingests daily data):
+
 ```bash
 uv sync        # first time only
 uv run python3 server.py
 ```
+
 - Frontend: http://localhost:8000
 - API: http://localhost:8000/api/
 - API Docs: http://localhost:8000/api/docs
 
 **Manual data ingest** (incremental - only fetches new games):
+
 ```bash
 python3 tools/ingest_wkbl.py \
   --season-label 2025-26 \
@@ -29,6 +32,7 @@ python3 tools/ingest_wkbl.py \
 ```
 
 **Full refresh** (re-fetch all games + future schedule):
+
 ```bash
 python3 tools/ingest_wkbl.py \
   --season-label 2025-26 \
@@ -42,6 +46,7 @@ python3 tools/ingest_wkbl.py \
 ```
 
 **Full historical data** (all seasons, all game types, all players):
+
 ```bash
 python3 tools/ingest_wkbl.py \
   --auto \
@@ -56,22 +61,22 @@ python3 tools/ingest_wkbl.py \
 
 ### Ingest Options
 
-| Option | Description |
-|--------|-------------|
-| `--auto` | Auto-discover season start date and game IDs from Data Lab |
-| `--end-date YYYYMMDD` | Aggregate stats up to this date (default: today) |
-| `--active-only` | Filter to current active players only |
-| `--load-all-players` | Load all players (active + retired + foreign) for correct pno mapping |
-| `--save-db` | Save game records to SQLite database |
-| `--force-refresh` | Ignore existing data, re-fetch all games |
-| `--fetch-team-stats` | Also collect team statistics |
-| `--fetch-standings` | Also collect team standings/rankings |
-| `--game-type {regular,playoff,all}` | Game type to collect (default: regular) |
-| `--all-seasons` | Collect all historical seasons (2020-21 ~ current) |
-| `--seasons 044 045` | Collect specific seasons by code |
-| `--include-future` | Save future (scheduled) games with NULL scores to database |
-| `--fetch-profiles` | Fetch individual player profiles for birth_date (slower, use with --load-all-players) |
-| `--backfill-games {id...}` | Backfill predictions for specific game IDs |
+| Option                              | Description                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------------- |
+| `--auto`                            | Auto-discover season start date and game IDs from Data Lab                            |
+| `--end-date YYYYMMDD`               | Aggregate stats up to this date (default: today)                                      |
+| `--active-only`                     | Filter to current active players only                                                 |
+| `--load-all-players`                | Load all players (active + retired + foreign) for correct pno mapping                 |
+| `--save-db`                         | Save game records to SQLite database                                                  |
+| `--force-refresh`                   | Ignore existing data, re-fetch all games                                              |
+| `--fetch-team-stats`                | Also collect team statistics                                                          |
+| `--fetch-standings`                 | Also collect team standings/rankings                                                  |
+| `--game-type {regular,playoff,all}` | Game type to collect (default: regular)                                               |
+| `--all-seasons`                     | Collect all historical seasons (2020-21 ~ current)                                    |
+| `--seasons 044 045`                 | Collect specific seasons by code                                                      |
+| `--include-future`                  | Save future (scheduled) games with NULL scores to database                            |
+| `--fetch-profiles`                  | Fetch individual player profiles for birth_date (slower, use with --load-all-players) |
+| `--backfill-games {id...}`          | Backfill predictions for specific game IDs                                            |
 
 ### Testing
 
@@ -88,6 +93,7 @@ uv run pytest tests/test_api.py -v
 ```
 
 **Test coverage (53 tests total):**
+
 - `test_database.py`: Database operations (28 tests)
   - Database init, CRUD operations, season stats, boxscore, standings, predictions
   - Team game operations, game queries, bulk operations, future game predictions
@@ -99,25 +105,26 @@ uv run pytest tests/test_api.py -v
 
 Hash-based routing system for single-page application.
 
-| URL | Page | Description |
-|-----|------|-------------|
-| `#/` | Home | Game prediction with optimal starting lineup recommendations |
-| `#/players` | Players | Player list with filters, sorting, search |
-| `#/players/{id}` | Player Detail | Career summary, season stats, trend chart, game log |
-| `#/teams` | Teams | Standings table (rank, W-L, home/away) |
-| `#/teams/{id}` | Team Detail | Roster, recent games |
-| `#/games` | Games | Game cards with scores |
-| `#/games/{id}` | Boxscore | Full box score (home/away player stats, TS%, PIR, +/-) |
-| `#/leaders` | Leaders | Top 5 in PTS/REB/AST/STL/BLK |
-| `#/compare` | Compare | Player comparison tool (up to 4 players) |
-| `#/schedule` | Schedule | Upcoming and recent games with D-day countdown |
-| `#/predict` | Predict | Individual player performance prediction |
+| URL              | Page          | Description                                                  |
+| ---------------- | ------------- | ------------------------------------------------------------ |
+| `#/`             | Home          | Game prediction with optimal starting lineup recommendations |
+| `#/players`      | Players       | Player list with filters, sorting, search                    |
+| `#/players/{id}` | Player Detail | Career summary, season stats, trend chart, game log          |
+| `#/teams`        | Teams         | Standings table (rank, W-L, home/away)                       |
+| `#/teams/{id}`   | Team Detail   | Roster, recent games                                         |
+| `#/games`        | Games         | Game cards with scores                                       |
+| `#/games/{id}`   | Boxscore      | Full box score (home/away player stats, TS%, PIR, +/-)       |
+| `#/leaders`      | Leaders       | Top 5 in PTS/REB/AST/STL/BLK                                 |
+| `#/compare`      | Compare       | Player comparison tool (up to 4 players)                     |
+| `#/schedule`     | Schedule      | Upcoming and recent games with D-day countdown               |
+| `#/predict`      | Predict       | Individual player performance prediction                     |
 
 **Global Search**: Press `Ctrl+K` (or `Cmd+K` on Mac) to open global search modal.
 
 ## Architecture
 
 **GitHub Pages (Static Hosting) - Default:**
+
 ```
 Frontend SPA (src/app.js)
        ↓
@@ -127,6 +134,7 @@ sql.js (WASM) ← fetch(data/wkbl.db)
 ```
 
 **Server Mode (Render/Local):**
+
 ```
 server.py (FastAPI) ─┬─ /api/* → tools/api.py (REST API)
                      └─ /* → Static files (index.html, src/, data/)
@@ -139,6 +147,7 @@ server.py (FastAPI) ─┬─ /api/* → tools/api.py (REST API)
 **Fallback Priority:** Local DB (sql.js) → JSON file (API 폴백 제거됨, 2026-02-06)
 
 **Data Pipeline:**
+
 ```
 tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.json)
 ```
@@ -146,6 +155,7 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.jso
 ## Key Files
 
 **Frontend (Static Hosting):**
+
 - `index.html` - SPA with all view templates (includes Chart.js, sql.js CDN)
 - `src/app.js` - Frontend: routing, data fetching, view rendering, charts
 - `src/db.js` - Browser SQLite module (sql.js wrapper for client-side queries)
@@ -154,6 +164,7 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.jso
 - `data/wkbl-active.json` - Generated player stats (JSON fallback)
 
 **Backend (Server Mode):**
+
 - `server.py` - FastAPI server + daily ingest orchestration
 - `tools/api.py` - REST API endpoints (players, teams, games, compare, search)
 - `tools/ingest_wkbl.py` - Web scraper and data aggregation pipeline
@@ -161,6 +172,7 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.jso
 - `tools/config.py` - Centralized configuration (URLs, paths, settings)
 
 **Data & Config:**
+
 - `data/cache/` - HTTP response cache (reduces network requests)
 - `pyproject.toml` - Project dependencies (managed by uv)
 - `uv.lock` - Locked dependency versions
@@ -173,25 +185,26 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.jso
 
 API documentation available at `/api/docs` (Swagger UI) or `/api/redoc` (ReDoc).
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/players` | All players with season stats |
-| `GET /api/players/compare` | Compare 2-4 players (ids param) |
-| `GET /api/players/{id}` | Player detail with career stats |
-| `GET /api/players/{id}/gamelog` | Player's game log |
-| `GET /api/players/{id}/highlights` | Career/season highlights |
-| `GET /api/teams` | All teams |
-| `GET /api/teams/{id}` | Team detail with roster |
-| `GET /api/games` | Game list |
-| `GET /api/games/{id}` | Full game boxscore |
-| `GET /api/seasons` | All seasons |
-| `GET /api/seasons/{id}/standings` | Team standings |
-| `GET /api/leaders` | Statistical leaders |
-| `GET /api/leaders/all` | Leaders for all categories |
-| `GET /api/search` | Global search (players, teams) |
-| `GET /api/health` | Health check |
+| Endpoint                           | Description                     |
+| ---------------------------------- | ------------------------------- |
+| `GET /api/players`                 | All players with season stats   |
+| `GET /api/players/compare`         | Compare 2-4 players (ids param) |
+| `GET /api/players/{id}`            | Player detail with career stats |
+| `GET /api/players/{id}/gamelog`    | Player's game log               |
+| `GET /api/players/{id}/highlights` | Career/season highlights        |
+| `GET /api/teams`                   | All teams                       |
+| `GET /api/teams/{id}`              | Team detail with roster         |
+| `GET /api/games`                   | Game list                       |
+| `GET /api/games/{id}`              | Full game boxscore              |
+| `GET /api/seasons`                 | All seasons                     |
+| `GET /api/seasons/{id}/standings`  | Team standings                  |
+| `GET /api/leaders`                 | Statistical leaders             |
+| `GET /api/leaders/all`             | Leaders for all categories      |
+| `GET /api/search`                  | Global search (players, teams)  |
+| `GET /api/health`                  | Health check                    |
 
 Query parameters:
+
 - `season`: Season code (e.g., `046` for 2025-26) or `all` for all seasons
 - `team`: Team ID filter (e.g., `kb`, `samsung`)
 - `category`: Leader category (`pts`, `reb`, `ast`, `stl`, `blk`, `fgp`, `tpp`, `ftp`)
@@ -214,6 +227,7 @@ players ─┘
 ```
 
 Key tables:
+
 - `seasons`: Season info (id=046, label=2025-26, start_date, end_date)
 - `teams`: Team info (id=kb, name=KB스타즈, short_name=KB)
 - `players`: Player info (id=pno, name, team_id, position, height)
@@ -232,6 +246,7 @@ See `docs/data-sources.md` for detailed column definitions.
 ## Data Sources
 
 External endpoints (documented in `docs/data-sources.md`):
+
 - `datalab.wkbl.or.kr/game/list/month` - Game calendar with game IDs
 - `datalab.wkbl.or.kr:9001/data_lab/record_player.asp` - Per-game boxscores
 - `datalab.wkbl.or.kr:9001/data_lab/record_team.asp` - Per-game team stats
@@ -274,18 +289,19 @@ External endpoints (documented in `docs/data-sources.md`):
 
 ## Season Codes
 
-| Season | Code |
-|--------|------|
-| 2025-26 | 046 |
-| 2024-25 | 045 |
-| 2023-24 | 044 |
-| 2022-23 | 043 |
-| 2021-22 | 042 |
-| 2020-21 | 041 |
+| Season  | Code |
+| ------- | ---- |
+| 2025-26 | 046  |
+| 2024-25 | 045  |
+| 2023-24 | 044  |
+| 2022-23 | 043  |
+| 2021-22 | 042  |
+| 2020-21 | 041  |
 
 ## Game ID Structure
 
 Format: `SSSTTGGG` (e.g., `04601055`)
+
 - `SSS`: Season code (046 = 2025-26)
 - `TT`: Game type (01 = regular, 04 = playoff)
 - `GGG`: Game number (001 = all-star, 002+ = regular games)
@@ -297,12 +313,14 @@ Format: `SSSTTGGG` (e.g., `04601055`)
 Render provides server-based API with FastAPI. Use this for server-side features or if you prefer traditional API architecture.
 
 **Setup:**
+
 1. Go to [render.com](https://render.com) and connect GitHub repo
 2. Create **New Web Service** → Select repo
 3. Settings: Runtime = Docker, Instance Type = Free
 4. Deploy
 
 **Deployment Files:**
+
 - `Dockerfile` - Docker build configuration (Python 3.12 + uvicorn)
 - `render.yaml` - Render service configuration
 - `requirements.txt` - Python dependencies (fastapi, uvicorn)
@@ -310,24 +328,27 @@ Render provides server-based API with FastAPI. Use this for server-side features
 - `tools/config.py` - Reads `PORT` from environment variable
 
 **Free Tier Limitations:**
+
 - Server sleeps after 15 minutes of inactivity
 - First request after sleep takes 10-30 seconds (cold start)
 - Data persists in Docker image (from repo), not runtime changes
 
 **Updating Data on Render:**
+
 1. Run GitHub Action to update repo data (see below)
 2. Render auto-redeploys on push, or manually trigger deploy
 
 ### GitHub Actions (Data Updates)
 
-| Workflow | Trigger | Description |
-|----------|---------|-------------|
-| `update-data.yml` | Daily (6AM KST) | Update current season data + future games + predictions |
-| `update-data-full.yml` | Manual only | Fetch all seasons including retired players |
+| Workflow               | Trigger         | Description                                             |
+| ---------------------- | --------------- | ------------------------------------------------------- |
+| `update-data.yml`      | Daily (6AM KST) | Update current season data + future games + predictions |
+| `update-data-full.yml` | Manual only     | Fetch all seasons including retired players             |
 
 **Run data update**: GitHub → Actions → Select workflow → "Run workflow"
 
 Data files committed by Actions:
+
 - `data/wkbl-active.json` - Player season averages
 - `data/wkbl.db` - SQLite database (game records, future schedules)
 
@@ -337,11 +358,13 @@ GitHub Pages now provides **full functionality** using sql.js (WebAssembly SQLit
 The browser fetches `data/wkbl.db` and runs all queries client-side.
 
 **How it works:**
+
 1. `sql.js` WASM module loaded from CDN (jsdelivr)
 2. `data/wkbl.db` fetched via HTTP
 3. All queries run in browser (no server needed)
 
 **CDN Dependencies:**
+
 ```html
 <!-- Chart.js for trend charts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -350,10 +373,12 @@ The browser fetches `data/wkbl.db` and runs all queries client-side.
 ```
 
 **Setup:**
+
 1. GitHub → Settings → Pages → Source: Deploy from branch (main)
 2. Push to main branch triggers automatic deployment
 
 **Local testing (simulates GitHub Pages):**
+
 ```bash
 python3 -m http.server 8000
 # Open http://localhost:8000
@@ -368,31 +393,33 @@ python3 -m http.server 8000
 This project uses pre-commit for code quality checks. Hooks run automatically on every commit.
 
 **Setup:**
+
 ```bash
 uv sync
 uv run pre-commit install
 ```
 
 **Manual run:**
+
 ```bash
 uv run pre-commit run --all-files
 ```
 
 **Configured hooks:**
 
-| Hook | Purpose |
-|------|---------|
-| ruff-check | Linting (includes import sorting) |
-| ruff-format | Code formatting (replaces black) |
-| mypy | Type checking |
-| bandit | Security analysis |
+| Hook        | Purpose                           |
+| ----------- | --------------------------------- |
+| ruff-check  | Linting (includes import sorting) |
+| ruff-format | Code formatting (replaces black)  |
+| mypy        | Type checking                     |
+| bandit      | Security analysis                 |
 
 ## Branches
 
-| Branch | Description |
-|--------|-------------|
-| `main` | Static hosting with sql.js (GitHub Pages compatible) |
-| `server-api` | Server-based API version (FastAPI + REST endpoints) |
+| Branch       | Description                                          |
+| ------------ | ---------------------------------------------------- |
+| `main`       | Static hosting with sql.js (GitHub Pages compatible) |
+| `server-api` | Server-based API version (FastAPI + REST endpoints)  |
 
 ## Known Limitations
 
@@ -414,8 +441,8 @@ uv run pre-commit run --all-files
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| `docs/data-sources.md` | WKBL Data Lab API endpoints and data schemas |
-| `docs/project-roadmap.md` | Feature roadmap and development plans |
+| Document                                 | Description                                                |
+| ---------------------------------------- | ---------------------------------------------------------- |
+| `docs/data-sources.md`                   | WKBL Data Lab API endpoints and data schemas               |
+| `docs/project-roadmap.md`                | Feature roadmap and development plans                      |
 | `docs/static-hosting-troubleshooting.md` | GitHub Pages issues and solutions (sql.js, CDN, is_active) |

@@ -4,7 +4,10 @@ import { createDataClient, resolvePlayersQuery } from "./client.js";
 
 describe("data client", () => {
   it("resolves players query options for current season", () => {
-    const query = resolvePlayersQuery({ season: "WKBL_2025_2026", defaultSeason: "WKBL_2025_2026" });
+    const query = resolvePlayersQuery({
+      season: "WKBL_2025_2026",
+      defaultSeason: "WKBL_2025_2026",
+    });
     expect(query).toEqual({
       seasonId: "WKBL_2025_2026",
       activeOnly: true,
@@ -13,7 +16,10 @@ describe("data client", () => {
   });
 
   it("resolves players query options for all season", () => {
-    const query = resolvePlayersQuery({ season: "all", defaultSeason: "WKBL_2025_2026" });
+    const query = resolvePlayersQuery({
+      season: "all",
+      defaultSeason: "WKBL_2025_2026",
+    });
     expect(query).toEqual({
       seasonId: null,
       activeOnly: false,
@@ -26,8 +32,15 @@ describe("data client", () => {
     const getPlayers = vi.fn(() => [{ id: "p1" }]);
     const getDb = () => ({ getPlayers });
 
-    const client = createDataClient({ initDb, getDb, getSeasonLabel: () => "시즌" });
-    const rows = await client.getPlayers({ season: "WKBL_2025_2026", defaultSeason: "WKBL_2025_2026" });
+    const client = createDataClient({
+      initDb,
+      getDb,
+      getSeasonLabel: () => "시즌",
+    });
+    const rows = await client.getPlayers({
+      season: "WKBL_2025_2026",
+      defaultSeason: "WKBL_2025_2026",
+    });
 
     expect(initDb).toHaveBeenCalledTimes(1);
     expect(getPlayers).toHaveBeenCalledWith("WKBL_2025_2026", null, true, true);
@@ -42,7 +55,9 @@ describe("data client", () => {
     });
 
     await expect(client.getGames("WKBL_2025_2026")).resolves.toEqual([]);
-    await expect(client.getLeaders("WKBL_2025_2026", "pts", 10)).resolves.toEqual([]);
+    await expect(
+      client.getLeaders("WKBL_2025_2026", "pts", 10),
+    ).resolves.toEqual([]);
   });
 
   it("throws when required detail record is missing", async () => {
@@ -54,6 +69,8 @@ describe("data client", () => {
       getSeasonLabel: () => "시즌",
     });
 
-    await expect(client.getPlayerDetail("missing")).rejects.toThrow("Player not found");
+    await expect(client.getPlayerDetail("missing")).rejects.toThrow(
+      "Player not found",
+    );
   });
 });

@@ -54,12 +54,17 @@ export function renderPlayerSeasonTable({
           <td>${formatNumber(s.reb36)}</td>
           <td>${formatNumber(s.ast36)}</td>
         </tr>
-      `
+      `,
     )
     .join("");
 }
 
-export function renderPlayerGameLogTable({ tbody, games, formatDate, formatNumber }) {
+export function renderPlayerGameLogTable({
+  tbody,
+  games,
+  formatDate,
+  formatNumber,
+}) {
   if (!tbody) return;
   tbody.innerHTML = games
     .map(
@@ -78,7 +83,7 @@ export function renderPlayerGameLogTable({ tbody, games, formatDate, formatNumbe
           <td>${g.tpm}/${g.tpa}</td>
           <td>${g.ftm}/${g.fta}</td>
         </tr>
-      `
+      `,
     )
     .join("");
 }

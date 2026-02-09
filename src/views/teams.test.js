@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { renderStandingsTable, renderTeamRecentGames, renderTeamRoster } from "./teams.js";
+import {
+  renderStandingsTable,
+  renderTeamRecentGames,
+  renderTeamRoster,
+} from "./teams.js";
 
 describe("teams view", () => {
   it("renders standings table", () => {
@@ -34,7 +38,16 @@ describe("teams view", () => {
     });
     renderTeamRecentGames({
       tbody: gamesBody,
-      games: [{ game_id: "g1", date: "2025-01-01", opponent: "상대", is_home: true, result: "W", score: "70-60" }],
+      games: [
+        {
+          game_id: "g1",
+          date: "2025-01-01",
+          opponent: "상대",
+          is_home: true,
+          result: "W",
+          score: "70-60",
+        },
+      ],
       formatDate: () => "1/1",
     });
 

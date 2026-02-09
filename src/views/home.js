@@ -1,4 +1,9 @@
-export function renderLineupPlayers({ container, lineup, predictions, formatNumber }) {
+export function renderLineupPlayers({
+  container,
+  lineup,
+  predictions,
+  formatNumber,
+}) {
   if (!container) return;
   container.innerHTML = lineup
     .map((player, i) => {
@@ -41,7 +46,7 @@ export function renderTotalStats({ container, predictions, formatNumber }) {
       acc.ast += p.ast.pred;
       return acc;
     },
-    { pts: 0, reb: 0, ast: 0 }
+    { pts: 0, reb: 0, ast: 0 },
   );
 
   container.innerHTML = `

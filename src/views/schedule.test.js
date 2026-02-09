@@ -13,13 +13,29 @@ describe("schedule view", () => {
 
     renderUpcomingGames({
       container: upcoming,
-      upcomingGames: [{ id: "g1", game_date: "2025-01-01", away_team_name: "A", home_team_name: "B" }],
+      upcomingGames: [
+        {
+          id: "g1",
+          game_date: "2025-01-01",
+          away_team_name: "A",
+          home_team_name: "B",
+        },
+      ],
       formatFullDate: () => "1/1",
       getPredictionHtml: () => "",
     });
     renderRecentResults({
       container: recent,
-      recentGames: [{ id: "g2", game_date: "2025-01-02", away_team_name: "A", home_team_name: "B", away_score: 70, home_score: 75 }],
+      recentGames: [
+        {
+          id: "g2",
+          game_date: "2025-01-02",
+          away_team_name: "A",
+          home_team_name: "B",
+          away_score: 70,
+          home_score: 75,
+        },
+      ],
       formatFullDate: () => "1/2",
       getPredictionCompareHtml: () => "",
     });
@@ -38,7 +54,11 @@ describe("schedule view", () => {
 
     renderNextGameHighlight({
       nextGameCard: card,
-      next: { game_date: "2099-01-01", away_team_name: "A", home_team_name: "B" },
+      next: {
+        game_date: "2099-01-01",
+        away_team_name: "A",
+        home_team_name: "B",
+      },
       formatFullDate: () => "1/1",
       getById: (id) => fields.get(id),
     });

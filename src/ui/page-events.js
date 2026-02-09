@@ -22,15 +22,24 @@ export function mountCompareEvents({
     listeners.push([el, type, fn]);
   };
 
-  on(input, "input", debounce((e) => onSearch(e.target.value.trim()), delay));
+  on(
+    input,
+    "input",
+    debounce((e) => onSearch(e.target.value.trim()), delay),
+  );
   on(input, "focus", () => {
-    if (state.compareSearchResults.length > 0) suggestions?.classList.add("active");
+    if (state.compareSearchResults.length > 0)
+      suggestions?.classList.add("active");
   });
 
   on(suggestions, "click", (e) => {
     const item = e.target.closest(".compare-suggestion-item");
     if (!item || !item.dataset.id) return;
-    onAddPlayer({ id: item.dataset.id, name: item.dataset.name, team: item.dataset.team });
+    onAddPlayer({
+      id: item.dataset.id,
+      name: item.dataset.name,
+      team: item.dataset.team,
+    });
   });
 
   on(selected, "click", (e) => {
@@ -70,9 +79,14 @@ export function mountPredictEvents({
     listeners.push([el, type, fn]);
   };
 
-  on(input, "input", debounce((e) => onSearch(e.target.value.trim()), delay));
+  on(
+    input,
+    "input",
+    debounce((e) => onSearch(e.target.value.trim()), delay),
+  );
   on(input, "focus", () => {
-    if (suggestions && suggestions.innerHTML.trim()) suggestions.classList.add("active");
+    if (suggestions && suggestions.innerHTML.trim())
+      suggestions.classList.add("active");
   });
 
   on(suggestions, "click", (e) => {
@@ -120,7 +134,11 @@ export function mountGlobalSearchEvents({
   const backdrop = modal?.querySelector?.(".search-modal-backdrop");
   on(backdrop, "click", onClose);
 
-  on(input, "input", debounce((e) => onSearch(e.target.value.trim()), delay));
+  on(
+    input,
+    "input",
+    debounce((e) => onSearch(e.target.value.trim()), delay),
+  );
   on(input, "keydown", (e) => {
     if (e.key === "Escape") {
       onClose();

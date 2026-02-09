@@ -33,7 +33,8 @@ const WKBLDatabase = (function () {
       try {
         // Initialize sql.js with WASM
         const SQL = await initSqlJs({
-          locateFile: (file) => `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`,
+          locateFile: (file) =>
+            `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`,
         });
 
         // Fetch the database file
@@ -110,7 +111,8 @@ const WKBLDatabase = (function () {
     d.ts_pct = tsa > 0 ? Math.round((pts / tsa) * 1000) / 1000 : 0;
 
     // eFG% = (FGM + 0.5 x 3PM) / FGA
-    d.efg_pct = fga > 0 ? Math.round(((fgm + 0.5 * tpm) / fga) * 1000) / 1000 : 0;
+    d.efg_pct =
+      fga > 0 ? Math.round(((fgm + 0.5 * tpm) / fga) * 1000) / 1000 : 0;
 
     // PIR = (PTS + REB + AST + STL + BLK - TO - (FGA-FGM) - (FTA-FTM)) / GP
     const reb = d.reb * d.gp;
@@ -118,7 +120,8 @@ const WKBLDatabase = (function () {
     const stl = d.stl * d.gp;
     const blk = d.blk * d.gp;
     const tov = d.tov * d.gp;
-    const pirTotal = pts + reb + ast + stl + blk - tov - (fga - fgm) - (fta - ftm);
+    const pirTotal =
+      pts + reb + ast + stl + blk - tov - (fga - fgm) - (fta - ftm);
     d.pir = d.gp > 0 ? Math.round((pirTotal / d.gp) * 10) / 10 : 0;
 
     // AST/TO ratio
@@ -126,9 +129,9 @@ const WKBLDatabase = (function () {
 
     // Per 36 minutes stats
     const minAvg = d.min > 0 ? d.min : 1;
-    d.pts36 = Math.round((d.pts * 36 / minAvg) * 10) / 10;
-    d.reb36 = Math.round((d.reb * 36 / minAvg) * 10) / 10;
-    d.ast36 = Math.round((d.ast * 36 / minAvg) * 10) / 10;
+    d.pts36 = Math.round(((d.pts * 36) / minAvg) * 10) / 10;
+    d.reb36 = Math.round(((d.reb * 36) / minAvg) * 10) / 10;
+    d.ast36 = Math.round(((d.ast * 36) / minAvg) * 10) / 10;
 
     return d;
   }
@@ -152,7 +155,12 @@ const WKBLDatabase = (function () {
    * Replaces: GET /api/players
    * Includes players with gp=0 (active but no games this season)
    */
-  function getPlayers(seasonId, teamId = null, activeOnly = true, includeNoGames = true) {
+  function getPlayers(
+    seasonId,
+    teamId = null,
+    activeOnly = true,
+    includeNoGames = true,
+  ) {
     // First, get players with game records
     let sql = `
       SELECT
@@ -206,9 +214,15 @@ const WKBLDatabase = (function () {
 
     const players = rows.map((d) => {
       // Calculate percentages
-      d.fgp = d.total_fga ? Math.round((d.total_fgm / d.total_fga) * 1000) / 1000 : 0;
-      d.tpp = d.total_tpa ? Math.round((d.total_tpm / d.total_tpa) * 1000) / 1000 : 0;
-      d.ftp = d.total_fta ? Math.round((d.total_ftm / d.total_fta) * 1000) / 1000 : 0;
+      d.fgp = d.total_fga
+        ? Math.round((d.total_fgm / d.total_fga) * 1000) / 1000
+        : 0;
+      d.tpp = d.total_tpa
+        ? Math.round((d.total_tpm / d.total_tpa) * 1000) / 1000
+        : 0;
+      d.ftp = d.total_fta
+        ? Math.round((d.total_ftm / d.total_fta) * 1000) / 1000
+        : 0;
 
       roundStats(d);
       calculateAdvancedStats(d);
@@ -360,7 +374,7 @@ const WKBLDatabase = (function () {
        FROM players p
        LEFT JOIN teams t ON p.team_id = t.id
        WHERE p.id = ?`,
-      [playerId]
+      [playerId],
     );
 
     if (!player) return null;
@@ -392,14 +406,20 @@ const WKBLDatabase = (function () {
       WHERE pg.player_id = ?
       GROUP BY g.season_id
       ORDER BY g.season_id DESC`,
-      [playerId]
+      [playerId],
     );
 
     player.seasons = {};
     for (const d of seasons) {
-      d.fgp = d.total_fga ? Math.round((d.total_fgm / d.total_fga) * 1000) / 1000 : 0;
-      d.tpp = d.total_tpa ? Math.round((d.total_tpm / d.total_tpa) * 1000) / 1000 : 0;
-      d.ftp = d.total_fta ? Math.round((d.total_ftm / d.total_fta) * 1000) / 1000 : 0;
+      d.fgp = d.total_fga
+        ? Math.round((d.total_fgm / d.total_fga) * 1000) / 1000
+        : 0;
+      d.tpp = d.total_tpa
+        ? Math.round((d.total_tpm / d.total_tpa) * 1000) / 1000
+        : 0;
+      d.ftp = d.total_fta
+        ? Math.round((d.total_ftm / d.total_fta) * 1000) / 1000
+        : 0;
 
       roundStats(d);
       calculateAdvancedStats(d);
@@ -425,7 +445,7 @@ const WKBLDatabase = (function () {
       WHERE pg.player_id = ?
       ORDER BY g.game_date DESC
       LIMIT 10`,
-      [playerId]
+      [playerId],
     );
 
     player.recent_games = games.map((d) => {
@@ -563,9 +583,15 @@ const WKBLDatabase = (function () {
     const rows = query(sql, [...playerIds, seasonId]);
 
     return rows.map((d) => {
-      d.fgp = d.total_fga ? Math.round((d.total_fgm / d.total_fga) * 1000) / 1000 : 0;
-      d.tpp = d.total_tpa ? Math.round((d.total_tpm / d.total_tpa) * 1000) / 1000 : 0;
-      d.ftp = d.total_fta ? Math.round((d.total_ftm / d.total_fta) * 1000) / 1000 : 0;
+      d.fgp = d.total_fga
+        ? Math.round((d.total_fgm / d.total_fga) * 1000) / 1000
+        : 0;
+      d.tpp = d.total_tpa
+        ? Math.round((d.total_tpm / d.total_tpa) * 1000) / 1000
+        : 0;
+      d.ftp = d.total_fta
+        ? Math.round((d.total_ftm / d.total_fta) * 1000) / 1000
+        : 0;
 
       roundStats(d);
       calculateAdvancedStats(d);
@@ -587,7 +613,9 @@ const WKBLDatabase = (function () {
    * Replaces: GET /api/teams
    */
   function getTeams() {
-    return query("SELECT id, name, short_name, founded_year FROM teams ORDER BY name");
+    return query(
+      "SELECT id, name, short_name, founded_year FROM teams ORDER BY name",
+    );
   }
 
   /**
@@ -607,14 +635,14 @@ const WKBLDatabase = (function () {
       JOIN games g ON pg.game_id = g.id
       WHERE pg.team_id = ? AND g.season_id = ?
       ORDER BY p.name`,
-      [teamId, seasonId]
+      [teamId, seasonId],
     );
     team.roster = roster;
 
     // Standings
     const standing = queryOne(
       `SELECT * FROM team_standings WHERE team_id = ? AND season_id = ?`,
-      [teamId, seasonId]
+      [teamId, seasonId],
     );
     if (standing) {
       team.standings = {
@@ -646,7 +674,7 @@ const WKBLDatabase = (function () {
         AND g.away_score IS NOT NULL
       ORDER BY g.game_date DESC
       LIMIT 10`,
-      [seasonId, teamId, teamId]
+      [seasonId, teamId, teamId],
     );
 
     team.recent_games = games.map((d) => {
@@ -694,13 +722,19 @@ const WKBLDatabase = (function () {
       WHERE pg.team_id = ? AND g.season_id = ?
       GROUP BY p.id
       ORDER BY pir DESC`,
-      [teamId, seasonId]
+      [teamId, seasonId],
     );
 
-    return rows.map(d => {
-      d.fgp = d.total_fga ? Math.round((d.total_fgm / d.total_fga) * 1000) / 1000 : 0;
-      d.tpp = d.total_tpa ? Math.round((d.total_tpm / d.total_tpa) * 1000) / 1000 : 0;
-      d.ftp = d.total_fta ? Math.round((d.total_ftm / d.total_fta) * 1000) / 1000 : 0;
+    return rows.map((d) => {
+      d.fgp = d.total_fga
+        ? Math.round((d.total_fgm / d.total_fga) * 1000) / 1000
+        : 0;
+      d.tpp = d.total_tpa
+        ? Math.round((d.total_tpm / d.total_tpa) * 1000) / 1000
+        : 0;
+      d.ftp = d.total_fta
+        ? Math.round((d.total_ftm / d.total_fta) * 1000) / 1000
+        : 0;
 
       // Clean up
       delete d.total_fgm;
@@ -725,7 +759,7 @@ const WKBLDatabase = (function () {
        JOIN teams t ON ts.team_id = t.id
        WHERE ts.season_id = ?
        ORDER BY ts.rank`,
-      [seasonId]
+      [seasonId],
     );
 
     return rows.map((d) => ({
@@ -748,7 +782,14 @@ const WKBLDatabase = (function () {
    * Get games list
    * Replaces: GET /api/games
    */
-  function getGames(seasonId, teamId = null, gameType = null, limit = 50, offset = 0, excludeFuture = false) {
+  function getGames(
+    seasonId,
+    teamId = null,
+    gameType = null,
+    limit = 50,
+    offset = 0,
+    excludeFuture = false,
+  ) {
     let sql = `
       SELECT
         g.id, g.game_date, g.home_score, g.away_score, g.game_type,
@@ -795,7 +836,7 @@ const WKBLDatabase = (function () {
        JOIN teams ht ON g.home_team_id = ht.id
        JOIN teams at ON g.away_team_id = at.id
        WHERE g.id = ?`,
-      [gameId]
+      [gameId],
     );
 
     if (!game) return null;
@@ -812,7 +853,7 @@ const WKBLDatabase = (function () {
       JOIN teams t ON pg.team_id = t.id
       WHERE pg.game_id = ?
       ORDER BY pg.team_id, pg.pts DESC`,
-      [gameId]
+      [gameId],
     );
 
     game.home_team_stats = [];
@@ -844,9 +885,10 @@ const WKBLDatabase = (function () {
       const teamScore = isHome ? game.home_score : game.away_score;
       const oppScore = isHome ? game.away_score : game.home_score;
       const playTimeRatio = Math.min((d.minutes || 0) / 40, 1);
-      const courtMargin = teamScore && oppScore
-        ? Math.round((teamScore - oppScore) * playTimeRatio * 10) / 10
-        : null;
+      const courtMargin =
+        teamScore && oppScore
+          ? Math.round((teamScore - oppScore) * playTimeRatio * 10) / 10
+          : null;
 
       const stat = {
         player_id: d.player_id,
@@ -879,7 +921,9 @@ const WKBLDatabase = (function () {
     }
 
     // Get team game stats if available
-    const teamStats = query("SELECT * FROM team_games WHERE game_id = ?", [gameId]);
+    const teamStats = query("SELECT * FROM team_games WHERE game_id = ?", [
+      gameId,
+    ]);
     for (const d of teamStats) {
       const key = d.is_home ? "home_team_totals" : "away_team_totals";
       game[key] = {
@@ -898,7 +942,9 @@ const WKBLDatabase = (function () {
    * Replaces: GET /api/seasons
    */
   function getSeasons() {
-    return query("SELECT id, label, start_date, end_date FROM seasons ORDER BY id DESC");
+    return query(
+      "SELECT id, label, start_date, end_date FROM seasons ORDER BY id DESC",
+    );
   }
 
   /**
@@ -906,7 +952,17 @@ const WKBLDatabase = (function () {
    * Replaces: GET /api/leaders
    */
   function getLeaders(seasonId, category = "pts", limit = 10) {
-    const validCategories = ["pts", "reb", "ast", "stl", "blk", "min", "fgp", "tpp", "ftp"];
+    const validCategories = [
+      "pts",
+      "reb",
+      "ast",
+      "stl",
+      "blk",
+      "min",
+      "fgp",
+      "tpp",
+      "ftp",
+    ];
     if (!validCategories.includes(category)) {
       category = "pts";
     }
@@ -917,13 +973,16 @@ const WKBLDatabase = (function () {
     let valueExpr;
     switch (category) {
       case "fgp":
-        valueExpr = "CASE WHEN SUM(pg.fga) > 0 THEN SUM(pg.fgm) * 1.0 / SUM(pg.fga) ELSE 0 END";
+        valueExpr =
+          "CASE WHEN SUM(pg.fga) > 0 THEN SUM(pg.fgm) * 1.0 / SUM(pg.fga) ELSE 0 END";
         break;
       case "tpp":
-        valueExpr = "CASE WHEN SUM(pg.tpa) > 0 THEN SUM(pg.tpm) * 1.0 / SUM(pg.tpa) ELSE 0 END";
+        valueExpr =
+          "CASE WHEN SUM(pg.tpa) > 0 THEN SUM(pg.tpm) * 1.0 / SUM(pg.tpa) ELSE 0 END";
         break;
       case "ftp":
-        valueExpr = "CASE WHEN SUM(pg.fta) > 0 THEN SUM(pg.ftm) * 1.0 / SUM(pg.fta) ELSE 0 END";
+        valueExpr =
+          "CASE WHEN SUM(pg.fta) > 0 THEN SUM(pg.ftm) * 1.0 / SUM(pg.fta) ELSE 0 END";
         break;
       case "min":
         valueExpr = "AVG(pg.minutes)";
@@ -959,7 +1018,9 @@ const WKBLDatabase = (function () {
       team_name: d.team_name,
       team_id: d.team_id,
       gp: d.gp,
-      value: isPct ? Math.round(d.value * 1000) / 1000 : Math.round(d.value * 10) / 10,
+      value: isPct
+        ? Math.round(d.value * 1000) / 1000
+        : Math.round(d.value * 10) / 10,
     }));
   }
 
@@ -989,13 +1050,13 @@ const WKBLDatabase = (function () {
       `SELECT id, name, position, team_id,
               (SELECT name FROM teams WHERE id = players.team_id) as team
        FROM players WHERE name LIKE ? LIMIT ?`,
-      [pattern, limit]
+      [pattern, limit],
     );
 
     const teams = query(
       `SELECT id, name, short_name FROM teams
        WHERE name LIKE ? OR short_name LIKE ? LIMIT ?`,
-      [pattern, pattern, limit]
+      [pattern, pattern, limit],
     );
 
     return { players, teams };
@@ -1149,13 +1210,13 @@ const WKBLDatabase = (function () {
        JOIN teams t ON gp.team_id = t.id
        WHERE gp.game_id = ?
        ORDER BY gp.is_starter DESC, gp.predicted_pts DESC`,
-      [gameId]
+      [gameId],
     );
 
     // Get team prediction
     const teamRows = query(
       "SELECT * FROM game_team_predictions WHERE game_id = ?",
-      [gameId]
+      [gameId],
     );
 
     return {
@@ -1172,7 +1233,7 @@ const WKBLDatabase = (function () {
   function hasGamePredictions(gameId) {
     const rows = query(
       "SELECT COUNT(*) as cnt FROM game_predictions WHERE game_id = ?",
-      [gameId]
+      [gameId],
     );
     return rows.length > 0 && rows[0].cnt > 0;
   }

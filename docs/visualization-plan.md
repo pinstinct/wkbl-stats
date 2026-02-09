@@ -5,6 +5,7 @@
 ### 완료된 기능
 
 #### Phase 1: 시각화 강화
+
 - [x] 슈팅 효율 트렌드 차트 (선수 상세)
 - [x] 선수 스탯 레이더 차트 (선수 상세)
 - [x] 최근 경기 바 차트 (선수 상세)
@@ -12,12 +13,14 @@
 - [x] 비교 페이지 Chart.js 업그레이드
 
 #### Phase 2: 경기 일정 페이지
+
 - [x] 일정 페이지 (`#/schedule`) - D-day 카운트다운, 예정/최근 경기
 - [x] `--include-future` 옵션으로 미래 경기 수집
 - [x] 미래 경기 파싱 (game_no 없는 경기도 캡처)
 - [x] GitHub Actions 워크플로우에 미래 경기 수집 추가
 
 #### Phase 3: 선수 활약 예측
+
 - [x] 예측 페이지 (`#/predict`) - 개별 선수 예측
 - [x] **메인 홈페이지 게임 예측** (`#/`)
   - 다음 경기 기반 라인업 추천
@@ -27,10 +30,12 @@
   - 예측 방식 안내 (접이식 설명)
 
 #### Phase 4: 코트마진 지표
+
 - [x] 코트마진 계산 및 표시 (박스스코어)
 - [x] `getPlayerCourtMargin()`, `getPlayersCourtMargin()` 함수
 
 #### Phase 5: 예측 저장 및 비교 (NEW)
+
 - [x] **예측 자동 저장** (ingest 시점에 DB 저장)
   - `--include-future` 옵션으로 미래 경기 수집 시 자동 예측 생성
   - 선수별: 예측 득점/리바운드/어시스트 + 신뢰 구간
@@ -45,6 +50,7 @@
 - [x] `--load-all-players` 단일 시즌 모드 적용 버그 수정
 
 #### Phase 6: UI 개선 (2026-02-06)
+
 - [x] **선수 카드 코트마진 표시** (`#/players`) - +/- 색상 표시
 - [x] **일정 페이지 구분자 변경** - "@" → "vs"
 - [x] **예정 경기 예상 점수 표시** (`#/games/{id}`) - 미래 경기에도 예상 점수 표시
@@ -52,6 +58,7 @@
 - [x] CLAUDE.md, README.md 문서 정리 및 최신화
 
 #### Phase 7: 코드 정리 및 리팩토링 (2026-02-06)
+
 - [x] **API 폴백 로직 제거** - 정적 호스팅(sql.js) 전용으로 단순화
   - `apiBase`, `fallbackPath` CONFIG 제거
   - `useApi`, `useLocalDb` 상태 변수 제거
@@ -62,6 +69,7 @@
 - [x] **약 200줄 이상의 불필요한 코드 제거**
 
 #### Phase 8: 테스트 코드 추가 (2026-02-06)
+
 - [x] **pytest 테스트 프레임워크 설정**
   - `pyproject.toml`에 테스트 의존성 추가 (pytest, pytest-cov, httpx)
   - 테스트 설정 구성 (testpaths, addopts)
@@ -87,6 +95,7 @@
 - [x] **총 51개 테스트, 모두 통과**
 
 #### Phase 9: 버그 수정 (2026-02-06)
+
 - [x] **오늘 경기 예측 누락 수정**
   - `_save_future_games()`에서 `>` 조건을 `>=`로 변경
   - 오늘 예정된 경기도 예측 대상에 포함
@@ -95,14 +104,16 @@
   - 예정 경기는 최근 경기 목록에서 제외
 
 ### 라우트 구조 변경
-| Before | After | Description |
-|--------|-------|-------------|
+
+| Before           | After            | Description                        |
+| ---------------- | ---------------- | ---------------------------------- |
 | `#/` (선수 목록) | `#/` (게임 예측) | 홈페이지가 다음 경기 예측으로 변경 |
-| - | `#/players` | 선수 목록이 별도 라우트로 이동 |
+| -                | `#/players`      | 선수 목록이 별도 라우트로 이동     |
 
 ### 추가된 파일/함수
 
 **src/db.js:**
+
 - `getPlayerCourtMargin()` - 선수별 코트마진 계산
 - `getPlayersCourtMargin()` - 여러 선수 코트마진 일괄 조회
 - `getUpcomingGames()` - 예정 경기 조회
@@ -113,6 +124,7 @@
 - `hasGamePredictions()` - 예측 존재 여부 확인
 
 **src/app.js:**
+
 - `loadMainPage()` - 메인 예측 페이지 로드
 - `loadGamePage()` - 박스스코어 페이지 + 예측 비교 표시
 - `generateOptimalLineup()` - PIR 기반 최적 라인업 생성
@@ -123,6 +135,7 @@
 - 기타 차트 함수들
 
 **tools/database.py:**
+
 - `game_predictions` 테이블 - 선수별 예측 스탯
 - `game_team_predictions` 테이블 - 팀 승률 예측
 - `get_team_players()` - 팀 로스터 조회 (예측용)
@@ -132,6 +145,7 @@
 - `has_game_predictions()` - 예측 존재 여부 확인
 
 **tools/ingest_wkbl.py:**
+
 - `_fetch_schedule_from_wkbl()` 수정 - 미래 경기 파싱 지원
 - `_save_future_games()` - 미래 경기 DB 저장
 - `_generate_predictions_for_games()` - 미래 경기 예측 생성 및 저장
@@ -140,6 +154,7 @@
 - `_calculate_win_probability()` - 팀 승률 예측 계산
 
 **src/styles.css:**
+
 - `.main-prediction-*` - 메인 예측 페이지 스타일
 - `.main-game-*` - 경기 카드 스타일
 - `.main-lineup-*`, `.lineup-*` - 라인업 카드 스타일
@@ -150,23 +165,28 @@
 - `.starter-badge` - 선발 추천 뱃지
 
 **index.html:**
+
 - `#boxscorePrediction` - 예측 비교 섹션
 - `#boxscorePredictionLegend` - 예측 범례
 
 **.github/workflows/update-data.yml:**
+
 - `--include-future` 옵션 추가 (매일 미래 경기 수집)
 
 **tests/conftest.py:**
+
 - 공유 pytest fixture 정의
 - `temp_db_path`, `test_db` - 임시 데이터베이스 관리
 - `sample_season`, `sample_team`, `sample_player` 등 샘플 데이터
 - `populated_db` - 테스트 데이터가 채워진 DB
 
 **tests/test_database.py:**
+
 - 27개 테스트 - database.py 함수 검증
 - DB 초기화, CRUD, 통계, 예측 등
 
 **tests/test_api.py:**
+
 - 23개 테스트 - REST API 엔드포인트 검증
 - FastAPI TestClient 사용
 
@@ -181,28 +201,33 @@ Chart.js 4.4.1을 사용하여 다양한 통계 시각화 구현.
 ## Phase 1: 시각화 강화
 
 ### 1.1 슈팅 효율 트렌드 차트
+
 - **위치**: 선수 상세 페이지 (`#/players/{id}`)
 - **차트 종류**: Line chart
 - **데이터**: FG%, 3P%, FT%, TS% 시즌별 추이
 - **파일**: `src/app.js`, `index.html`
 
 ### 1.2 선수 스탯 레이더 차트
+
 - **위치**: 선수 상세 페이지
 - **차트 종류**: Radar/Spider chart
 - **데이터**: PTS, REB, AST, STL, BLK, PIR (리그 백분위 기준)
 - **파일**: `src/app.js`, `index.html`
 
 ### 1.3 최근 경기 성적 바 차트
+
 - **위치**: 선수 상세 페이지 (게임로그 섹션)
 - **차트 종류**: Horizontal bar chart
 - **데이터**: 최근 10-15경기 PTS/REB/AST
 
 ### 1.4 팀 순위 시각화
+
 - **위치**: 팀 페이지 (`#/teams`)
 - **차트 종류**: Horizontal bar chart
 - **데이터**: 승률, 홈/어웨이 성적
 
 ### 1.5 비교 페이지 차트 업그레이드
+
 - **현재**: HTML/CSS로 만든 수동 바
 - **변경**: Chart.js 레이더 차트 + 바 차트
 
@@ -211,15 +236,18 @@ Chart.js 4.4.1을 사용하여 다양한 통계 시각화 구현.
 ## Phase 2: 경기 일정 페이지
 
 ### 2.1 백엔드 수정 (ingest_wkbl.py)
+
 - `--include-future` 옵션 추가
 - 미래 경기를 DB에 저장 (score = NULL)
 - 현재 월 + 다음 2개월 일정 가져오기
 
 ### 2.2 API/쿼리 추가
+
 - `src/db.js`: `getUpcomingGames()` 함수
 - `tools/api.py`: `/games/upcoming` 엔드포인트 (선택)
 
 ### 2.3 프론트엔드 페이지
+
 - **라우트**: `#/schedule`
 - **구성요소**:
   - 다음 경기 하이라이트 카드 (D-day 카운트다운)
@@ -227,6 +255,7 @@ Chart.js 4.4.1을 사용하여 다양한 통계 시각화 구현.
   - 최근 경기 결과 (최근 5경기)
 
 ### 2.4 네비게이션 추가
+
 - `index.html`에 "일정" 메뉴 추가
 
 ---
@@ -236,17 +265,20 @@ Chart.js 4.4.1을 사용하여 다양한 통계 시각화 구현.
 ### 3.1 예측 알고리즘 (고급)
 
 **기본 예측:**
+
 ```
 기본값 = (최근 5경기 평균 × 0.6) + (최근 10경기 평균 × 0.4)
 ```
 
 **홈/어웨이 보정:**
+
 ```
 홈 경기: 기본값 × 1.05 (역사적으로 약 5% 상승)
 어웨이: 기본값 × 0.97
 ```
 
 **상대팀 수비력 반영:**
+
 ```
 상대팀 실점 순위 1-2위: 예측값 × 0.90
 상대팀 실점 순위 3-4위: 예측값 × 1.00
@@ -254,18 +286,21 @@ Chart.js 4.4.1을 사용하여 다양한 통계 시각화 구현.
 ```
 
 **시즌 트렌드 분석:**
+
 ```
 최근 5경기 평균 > 시즌 평균: "상승세" 표시 (+5% 보정)
 최근 5경기 평균 < 시즌 평균: "하락세" 표시 (-5% 보정)
 ```
 
 **신뢰 구간:**
+
 ```
 하한 = 예측값 - (표준편차 × 1.0)
 상한 = 예측값 + (표준편차 × 1.0)
 ```
 
 ### 3.2 페이지 구조
+
 - **라우트**: `#/predict`
 - **구성요소**:
   - 선수 검색/선택
@@ -274,6 +309,7 @@ Chart.js 4.4.1을 사용하여 다양한 통계 시각화 구현.
   - 예측 근거 설명
 
 ### 3.3 시각화
+
 - 신뢰 구간 바 차트
 - 최근 10경기 + 예측값 라인 차트
 
@@ -282,6 +318,7 @@ Chart.js 4.4.1을 사용하여 다양한 통계 시각화 구현.
 ## Phase 4: 코트마진 (Court Margin) 지표 추가
 
 ### 4.1 코트마진 정의
+
 **코트마진 (Court Margin / On-Court Plus-Minus)**은 특정 선수가 코트에 있을 때와 없을 때의 팀 득실점 차이를 나타내는 지표.
 
 ```
@@ -289,35 +326,41 @@ Chart.js 4.4.1을 사용하여 다양한 통계 시각화 구현.
 ```
 
 WKBL 데이터에서는 경기별 +/- 데이터가 없으므로, 다음과 같이 근사 계산:
+
 ```
 코트마진 ≈ (팀 평균 득점 × 출전시간비율) - (팀 평균 실점 × 출전시간비율)
          = 출전시간비율 × (팀 평균 득점 - 팀 평균 실점)
 ```
 
 또는 개별 경기 기준:
+
 ```
 경기별 코트마진 = (팀 득점 - 팀 실점) × (선수 출전시간 / 40분)
 시즌 코트마진 = 경기별 코트마진의 합 / 출전 경기 수
 ```
 
 ### 4.2 데이터 요구사항
+
 - `player_games` 테이블에서 가져올 수 있는 정보:
   - 선수 출전 시간 (minutes)
   - 경기 ID → games 테이블에서 home_score, away_score
   - 선수 소속팀 → 홈/어웨이 구분
 
 ### 4.3 구현 위치
+
 - **선수 상세 페이지**: 커리어 요약에 코트마진 표시
 - **선수 목록**: 테이블에 코트마진 컬럼 추가 (선택적)
 - **비교 페이지**: 코트마진 비교 항목 추가
 - **예측 페이지**: 코트마진 기반 팀 기여도 분석
 
 ### 4.4 시각화
+
 - 코트마진 트렌드 라인 차트 (시즌별)
 - 코트마진 분포 히스토그램 (리그 전체 대비)
 - 레이더 차트에 코트마진 추가
 
 ### 4.5 코드 수정
+
 - `src/db.js`: `calculateCourtMargin()` 함수 추가
 - `src/app.js`: 코트마진 표시 로직 추가
 - `src/styles.css`: 코트마진 뱃지/표시 스타일
@@ -390,13 +433,13 @@ ingest_wkbl.py --include-future
 
 ## 수정할 파일 목록
 
-| 파일 | 변경 내용 |
-|------|----------|
-| `src/app.js` | 차트 함수들, 라우트 핸들러, 예측 알고리즘, 코트마진 계산 |
-| `index.html` | 새 뷰 섹션, 캔버스 요소, 네비게이션 |
-| `src/db.js` | `getUpcomingGames()`, `getPlayerRecentGames()`, `calculateCourtMargin()` |
-| `src/styles.css` | 일정 카드, 예측 결과, 코트마진 스타일 |
-| `tools/ingest_wkbl.py` | 미래 경기 저장 로직 |
+| 파일                   | 변경 내용                                                                |
+| ---------------------- | ------------------------------------------------------------------------ |
+| `src/app.js`           | 차트 함수들, 라우트 핸들러, 예측 알고리즘, 코트마진 계산                 |
+| `index.html`           | 새 뷰 섹션, 캔버스 요소, 네비게이션                                      |
+| `src/db.js`            | `getUpcomingGames()`, `getPlayerRecentGames()`, `calculateCourtMargin()` |
+| `src/styles.css`       | 일정 카드, 예측 결과, 코트마진 스타일                                    |
+| `tools/ingest_wkbl.py` | 미래 경기 저장 로직                                                      |
 
 ---
 
@@ -445,7 +488,9 @@ function calculateGameCourtMargin(playerMinutes, teamScore, opponentScore) {
 
 // 시즌 코트마진 (평균)
 function calculateSeasonCourtMargin(games) {
-  const margins = games.map(g => calculateGameCourtMargin(g.minutes, g.teamScore, g.oppScore));
+  const margins = games.map((g) =>
+    calculateGameCourtMargin(g.minutes, g.teamScore, g.oppScore),
+  );
   return margins.reduce((a, b) => a + b, 0) / games.length;
 }
 ```
@@ -455,6 +500,7 @@ function calculateSeasonCourtMargin(games) {
 ## 참고: 고급 코트마진 지표
 
 향후 확장 가능한 고급 지표:
+
 - **On/Off Rating**: 선수 출전 시 vs 미출전 시 팀 효율 차이
 - **Box Plus/Minus (BPM)**: 박스스코어 기반 추정 +/-
 - **Net Rating**: 100 포제션당 득실점 차이

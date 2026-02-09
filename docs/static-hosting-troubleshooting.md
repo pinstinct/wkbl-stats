@@ -22,17 +22,18 @@ UI 렌더링
 
 ## 사용 기술
 
-| 기술 | 버전 | 용도 |
-|------|------|------|
-| sql.js | 1.10.3 | 브라우저에서 SQLite 실행 (WebAssembly) |
-| Chart.js | 4.4.1 | 시즌별 추이 차트 |
-| jsdelivr CDN | - | sql.js 및 WASM 파일 호스팅 |
+| 기술         | 버전   | 용도                                   |
+| ------------ | ------ | -------------------------------------- |
+| sql.js       | 1.10.3 | 브라우저에서 SQLite 실행 (WebAssembly) |
+| Chart.js     | 4.4.1  | 시즌별 추이 차트                       |
+| jsdelivr CDN | -      | sql.js 및 WASM 파일 호스팅             |
 
 ## 발생한 문제
 
 ### 문제 1: 메인 페이지에서 선수 데이터가 표시되지 않음
 
 **증상:**
+
 - GitHub Pages 배포 후 메인 페이지가 빈 화면으로 표시
 - 테이블에 데이터가 로드되지 않음
 - 콘솔에 명확한 에러 없음
@@ -49,6 +50,7 @@ UI 렌더링
    - `is_active=1`인 선수 17명 중 2025-26 시즌 경기 기록이 있는 선수: **0명**
 
 **데이터 상태 (수정 전):**
+
 ```sql
 -- is_active 분포
 SELECT is_active, COUNT(*) FROM players GROUP BY is_active;
@@ -77,7 +79,7 @@ function getPlayers(seasonId, teamId = null, activeOnly = true) {
 
 // app.js - fetchPlayers 함수
 async function fetchPlayers(season) {
-  const activeOnly = season !== "all";  // 기본 시즌이면 true
+  const activeOnly = season !== "all"; // 기본 시즌이면 true
   return WKBLDatabase.getPlayers(seasonId, null, activeOnly);
   // → is_active=1 AND season='046' 조건으로 조회
   // → 결과: 0명 (빈 배열)
@@ -89,16 +91,19 @@ async function fetchPlayers(season) {
 ### 1. sql.js CDN 변경
 
 **변경 전 (index.html):**
+
 ```html
 <script src="https://sql.js.org/dist/sql-wasm.js"></script>
 ```
 
 **변경 후:**
+
 ```html
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js"></script>
 ```
 
 **변경 전 (src/db.js):**
+
 ```javascript
 const SQL = await initSqlJs({
   locateFile: (file) => `https://sql.js.org/dist/${file}`,
@@ -106,13 +111,16 @@ const SQL = await initSqlJs({
 ```
 
 **변경 후:**
+
 ```javascript
 const SQL = await initSqlJs({
-  locateFile: (file) => `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`,
+  locateFile: (file) =>
+    `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`,
 });
 ```
 
 **변경 이유:**
+
 - jsdelivr는 npm 패키지를 안정적으로 서빙하는 CDN
 - 버전을 명시하여 예기치 않은 breaking change 방지
 - 글로벌 CDN으로 응답 속도 향상
@@ -122,6 +130,7 @@ const SQL = await initSqlJs({
 **중요:** `is_active` 필드는 **WKBL 공식 active roster 기준**으로 설정해야 합니다. 경기 기록이 없더라도 현역 선수(부상, 벤치, 신인 등)는 `is_active=1`이어야 합니다.
 
 **올바른 접근 방식:**
+
 ```python
 # ingest_wkbl.py가 WKBL 공식 사이트의 active roster를 가져와서 설정
 # player_group=12 (현역) → is_active=1
@@ -130,6 +139,7 @@ const SQL = await initSqlJs({
 ```
 
 **잘못된 접근 방식 (사용하지 마세요):**
+
 ```sql
 -- 경기 기록 기준으로 설정하면 부상/벤치 선수가 누락됨
 UPDATE players SET is_active = 1
@@ -138,6 +148,7 @@ WHERE id IN (SELECT DISTINCT player_id FROM player_games ...);
 ```
 
 **수정 후 데이터 상태:**
+
 ```sql
 SELECT is_active, COUNT(*) FROM players GROUP BY is_active;
 -- 0|75  (은퇴/외국인 선수)
@@ -213,6 +224,7 @@ async function fetchPlayers(season) {
 ### 데이터 업데이트 시
 
 1. **ingest 스크립트 실행 후 is_active 확인**
+
    ```bash
    # 현역 선수 수 확인 (WKBL 공식 roster와 일치해야 함, 약 100명 내외)
    sqlite3 data/wkbl.db "SELECT COUNT(*) FROM players WHERE is_active = 1;"
@@ -241,13 +253,13 @@ async function fetchPlayers(season) {
 
 ## 관련 파일
 
-| 파일 | 역할 |
-|------|------|
-| `index.html` | sql.js CDN 로드 |
-| `src/db.js` | sql.js 초기화 및 쿼리 함수 |
-| `src/app.js` | 데이터 fetching 및 fallback 로직 |
-| `data/wkbl.db` | SQLite 데이터베이스 |
-| `data/wkbl-active.json` | JSON fallback 데이터 |
+| 파일                    | 역할                             |
+| ----------------------- | -------------------------------- |
+| `index.html`            | sql.js CDN 로드                  |
+| `src/db.js`             | sql.js 초기화 및 쿼리 함수       |
+| `src/app.js`            | 데이터 fetching 및 fallback 로직 |
+| `data/wkbl.db`          | SQLite 데이터베이스              |
+| `data/wkbl-active.json` | JSON fallback 데이터             |
 
 ## 참고 링크
 

@@ -12,19 +12,25 @@ export function renderCompareSelected({ container, selectedPlayers }) {
           <span>${p.name}</span>
           <button class="compare-tag-remove" data-id="${p.id}">&times;</button>
         </div>
-      `
+      `,
     )
     .join("");
 }
 
-export function renderCompareSuggestions({ container, players, error = false }) {
+export function renderCompareSuggestions({
+  container,
+  players,
+  error = false,
+}) {
   if (!container) return;
   if (error) {
-    container.innerHTML = '<div class="compare-suggestion-item">검색 오류</div>';
+    container.innerHTML =
+      '<div class="compare-suggestion-item">검색 오류</div>';
     return;
   }
   if (players.length === 0) {
-    container.innerHTML = '<div class="compare-suggestion-item">검색 결과 없음</div>';
+    container.innerHTML =
+      '<div class="compare-suggestion-item">검색 결과 없음</div>';
     return;
   }
   container.innerHTML = players
@@ -34,7 +40,7 @@ export function renderCompareSuggestions({ container, players, error = false }) 
             <span class="compare-suggestion-name">${p.name}</span>
             <span class="compare-suggestion-team">${p.team}</span>
           </div>
-        `
+        `,
     )
     .join("");
 }
@@ -72,7 +78,7 @@ export function renderCompareCards({ container, players, formatNumber }) {
           </div>
         </div>
       </div>
-    `
+    `,
     )
     .join("");
 }

@@ -89,6 +89,64 @@ class TestPlayersEndpoint:
         exclude_ids = {p["id"] for p in exclude_resp.json()["players"]}
         assert "095999" not in exclude_ids
 
+    def test_get_players_include_no_games_inactive_historical_team_inference(
+        self, client, sample_season, sample_team, sample_team2
+    ):
+        """Inactive gp=0 players should still resolve team by latest season <= requested."""
+        import database
+
+        # Older season for historical team assignment
+        database.insert_season("045", "2024-25", "2024-10-01", "2025-03-31")
+
+        # Inactive player currently attached to another team in players table
+        database.insert_player(
+            player_id="095998",
+            name="히스토리선수",
+            team_id=sample_team2["id"],
+            position="F",
+            height="178cm",
+            birth_date="1990-01-01",
+            is_active=0,
+        )
+
+        # Last played in older season for sample_team
+        database.insert_game(
+            game_id="04501001",
+            season_id="045",
+            game_date="2024-10-10",
+            home_team_id=sample_team["id"],
+            away_team_id=sample_team2["id"],
+            home_score=70,
+            away_score=68,
+        )
+        database.insert_player_game(
+            game_id="04501001",
+            player_id="095998",
+            team_id=sample_team["id"],
+            stats={
+                "minutes": 10,
+                "pts": 2,
+                "reb": 1,
+                "ast": 0,
+                "stl": 0,
+                "blk": 0,
+                "tov": 0,
+            },
+        )
+
+        # Requested season has no game records for this player (gp=0 in season 046)
+        resp = client.get(
+            f"/players?season={sample_season['season_id']}&active_only=false&include_no_games=true&team={sample_team['id']}"
+        )
+        assert resp.status_code == 200
+        rows = resp.json()["players"]
+        by_id = {p["id"]: p for p in rows}
+
+        assert "095998" in by_id
+        assert by_id["095998"]["gp"] == 0
+        # Must use historical team <= requested season, not current players.team_id
+        assert by_id["095998"]["team_id"] == sample_team["id"]
+
 
 class TestPlayerDetailEndpoint:
     """Tests for /players/{id} endpoint."""
@@ -170,6 +228,29 @@ class TestTeamDetailEndpoint:
         """Test getting non-existent team."""
         response = client.get("/teams/nonexistent")
         assert response.status_code == 404
+
+    def test_get_team_detail_roster_includes_active_no_games_player(
+        self, client, sample_team, sample_season
+    ):
+        """Team detail roster should include active players even if gp=0 in season."""
+        import database
+
+        database.insert_player(
+            player_id="095997",
+            name="로스터무경기",
+            team_id=sample_team["id"],
+            position="C",
+            height="185cm",
+            birth_date="2001-01-01",
+            is_active=1,
+        )
+
+        response = client.get(
+            f"/teams/{sample_team['id']}?season={sample_season['season_id']}"
+        )
+        assert response.status_code == 200
+        roster_ids = {p["id"] for p in response.json().get("roster", [])}
+        assert "095997" in roster_ids
 
 
 class TestGamesEndpoint:

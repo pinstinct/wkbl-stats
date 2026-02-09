@@ -1,6 +1,12 @@
 const DESKTOP_BREAKPOINT = 980;
 
-export function mountResponsiveNav({ mainNav, navToggle, navMenu, documentRef, windowRef }) {
+export function mountResponsiveNav({
+  mainNav,
+  navToggle,
+  navMenu,
+  documentRef,
+  windowRef,
+}) {
   if (!mainNav || !navToggle || !navMenu || !documentRef || !windowRef) {
     return () => {};
   }

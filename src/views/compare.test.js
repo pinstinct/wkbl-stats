@@ -28,7 +28,9 @@ describe("compare view", () => {
     const cards = { innerHTML: "" };
     renderCompareCards({
       container: cards,
-      players: [{ id: "p1", name: "선수1", team: "A", gp: 1, pts: 1, reb: 2, ast: 3 }],
+      players: [
+        { id: "p1", name: "선수1", team: "A", gp: 1, pts: 1, reb: 2, ast: 3 },
+      ],
       formatNumber: (v) => String(v),
     });
     expect(cards.innerHTML).toContain("compare-player-card");
