@@ -1,4 +1,9 @@
 import { renderPlayerSummaryCard, renderPlayersTable } from "./views/players.js";
+import {
+  renderStandingsTable,
+  renderTeamRecentGames,
+  renderTeamRoster,
+} from "./views/teams.js";
 
 (function () {
   "use strict";
@@ -1420,22 +1425,7 @@ import { renderPlayerSummaryCard, renderPlayersTable } from "./views/players.js"
       // Render standings chart
       renderStandingsChart(standings);
 
-      const tbody = $("standingsBody");
-      tbody.innerHTML = standings.map((t) => `
-        <tr>
-          <td>${t.rank}</td>
-          <td><a href="#/teams/${t.team_id}">${t.team_name}</a></td>
-          <td>${t.wins + t.losses}</td>
-          <td>${t.wins}</td>
-          <td>${t.losses}</td>
-          <td>${(t.win_pct * 100).toFixed(1)}%</td>
-          <td>${t.games_behind || "-"}</td>
-          <td class="hide-mobile">${t.home_record}</td>
-          <td class="hide-mobile">${t.away_record}</td>
-          <td class="hide-tablet">${t.streak || "-"}</td>
-          <td class="hide-tablet">${t.last5 || "-"}</td>
-        </tr>
-      `).join("");
+      renderStandingsTable({ tbody: $("standingsBody"), standings });
 
     } catch (error) {
       console.error("Failed to load standings:", error);
@@ -1457,27 +1447,12 @@ import { renderPlayerSummaryCard, renderPlayersTable } from "./views/players.js"
         $("teamDetailStanding").textContent = `${s.rank}위 | ${s.wins}승 ${s.losses}패 (${(s.win_pct * 100).toFixed(1)}%)`;
       }
 
-      // Roster
-      const rosterBody = $("teamRosterBody");
-      rosterBody.innerHTML = (team.roster || []).map((p) => `
-        <tr>
-          <td><a href="#/players/${p.id}">${p.name}</a></td>
-          <td>${p.position || "-"}</td>
-          <td>${p.height || "-"}</td>
-        </tr>
-      `).join("");
-
-      // Recent games
-      const gamesBody = $("teamGamesBody");
-      gamesBody.innerHTML = (team.recent_games || []).map((g) => `
-        <tr>
-          <td><a href="#/games/${g.game_id}">${formatDate(g.date)}</a></td>
-          <td>${g.opponent}</td>
-          <td>${g.is_home ? "홈" : "원정"}</td>
-          <td>${g.result}</td>
-          <td>${g.score}</td>
-        </tr>
-      `).join("");
+      renderTeamRoster({ tbody: $("teamRosterBody"), roster: team.roster });
+      renderTeamRecentGames({
+        tbody: $("teamGamesBody"),
+        games: team.recent_games,
+        formatDate,
+      });
 
     } catch (error) {
       console.error("Failed to load team:", error);

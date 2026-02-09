@@ -23,3 +23,13 @@ def test_db_uses_shared_season_codes():
     db_js = Path("src/db.js").read_text(encoding="utf-8")
     assert "const SEASON_CODES = {" not in db_js
     assert "window.WKBLShared" in db_js
+
+
+def test_app_imports_teams_view_module():
+    app_js = Path("src/app.js").read_text(encoding="utf-8")
+    teams_view_js = Path("src/views/teams.js").read_text(encoding="utf-8")
+
+    assert "./views/teams.js" in app_js
+    assert "renderStandingsTable" in teams_view_js
+    assert "renderTeamRoster" in teams_view_js
+    assert "renderTeamRecentGames" in teams_view_js

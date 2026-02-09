@@ -81,10 +81,11 @@
 
 ### P1 진행 현황 (2026-02-09)
 
-- 진행: `players` 뷰 분리 1차 완료
+- 진행: `players`, `teams` 뷰 분리 1차 완료
 - 추가: `src/views/players.js` (`renderPlayersTable`, `renderPlayerSummaryCard`)
-- 변경: `src/app.js`에서 players 테이블/요약카드 렌더링을 view 모듈 호출로 전환
-- 남음: `player-detail`, `teams`, `games`, `schedule`, `leaders`, `compare`, `predict` 순차 분리
+- 추가: `src/views/teams.js` (`renderStandingsTable`, `renderTeamRoster`, `renderTeamRecentGames`)
+- 변경: `src/app.js`에서 players/teams 렌더링을 view 모듈 호출로 전환
+- 남음: `player-detail`, `games`, `game-detail`, `schedule`, `leaders`, `compare`, `predict` 순차 분리
 
 ### P2 (CSS 유지보수성)
 
