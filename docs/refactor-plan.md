@@ -11,7 +11,9 @@
 - 코드 품질 훅: `pre-commit`에 Python + Frontend(`eslint`/`prettier`) 체인 적용.
 - 현재 병목 파일:
   - `src/app.js` 2,623 lines
-  - `src/styles.css` 3,427 lines
+  - `src/styles/core/base.css` 558 lines
+  - `src/styles/pages/main-prediction.css` 444 lines
+  - `src/styles/pages/compare.css` 335 lines
   - `src/db.js` 1,220 lines
   - `tools/ingest_wkbl.py` 2,452 lines
 - 최근 UI 반응형 이슈(고정열/모바일 간격/네비게이션)는 다수 해결됨.
@@ -64,7 +66,7 @@
 - 완료: 백엔드 고급 스탯 계산 공통화 (`tools/stats.py`, `tools/api.py` 적용)
 - 완료: `/players`에 `include_no_games` 계약 반영 및 테스트 추가
 - 완료: 프론트 시즌 상수 단일화 (`src/seasons.js`, `src/app.js`, `src/db.js`, `index.html`)
-- 남음: 프론트 뷰 분리(`app.js` 모듈화)와 CSS 분할(P1/P2)
+- 상태: P0 완료
 
 ### P1 (구조 개선)
 
@@ -124,6 +126,15 @@
 
 - 현재 페이지별 임계값이 분산됨.
 - `--bp-*` 토큰 및 공통 media 규칙으로 통일.
+
+### P2 진행 현황 (2026-02-09)
+
+- 완료: `src/styles.css`를 import 진입 파일로 전환
+- 완료: CSS를 `src/styles/core/*`, `src/styles/components/*`, `src/styles/pages/*`, `src/styles/responsive/*`로 분할
+- 완료: 공통 브레이크포인트 토큰 추가 (`src/styles/core/base.css`: `--bp-*`)
+- 완료: 중복 `compare` 스타일 정리(legacy/신규 규칙 충돌 제거, 실제 사용 클래스 기준으로 단순화)
+- 완료: 중복 media query 병합(`src/styles/components/charts.css`)
+- 상태: P2 완료
 
 ### P3 (데이터 정확도/성능)
 

@@ -1,0 +1,27 @@
+/* =============================================================================
+   Team Detail Page
+   ============================================================================= */
+
+.team-info-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: clamp(20px, 4vw, 32px);
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.team-info-card h2 {
+  margin: 0;
+  font-size: clamp(24px, 5vw, 36px);
+}
+
+.team-standing-badge {
+  padding: 8px 16px;
+  background: var(--accent);
+  color: white;
+  border-radius: 8px;
+  font-weight: 600;
+}

@@ -1,0 +1,80 @@
+/* =============================================================================
+   Player Detail Page
+   ============================================================================= */
+
+.player-info-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: clamp(20px, 4vw, 32px);
+  margin-bottom: 24px;
+  display: grid;
+  gap: 24px;
+}
+
+.player-info-main h2 {
+  margin: 8px 0 0;
+  font-size: clamp(24px, 5vw, 36px);
+}
+
+.player-career-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 16px;
+}
+
+.career-stat {
+  text-align: center;
+  padding: 16px;
+  background: var(--surface-2);
+  border-radius: 12px;
+}
+
+.career-stat-label {
+  font-size: 11px;
+  color: rgba(var(--ink-rgb), 0.6);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.career-stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+/* Court Margin Styles */
+.career-stat--positive {
+  background: linear-gradient(
+    135deg,
+    rgba(16, 185, 129, 0.15),
+    rgba(16, 185, 129, 0.05)
+  );
+}
+
+.career-stat--positive .career-stat-value {
+  color: #059669;
+}
+
+.career-stat--negative {
+  background: linear-gradient(
+    135deg,
+    rgba(239, 68, 68, 0.15),
+    rgba(239, 68, 68, 0.05)
+  );
+}
+
+.career-stat--negative .career-stat-value {
+  color: #dc2626;
+}
+
+/* Stat value colors */
+.stat-positive {
+  color: #059669;
+  font-weight: 600;
+}
+
+.stat-negative {
+  color: #dc2626;
+  font-weight: 600;
+}

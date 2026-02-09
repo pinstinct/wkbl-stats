@@ -1,0 +1,360 @@
+/* =============================================================================
+   Mobile Responsive for New Pages
+   ============================================================================= */
+
+@media (max-width: 980px) {
+  .site-header {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .nav-links {
+    width: auto;
+    margin-left: auto;
+    justify-content: flex-end;
+  }
+
+  .nav-toggle {
+    display: inline-flex;
+  }
+
+  .nav-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    left: auto;
+    width: min(280px, calc(100vw - 32px));
+    z-index: 120;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 10px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .nav-links.open .nav-menu {
+    display: flex;
+  }
+
+  .nav-link {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .nav-search-btn {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 0 12px;
+  }
+
+  .boxscore-header {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .boxscore-team {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center !important;
+    text-align: left !important;
+  }
+
+  .boxscore-team .team-score {
+    font-size: 32px;
+  }
+
+  .game-card {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .game-card-date {
+    order: -1;
+  }
+
+  .game-card-result {
+    text-align: center;
+  }
+
+  .leaders-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .player-career-summary {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .career-stat {
+    padding: 12px 8px;
+  }
+
+  .career-stat-value {
+    font-size: 18px;
+  }
+
+  .detail-table .hide-mobile {
+    display: none;
+  }
+
+  /* Teams standings: fix rank/team columns and scroll the rest */
+  #standingsTable {
+    border-collapse: separate;
+    border-spacing: 0;
+    min-width: 720px;
+    width: max-content;
+  }
+
+  #standingsTable th,
+  #standingsTable td {
+    padding: 8px 6px;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  #standingsTable th:nth-child(1),
+  #standingsTable td:nth-child(1) {
+    position: sticky;
+    left: 0;
+    min-width: 42px;
+    width: 42px;
+    max-width: 42px;
+    z-index: 6;
+  }
+
+  #standingsTable th:nth-child(2),
+  #standingsTable td:nth-child(2) {
+    position: sticky;
+    left: 42px;
+    min-width: 88px;
+    width: 88px;
+    max-width: 88px;
+    z-index: 5;
+  }
+
+  #standingsTable th:nth-child(1),
+  #standingsTable th:nth-child(2) {
+    background: var(--surface-2);
+  }
+
+  #standingsTable td:nth-child(1),
+  #standingsTable td:nth-child(2) {
+    background: var(--surface);
+  }
+
+  #standingsTable tbody tr:hover td:nth-child(1),
+  #standingsTable tbody tr:hover td:nth-child(2) {
+    background: rgba(217, 79, 49, 0.04);
+  }
+
+  /* Team detail tables: reduce column spacing on mobile */
+  #view-team .detail-section {
+    padding: 12px;
+  }
+
+  #view-team .detail-section h3 {
+    margin-bottom: 10px;
+  }
+
+  #teamRosterTable,
+  #teamGamesTable {
+    min-width: 560px;
+    width: max-content;
+  }
+
+  #teamRosterTable {
+    min-width: 0;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  #teamRosterTable th,
+  #teamRosterTable td,
+  #teamGamesTable th,
+  #teamGamesTable td {
+    padding: 7px 5px;
+    white-space: nowrap;
+  }
+
+  #teamRosterTable th,
+  #teamRosterTable td {
+    text-align: center;
+  }
+
+  #teamRosterTable th:nth-child(1),
+  #teamRosterTable td:nth-child(1) {
+    min-width: 84px;
+    width: 84px;
+    max-width: 84px;
+  }
+
+  #teamRosterTable th:nth-child(2),
+  #teamRosterTable td:nth-child(2) {
+    min-width: 40px;
+    width: 40px;
+    max-width: 40px;
+  }
+
+  #teamRosterTable th:nth-child(3),
+  #teamRosterTable td:nth-child(3) {
+    min-width: 46px;
+    width: 46px;
+    max-width: 46px;
+  }
+
+  /* Game detail: mobile density + sticky player column */
+  #view-game .detail-section {
+    padding: 12px;
+  }
+
+  #view-game .detail-section h3 {
+    margin-bottom: 10px;
+  }
+
+  #view-game .table-wrap {
+    padding-bottom: 2px;
+  }
+
+  #view-game .boxscore-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    min-width: 760px;
+    width: max-content;
+  }
+
+  #view-game .boxscore-table th,
+  #view-game .boxscore-table td {
+    padding: 7px 5px;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  #view-game .boxscore-table th:first-child,
+  #view-game .boxscore-table td:first-child {
+    position: sticky;
+    left: 0;
+    min-width: 92px;
+    width: 92px;
+    max-width: 92px;
+    z-index: 6;
+  }
+
+  #view-game .boxscore-table th:first-child {
+    background: var(--surface-2);
+  }
+
+  #view-game .boxscore-table td:first-child {
+    background: var(--surface);
+  }
+
+  #view-game .boxscore-table tbody tr:hover td:first-child {
+    background: rgba(217, 79, 49, 0.04);
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-link {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .detail-table .hide-tablet {
+    display: none;
+  }
+
+  #standingsTable {
+    min-width: 640px;
+  }
+
+  #standingsTable th,
+  #standingsTable td {
+    padding: 6px 4px;
+  }
+
+  #standingsTable th:nth-child(1),
+  #standingsTable td:nth-child(1) {
+    min-width: 36px;
+    width: 36px;
+    max-width: 36px;
+  }
+
+  #standingsTable th:nth-child(2),
+  #standingsTable td:nth-child(2) {
+    left: 36px;
+    min-width: 76px;
+    width: 76px;
+    max-width: 76px;
+  }
+
+  #view-team .detail-section {
+    padding: 10px;
+  }
+
+  #teamRosterTable,
+  #teamGamesTable {
+    min-width: 500px;
+  }
+
+  #teamRosterTable {
+    min-width: 0;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  #teamRosterTable th,
+  #teamRosterTable td,
+  #teamGamesTable th,
+  #teamGamesTable td {
+    padding: 6px 4px;
+  }
+
+  #teamRosterTable th:nth-child(1),
+  #teamRosterTable td:nth-child(1) {
+    min-width: 74px;
+    width: 74px;
+    max-width: 74px;
+  }
+
+  #teamRosterTable th:nth-child(2),
+  #teamRosterTable td:nth-child(2) {
+    min-width: 34px;
+    width: 34px;
+    max-width: 34px;
+    font-size: 11px;
+  }
+
+  #teamRosterTable th:nth-child(3),
+  #teamRosterTable td:nth-child(3) {
+    min-width: 40px;
+    width: 40px;
+    max-width: 40px;
+  }
+
+  #view-game .detail-section {
+    padding: 10px;
+  }
+
+  #view-game .boxscore-table {
+    min-width: 700px;
+  }
+
+  #view-game .boxscore-table th,
+  #view-game .boxscore-table td {
+    padding: 6px 4px;
+    font-size: 11px;
+  }
+
+  #view-game .boxscore-table th:first-child,
+  #view-game .boxscore-table td:first-child {
+    min-width: 82px;
+    width: 82px;
+    max-width: 82px;
+  }
+}

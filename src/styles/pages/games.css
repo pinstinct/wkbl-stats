@@ -1,0 +1,65 @@
+/* =============================================================================
+   Games List Page
+   ============================================================================= */
+
+.games-list {
+  display: grid;
+  gap: 12px;
+}
+
+.game-card {
+  display: grid;
+  grid-template-columns: 80px 1fr 80px;
+  align-items: center;
+  padding: 16px 20px;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    box-shadow 0.15s,
+    transform 0.15s;
+}
+
+.game-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.game-card-date {
+  font-size: 13px;
+  color: rgba(var(--ink-rgb), 0.6);
+}
+
+.game-card-matchup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  font-weight: 600;
+}
+
+.game-card-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-card-team.away {
+  flex-direction: row-reverse;
+}
+
+.game-card-score {
+  font-size: 20px;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.game-card-result {
+  text-align: right;
+  font-size: 13px;
+}
+
+.game-card-result .final {
+  color: rgba(var(--ink-rgb), 0.5);
+}
