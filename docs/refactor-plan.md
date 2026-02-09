@@ -7,9 +7,9 @@
 ## 점검 결과 요약
 
 - 테스트 상태: `uv run pytest -q` 기준 **57 passed**.
-- 프론트 테스트: `npm run test:front` 기준 **21 passed (11 files)**.
+- 프론트 테스트: `npm run test:front` 기준 **26 passed (13 files)**.
 - 현재 병목 파일:
-  - `src/app.js` 2,750 lines
+  - `src/app.js` 2,623 lines
   - `src/styles.css` 3,427 lines
   - `src/db.js` 1,220 lines
   - `tools/ingest_wkbl.py` 2,452 lines
@@ -90,8 +90,10 @@
 - 변경: `src/app.js`에서 각 페이지 렌더링을 view 모듈 호출로 전환
 - 완료: 데이터 접근 레이어 1차 도입 (`src/data/client.js`) 및 기존 `fetch*` 래퍼 통합
 - 완료: 내비게이션 이벤트 `mount/unmount` 분리 (`src/ui/responsive-nav.js`)
-- 추가: `src/views/player-detail.test.js`, `src/data/client.test.js`, `src/ui/responsive-nav.test.js`
-- 남음: `home` 렌더링 분리(선택), compare/predict/global-search 이벤트도 `mount/unmount` 패턴으로 단계적 전환
+- 완료: compare/predict/global-search 이벤트 `mount/unmount` 분리 (`src/ui/page-events.js`)
+- 완료: 홈 렌더링 분리 (`src/views/home.js`)
+- 추가: `src/views/player-detail.test.js`, `src/views/home.test.js`, `src/data/client.test.js`, `src/ui/responsive-nav.test.js`, `src/ui/page-events.test.js`
+- 상태: P1 완료, 다음 단계는 P2(CSS 분할)
 
 ### P2 (CSS 유지보수성)
 

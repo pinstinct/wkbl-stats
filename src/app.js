@@ -28,8 +28,14 @@ import {
   renderPlayerSeasonTable,
 } from "./views/player-detail.js";
 import { renderBoxscoreRows } from "./views/game-detail.js";
+import { renderLineupPlayers, renderTotalStats } from "./views/home.js";
 import { createDataClient } from "./data/client.js";
 import { mountResponsiveNav } from "./ui/responsive-nav.js";
+import {
+  mountCompareEvents,
+  mountGlobalSearchEvents,
+  mountPredictEvents,
+} from "./ui/page-events.js";
 
 (function () {
   "use strict";
@@ -76,6 +82,9 @@ import { mountResponsiveNav } from "./ui/responsive-nav.js";
   };
 
   let unmountResponsiveNav = null;
+  let unmountCompareEvents = null;
+  let unmountPredictEvents = null;
+  let unmountGlobalSearchEvents = null;
 
   // =============================================================================
   // Utility Functions
@@ -437,12 +446,30 @@ import { mountResponsiveNav } from "./ui/responsive-nav.js";
       $("homeWinProb").className = `prob-value ${homeWinProb >= 50 ? "prob-high" : "prob-low"}`;
       $("awayWinProb").className = `prob-value ${awayWinProb >= 50 ? "prob-high" : "prob-low"}`;
 
-      renderLineupPlayers($("homeLineupPlayers"), homeLineup, homePredictions);
-      renderLineupPlayers($("awayLineupPlayers"), awayLineup, awayPredictions);
+      renderLineupPlayers({
+        container: $("homeLineupPlayers"),
+        lineup: homeLineup,
+        predictions: homePredictions,
+        formatNumber,
+      });
+      renderLineupPlayers({
+        container: $("awayLineupPlayers"),
+        lineup: awayLineup,
+        predictions: awayPredictions,
+        formatNumber,
+      });
 
       // Render total stats
-      renderTotalStats($("homeTotalStats"), homePredictions);
-      renderTotalStats($("awayTotalStats"), awayPredictions);
+      renderTotalStats({
+        container: $("homeTotalStats"),
+        predictions: homePredictions,
+        formatNumber,
+      });
+      renderTotalStats({
+        container: $("awayTotalStats"),
+        predictions: awayPredictions,
+        formatNumber,
+      });
 
       // Note: Predictions are saved to DB during ingest (tools/ingest_wkbl.py)
       // and read from DB in loadGamePage for comparison with actual results
@@ -588,65 +615,6 @@ import { mountResponsiveNav } from "./ui/responsive-nav.js";
     }
 
     return strength;
-  }
-
-  function renderLineupPlayers(container, lineup, predictions) {
-    if (!container) return;
-
-    container.innerHTML = lineup.map((player, i) => {
-      const pred = predictions[i];
-      return `
-        <div class="lineup-player-card">
-          <div class="lineup-player-info">
-            <span class="lineup-player-pos">${player.pos || "-"}</span>
-            <a href="#/players/${player.id}" class="lineup-player-name">${player.name}</a>
-          </div>
-          <div class="lineup-player-stats">
-            <div class="lineup-stat">
-              <span class="stat-label">PTS</span>
-              <span class="stat-value">${formatNumber(pred.pts.pred)}</span>
-              <span class="stat-range">${formatNumber(pred.pts.low)}-${formatNumber(pred.pts.high)}</span>
-            </div>
-            <div class="lineup-stat">
-              <span class="stat-label">REB</span>
-              <span class="stat-value">${formatNumber(pred.reb.pred)}</span>
-              <span class="stat-range">${formatNumber(pred.reb.low)}-${formatNumber(pred.reb.high)}</span>
-            </div>
-            <div class="lineup-stat">
-              <span class="stat-label">AST</span>
-              <span class="stat-value">${formatNumber(pred.ast.pred)}</span>
-              <span class="stat-range">${formatNumber(pred.ast.low)}-${formatNumber(pred.ast.high)}</span>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join("");
-  }
-
-  function renderTotalStats(container, predictions) {
-    if (!container) return;
-
-    const totals = predictions.reduce((acc, p) => {
-      acc.pts += p.pts.pred;
-      acc.reb += p.reb.pred;
-      acc.ast += p.ast.pred;
-      return acc;
-    }, { pts: 0, reb: 0, ast: 0 });
-
-    container.innerHTML = `
-      <div class="total-stat">
-        <span class="stat-label">총 득점</span>
-        <span class="stat-value">${formatNumber(totals.pts)}</span>
-      </div>
-      <div class="total-stat">
-        <span class="stat-label">총 리바운드</span>
-        <span class="stat-value">${formatNumber(totals.reb)}</span>
-      </div>
-      <div class="total-stat">
-        <span class="stat-label">총 어시스트</span>
-        <span class="stat-value">${formatNumber(totals.ast)}</span>
-      </div>
-    `;
   }
 
   // =============================================================================
@@ -2573,115 +2541,41 @@ import { mountResponsiveNav } from "./ui/responsive-nav.js";
     // Hash change
     window.addEventListener("hashchange", handleRoute);
 
-    // Compare page
-    const compareSearchInput = $("compareSearchInput");
-    if (compareSearchInput) {
-      compareSearchInput.addEventListener("input", debounce((e) => {
-        handleCompareSearch(e.target.value.trim());
-      }, CONFIG.debounceDelay));
-
-      compareSearchInput.addEventListener("focus", () => {
-        if (state.compareSearchResults.length > 0) {
-          $("compareSuggestions").classList.add("active");
-        }
-      });
+    if (unmountCompareEvents) {
+      unmountCompareEvents();
+      unmountCompareEvents = null;
     }
-
-    // Compare suggestions click
-    const compareSuggestions = $("compareSuggestions");
-    if (compareSuggestions) {
-      compareSuggestions.addEventListener("click", (e) => {
-        const item = e.target.closest(".compare-suggestion-item");
-        if (!item || !item.dataset.id) return;
-
-        addComparePlayer({
-          id: item.dataset.id,
-          name: item.dataset.name,
-          team: item.dataset.team,
-        });
-      });
-    }
-
-    // Compare selected remove
-    const compareSelected = $("compareSelected");
-    if (compareSelected) {
-      compareSelected.addEventListener("click", (e) => {
-        if (e.target.classList.contains("compare-tag-remove")) {
-          removeComparePlayer(e.target.dataset.id);
-        }
-      });
-    }
-
-    // Compare button
-    const compareBtn = $("compareBtn");
-    if (compareBtn) {
-      compareBtn.addEventListener("click", executeComparison);
-    }
-
-    // Close suggestions on click outside
-    document.addEventListener("click", (e) => {
-      const suggestions = $("compareSuggestions");
-      const searchBox = e.target.closest(".compare-search-box");
-      if (!searchBox && suggestions) {
-        suggestions.classList.remove("active");
-      }
+    unmountCompareEvents = mountCompareEvents({
+      getById: $,
+      documentRef: document,
+      state,
+      debounce,
+      delay: CONFIG.debounceDelay,
+      onSearch: handleCompareSearch,
+      onAddPlayer: addComparePlayer,
+      onRemovePlayer: removeComparePlayer,
+      onExecute: executeComparison,
     });
 
-    // Global search
-    const globalSearchBtn = $("globalSearchBtn");
-    if (globalSearchBtn) {
-      globalSearchBtn.addEventListener("click", openGlobalSearch);
+    if (unmountGlobalSearchEvents) {
+      unmountGlobalSearchEvents();
+      unmountGlobalSearchEvents = null;
     }
-
-    const searchModal = $("searchModal");
-    if (searchModal) {
-      // Close on backdrop click
-      searchModal.querySelector(".search-modal-backdrop").addEventListener("click", closeGlobalSearch);
-
-      // Search input
-      const globalSearchInput = $("globalSearchInput");
-      globalSearchInput.addEventListener("input", debounce((e) => {
-        handleGlobalSearch(e.target.value.trim());
-      }, CONFIG.debounceDelay));
-
-      globalSearchInput.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") {
-          closeGlobalSearch();
-        } else if (e.key === "ArrowDown") {
-          e.preventDefault();
-          navigateGlobalSearch(1);
-        } else if (e.key === "ArrowUp") {
-          e.preventDefault();
-          navigateGlobalSearch(-1);
-        } else if (e.key === "Enter") {
-          e.preventDefault();
-          selectGlobalSearchItem();
-        }
-      });
-
-      // Click on result
-      $("globalSearchResults").addEventListener("click", (e) => {
-        const item = e.target.closest(".search-result-item");
-        if (!item) return;
-
-        const type = item.dataset.type;
-        const id = item.dataset.id;
+    unmountGlobalSearchEvents = mountGlobalSearchEvents({
+      getById: $,
+      documentRef: document,
+      debounce,
+      delay: CONFIG.debounceDelay,
+      onOpen: openGlobalSearch,
+      onClose: closeGlobalSearch,
+      onSearch: handleGlobalSearch,
+      onNavigate: navigateGlobalSearch,
+      onSelect: selectGlobalSearchItem,
+      onResultSelect: (type, id) => {
         closeGlobalSearch();
-
-        if (type === "player") {
-          navigate(`/players/${id}`);
-        } else if (type === "team") {
-          navigate(`/teams/${id}`);
-        }
-      });
-    }
-
-    // Keyboard shortcut (Ctrl+K or Cmd+K)
-    document.addEventListener("keydown", (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault();
-        openGlobalSearch();
-      }
+        if (type === "player") navigate(`/players/${id}`);
+        if (type === "team") navigate(`/teams/${id}`);
+      },
     });
 
     // Schedule page - team filter
@@ -2690,38 +2584,17 @@ import { mountResponsiveNav } from "./ui/responsive-nav.js";
       scheduleTeamSelect.addEventListener("change", refreshSchedule);
     }
 
-    // Predict page - search
-    const predictSearchInput = $("predictSearchInput");
-    if (predictSearchInput) {
-      predictSearchInput.addEventListener("input", debounce((e) => {
-        handlePredictSearch(e.target.value.trim());
-      }, CONFIG.debounceDelay));
-
-      predictSearchInput.addEventListener("focus", () => {
-        const suggestions = $("predictSuggestions");
-        if (suggestions && suggestions.innerHTML.trim()) {
-          suggestions.classList.add("active");
-        }
-      });
+    if (unmountPredictEvents) {
+      unmountPredictEvents();
+      unmountPredictEvents = null;
     }
-
-    // Predict suggestions click
-    const predictSuggestions = $("predictSuggestions");
-    if (predictSuggestions) {
-      predictSuggestions.addEventListener("click", (e) => {
-        const item = e.target.closest(".predict-suggestion-item");
-        if (!item || !item.dataset.id) return;
-        selectPredictPlayer(item.dataset.id, item.dataset.name);
-      });
-    }
-
-    // Close predict suggestions on click outside
-    document.addEventListener("click", (e) => {
-      const suggestions = $("predictSuggestions");
-      const searchBox = e.target.closest(".predict-search-box");
-      if (!searchBox && suggestions) {
-        suggestions.classList.remove("active");
-      }
+    unmountPredictEvents = mountPredictEvents({
+      getById: $,
+      documentRef: document,
+      debounce,
+      delay: CONFIG.debounceDelay,
+      onSearch: handlePredictSearch,
+      onSelectPlayer: selectPredictPlayer,
     });
   }
 
