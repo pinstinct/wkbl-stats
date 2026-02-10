@@ -1,3 +1,5 @@
+// Barrel module for view/render logic.
+// Keep app.js imports stable even when individual view files move.
 export { renderLineupPlayers, renderTotalStats } from "./home.js";
 export { renderPlayersTable, renderPlayerSummaryCard } from "./players.js";
 export { filterPlayers, sortPlayers } from "./players-logic.js";

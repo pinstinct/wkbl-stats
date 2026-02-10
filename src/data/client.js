@@ -13,7 +13,13 @@ export function resolvePlayersQuery({ season, defaultSeason }) {
   };
 }
 
+/**
+ * Create frontend data gateway with one behavior contract:
+ * - list endpoints return empty collections when DB is unavailable
+ * - detail endpoints throw not-found style errors for UI handling
+ */
 export function createDataClient({ initDb, getDb, getSeasonLabel }) {
+  // Ensure every call shares the same lazy-init behavior.
   async function withDb() {
     await initDb();
     return getDb();

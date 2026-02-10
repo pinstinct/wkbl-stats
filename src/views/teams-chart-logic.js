@@ -1,3 +1,6 @@
+/**
+ * Parse "W-L" style records and gracefully fallback on malformed values.
+ */
 export function parseWinLossRecord(record) {
   const [winsRaw, lossesRaw] = String(record || "0-0").split("-");
   return {
@@ -6,6 +9,10 @@ export function parseWinLossRecord(record) {
   };
 }
 
+/**
+ * Build chart-ready standings series from API standings rows.
+ * Returns both sorted rows and precomputed home/away win-loss arrays.
+ */
 export function buildStandingsChartSeries(standings) {
   const sorted = [...standings].sort((a, b) => a.rank - b.rank);
 

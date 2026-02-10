@@ -155,6 +155,7 @@ def get_players(
     include_no_games: bool = False,
 ) -> list[dict]:
     """Get all players with their season stats."""
+    # Base query only returns players with at least one game row.
     query = """
         SELECT
             p.id,
@@ -210,6 +211,8 @@ def get_players(
             result.append(compute_advanced_stats(d))
 
         if include_no_games and season_id:
+            # Contract: season player tables may include gp=0 players
+            # (active current roster or historical inferred roster).
             player_ids = {p["id"] for p in result}
             no_games_rows = _get_no_games_rows(
                 conn=conn,

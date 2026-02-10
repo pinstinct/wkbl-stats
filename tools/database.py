@@ -351,6 +351,7 @@ def init_db():
         cursor = conn.cursor()
         cursor.executescript(SCHEMA)
 
+        # Teams are seeded once and reused by ingest/API joins.
         # Insert teams master data
         cursor.executemany(
             """INSERT OR IGNORE INTO teams (id, name, short_name, logo_url, founded_year)

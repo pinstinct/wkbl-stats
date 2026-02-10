@@ -261,6 +261,7 @@ import {
 
   async function handleRoute() {
     const { path, id } = getRoute();
+    // Route decision is delegated to pure logic for testability.
     const target = resolveRouteTarget(path, id);
     updateNavLinks();
     const mainNav = $("mainNav");

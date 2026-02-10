@@ -1,3 +1,5 @@
+// Barrel module for UI event and routing helpers.
+// app.js depends on this single entry to reduce import sprawl.
 export { mountResponsiveNav } from "./responsive-nav.js";
 export {
   mountCompareEvents,
