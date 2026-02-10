@@ -1694,7 +1694,7 @@ def _save_to_db(
 
 
 def _save_future_games(args, schedule_info, end_date, season_code):
-    """Save future games (on or after end_date) with NULL scores to database.
+    """Save future games (after end_date) with NULL scores to database.
 
     Args:
         args: Command line arguments
@@ -1704,8 +1704,8 @@ def _save_future_games(args, schedule_info, end_date, season_code):
     """
     future_games = []
     for game_id, info in schedule_info.items():
-        # Include today's games (>=) as they also need predictions
-        if info["date"] >= end_date and info["home_team"] and info["away_team"]:
+        # Only true future games should be NULL; end_date games may already be final.
+        if info["date"] > end_date and info["home_team"] and info["away_team"]:
             future_games.append((game_id, info))
 
     if not future_games:

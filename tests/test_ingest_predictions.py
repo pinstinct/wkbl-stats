@@ -147,3 +147,40 @@ def test_backfill_skips_existing_predictions(
     preds = database.get_game_predictions(sample_game["game_id"])
     assert len(preds["players"]) == 1
     assert preds["team"]["home_predicted_pts"] == team_prediction["home_predicted_pts"]
+
+
+def test_save_future_games_skips_games_on_end_date(monkeypatch):
+    import ingest_wkbl
+
+    inserted_game_ids = []
+
+    def _fake_insert_game(**kwargs):
+        inserted_game_ids.append(kwargs["game_id"])
+
+    monkeypatch.setattr(ingest_wkbl.database, "insert_game", _fake_insert_game)
+    monkeypatch.setattr(
+        ingest_wkbl, "_generate_predictions_for_games", lambda games, season_code: None
+    )
+
+    schedule_info = {
+        # end_date 당일 경기는 이미 실제 점수가 수집될 수 있으므로 future NULL 저장 대상에서 제외
+        "04601067": {
+            "date": "20260209",
+            "home_team": "KB스타즈",
+            "away_team": "하나원큐",
+        },
+        "04601068": {
+            "date": "20260210",
+            "home_team": "우리은행",
+            "away_team": "신한은행",
+        },
+    }
+
+    ingest_wkbl._save_future_games(
+        args=None,
+        schedule_info=schedule_info,
+        end_date="20260209",
+        season_code="046",
+    )
+
+    assert inserted_game_ids == ["04601068"]
