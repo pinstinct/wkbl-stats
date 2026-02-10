@@ -173,33 +173,37 @@ GitHub Pages로 정적 파일 호스팅 (sql.js로 브라우저에서 SQLite 쿼
 
 ```
 .
-├── index.html              # SPA 메인 페이지 (모든 뷰 템플릿)
-├── package.json            # 프론트 테스트(vitest) 설정
-├── server.py               # FastAPI 서버 (로컬/Render)
-├── pyproject.toml          # 프로젝트 의존성
-├── uv.lock                 # 의존성 잠금
+├── index.html               # SPA 메인 페이지 (모든 뷰 템플릿)
+├── package.json             # 프론트 테스트(vitest) 설정
+├── server.py                # FastAPI 서버 (로컬/Render)
+├── pyproject.toml           # 프로젝트 의존성
+├── uv.lock                  # 의존성 잠금
 ├── src/
-│   ├── app.js              # 프론트엔드 (라우팅, 렌더링, 차트)
-│   ├── db.js               # 브라우저 SQLite (sql.js 래퍼)
-│   ├── seasons.js          # 프론트 공유 시즌 상수
-│   ├── styles.css          # 반응형 스타일
-│   ├── data/               # 프론트 데이터 접근 레이어
-│   ├── ui/                 # 프론트 UI 바인딩 모듈
-│   └── views/              # 페이지별 렌더링 모듈
+│   ├── app.js               # 프론트엔드 엔트리 (라우팅/페이지 orchestration)
+│   ├── db.js                # 브라우저 SQLite (sql.js 래퍼)
+│   ├── seasons.js           # 프론트 공유 시즌 상수
+│   ├── styles.css           # 스타일 import 엔트리
+│   ├── data/                # 프론트 데이터 접근 레이어
+│   ├── ui/                  # 이벤트 바인딩/라우터 로직
+│   │   └── index.js         # ui 배럴 export
+│   ├── views/               # 페이지 렌더링/순수 로직
+│   │   └── index.js         # views 배럴 export
+│   └── styles/              # core/components/pages/responsive 분할 스타일
 ├── data/
-│   ├── wkbl-active.json    # 현역 선수 스탯 (자동 생성)
-│   ├── wkbl.db             # SQLite 데이터베이스
-│   └── cache/              # 크롤링 캐시 (git 제외)
+│   ├── wkbl-active.json     # 현역 선수 스탯 (자동 생성)
+│   ├── wkbl.db              # SQLite 데이터베이스
+│   └── cache/               # 크롤링 캐시 (git 제외)
 ├── tools/
-│   ├── api.py              # REST API 엔드포인트
-│   ├── config.py           # 설정 모듈
-│   ├── database.py         # SQLite 스키마 및 쿼리
-│   └── ingest_wkbl.py      # 데이터 수집 스크립트
+│   ├── api.py               # REST API 엔드포인트
+│   ├── config.py            # 설정 모듈
+│   ├── database.py          # SQLite 스키마 및 쿼리
+│   └── ingest_wkbl.py       # 데이터 수집 스크립트
 ├── docs/
-│   ├── data-sources.md     # 데이터 소스 문서
-│   └── project-roadmap.md  # 프로젝트 로드맵
+│   ├── data-sources.md      # 데이터 소스 문서
+│   ├── project-roadmap.md   # 프로젝트 로드맵
+│   └── project-structure.md # 구조 원칙/디렉터리 역할 가이드
 └── .github/workflows/
-    ├── update-data.yml     # 일일 데이터 업데이트
+    ├── update-data.yml      # 일일 데이터 업데이트
     └── update-data-full.yml # 전체 히스토리 업데이트 (수동)
 ```
 

@@ -33,6 +33,8 @@
 - 결과: 라우팅 규칙이 단위 테스트로 고정되어 회귀 위험이 감소.
 - 추가로 `resolveRouteTarget(path, id)`를 도입해 라우트 분기 결정을 순수 함수로 분리.
 - `src/app.js`의 `handleRoute`는 분기 계산 대신 실행만 담당하도록 단순화.
+- 구조 가독성 개선: `src/views/index.js`, `src/ui/index.js` 배럴 export를 도입해 `app.js` import 경로를 단일화.
+- 구조 문서화: `docs/project-structure.md` 추가(디렉터리 책임/추가 규칙 명시).
 
 ---
 

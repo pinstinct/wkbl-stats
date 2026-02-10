@@ -1,55 +1,43 @@
 import {
-  renderPlayerSummaryCard,
-  renderPlayersTable,
-} from "./views/players.js";
-import {
-  renderStandingsTable,
-  renderTeamRecentGames,
-  renderTeamRoster,
-} from "./views/teams.js";
-import { renderLeadersGrid } from "./views/leaders.js";
-import { renderGamesList } from "./views/games.js";
-import {
-  renderNextGameHighlight,
-  renderRecentResults,
-  renderUpcomingGames,
-} from "./views/schedule.js";
-import {
+  buildPredictionCompareState,
+  buildStandingsChartSeries,
+  calculatePrediction,
+  filterPlayers,
+  renderBoxscoreRows,
+  renderCareerSummary,
   renderCompareCards,
   renderCompareSelected,
   renderCompareSuggestions,
-} from "./views/compare.js";
-import {
+  renderGamesList,
+  renderLeadersGrid,
+  renderLineupPlayers,
+  renderNextGameHighlight,
+  renderPlayerGameLogTable,
+  renderPlayerSeasonTable,
+  renderPlayerSummaryCard,
+  renderPlayersTable,
   renderPredictCards,
   renderPredictFactors,
   renderPredictPlayerInfo,
   renderPredictSuggestions,
-} from "./views/predict.js";
-import {
-  buildPredictionCompareState,
-  calculatePrediction,
-} from "./views/predict-logic.js";
-import {
-  renderCareerSummary,
-  renderPlayerGameLogTable,
-  renderPlayerSeasonTable,
-} from "./views/player-detail.js";
-import { renderBoxscoreRows } from "./views/game-detail.js";
-import { renderLineupPlayers, renderTotalStats } from "./views/home.js";
-import { filterPlayers, sortPlayers } from "./views/players-logic.js";
-import { buildStandingsChartSeries } from "./views/teams-chart-logic.js";
+  renderRecentResults,
+  renderStandingsTable,
+  renderTeamRecentGames,
+  renderTeamRoster,
+  renderTotalStats,
+  renderUpcomingGames,
+  sortPlayers,
+} from "./views/index.js";
 import { createDataClient } from "./data/client.js";
-import { mountResponsiveNav } from "./ui/responsive-nav.js";
 import {
   getRouteFromHash,
   isNavLinkActive,
-  resolveRouteTarget,
-} from "./ui/router-logic.js";
-import {
   mountCompareEvents,
   mountGlobalSearchEvents,
   mountPredictEvents,
-} from "./ui/page-events.js";
+  mountResponsiveNav,
+  resolveRouteTarget,
+} from "./ui/index.js";
 
 (function () {
   "use strict";
