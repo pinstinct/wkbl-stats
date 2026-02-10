@@ -37,8 +37,14 @@ import {
 import { renderBoxscoreRows } from "./views/game-detail.js";
 import { renderLineupPlayers, renderTotalStats } from "./views/home.js";
 import { filterPlayers, sortPlayers } from "./views/players-logic.js";
+import { buildStandingsChartSeries } from "./views/teams-chart-logic.js";
 import { createDataClient } from "./data/client.js";
 import { mountResponsiveNav } from "./ui/responsive-nav.js";
+import {
+  getRouteFromHash,
+  isNavLinkActive,
+  resolveRouteTarget,
+} from "./ui/router-logic.js";
 import {
   mountCompareEvents,
   mountGlobalSearchEvents,
@@ -243,9 +249,7 @@ import {
   // =============================================================================
 
   function getRoute() {
-    const hash = window.location.hash.slice(1) || "/";
-    const parts = hash.split("/").filter(Boolean);
-    return { path: parts[0] || "", id: parts[1] || null };
+    return getRouteFromHash(window.location.hash);
   }
 
   function navigate(path) {
@@ -255,12 +259,8 @@ import {
   function updateNavLinks() {
     const { path } = getRoute();
     document.querySelectorAll(".nav-link").forEach((link) => {
-      const href = link.getAttribute("href").slice(1);
-      const linkPath = href.split("/")[1] || "";
-      link.classList.toggle(
-        "active",
-        linkPath === path || (linkPath === "" && path === ""),
-      );
+      const href = link.getAttribute("href");
+      link.classList.toggle("active", isNavLinkActive(href, path));
     });
   }
 
@@ -273,6 +273,7 @@ import {
 
   async function handleRoute() {
     const { path, id } = getRoute();
+    const target = resolveRouteTarget(path, id);
     updateNavLinks();
     const mainNav = $("mainNav");
     const navToggle = $("navToggle");
@@ -282,56 +283,42 @@ import {
     }
 
     try {
-      switch (path) {
-        case "":
-          showView("main");
+      showView(target.view);
+      switch (target.action) {
+        case "loadMainPage":
           await loadMainPage();
           break;
-        case "players":
-          if (id) {
-            showView("player");
-            await loadPlayerPage(id);
-          } else {
-            showView("players");
-            await loadPlayersPage();
-          }
+        case "loadPlayersPage":
+          await loadPlayersPage();
           break;
-        case "teams":
-          if (id) {
-            showView("team");
-            await loadTeamPage(id);
-          } else {
-            showView("teams");
-            await loadTeamsPage();
-          }
+        case "loadPlayerPage":
+          await loadPlayerPage(id);
           break;
-        case "games":
-          if (id) {
-            showView("game");
-            await loadGamePage(id);
-          } else {
-            showView("games");
-            await loadGamesPage();
-          }
+        case "loadTeamsPage":
+          await loadTeamsPage();
           break;
-        case "leaders":
-          showView("leaders");
+        case "loadTeamPage":
+          await loadTeamPage(id);
+          break;
+        case "loadGamesPage":
+          await loadGamesPage();
+          break;
+        case "loadGamePage":
+          await loadGamePage(id);
+          break;
+        case "loadLeadersPage":
           await loadLeadersPage();
           break;
-        case "compare":
-          showView("compare");
+        case "loadComparePage":
           await loadComparePage();
           break;
-        case "schedule":
-          showView("schedule");
+        case "loadSchedulePage":
           await loadSchedulePage();
           break;
-        case "predict":
-          showView("predict");
+        case "loadPredictPage":
           await loadPredictPage();
           break;
         default:
-          showView("main");
           await loadMainPage();
       }
     } catch (error) {
@@ -1338,28 +1325,9 @@ import {
       return;
     }
 
-    // Sort by rank
-    const sorted = [...standings].sort((a, b) => a.rank - b.rank);
-    const labels = sorted.map((t) => t.short_name || t.team_name);
+    const { sorted, labels, homeWins, homeLosses, awayWins, awayLosses } =
+      buildStandingsChartSeries(standings);
     const ctx = canvas.getContext("2d");
-
-    // Parse home/away records
-    const homeWins = sorted.map((t) => {
-      const parts = (t.home_record || "0-0").split("-");
-      return parseInt(parts[0]) || 0;
-    });
-    const homeLosses = sorted.map((t) => {
-      const parts = (t.home_record || "0-0").split("-");
-      return parseInt(parts[1]) || 0;
-    });
-    const awayWins = sorted.map((t) => {
-      const parts = (t.away_record || "0-0").split("-");
-      return parseInt(parts[0]) || 0;
-    });
-    const awayLosses = sorted.map((t) => {
-      const parts = (t.away_record || "0-0").split("-");
-      return parseInt(parts[1]) || 0;
-    });
 
     standingsChart = new Chart(ctx, {
       type: "bar",

@@ -1,4 +1,4 @@
-# Refactor Plan (Updated 2026-02-09)
+# Refactor Plan (Updated 2026-02-10)
 
 목표: 기능/화면은 유지하면서 유지보수 비용을 줄이고, 데이터 계산 일관성과 테스트 가능성을 높인다.
 
@@ -7,7 +7,7 @@
 ## 점검 결과 요약
 
 - 테스트 상태: `uv run pytest -q` 기준 **57 passed**.
-- 프론트 테스트: `npm run test:front` 기준 **26 passed (13 files)**.
+- 프론트 테스트: `npm run test:front` 기준 **38 passed (18 files)**.
 - 코드 품질 훅: `pre-commit`에 Python + Frontend(`eslint`/`prettier`) 체인 적용.
 - 현재 병목 파일:
   - `src/app.js` 2,623 lines
@@ -18,6 +18,21 @@
   - `tools/ingest_wkbl.py` 2,452 lines
 - 최근 UI 반응형 이슈(고정열/모바일 간격/네비게이션)는 다수 해결됨.
 - 따라서 다음 단계의 핵심은 **기능 추가보다 구조 분리/중복 제거**.
+
+### 추가 점검 (2026-02-10)
+
+- `src/app.js` 내부 순위 차트 전적 파싱(`home_record`/`away_record`) 중복 로직을 확인.
+- TDD로 `src/views/teams-chart-logic.test.js`를 먼저 추가하고 실패를 확인한 뒤 구현.
+- `src/views/teams-chart-logic.js`에 `parseWinLossRecord`, `buildStandingsChartSeries`를 분리.
+- `src/app.js`의 `renderStandingsChart`가 신규 로직 모듈을 사용하도록 전환.
+- 결과: 차트 데이터 생성 규칙이 단위 테스트로 고정되어 회귀 위험이 감소.
+- 라우팅 순수 로직(`hash -> route`, `nav-link active`)을 분리 대상으로 확인.
+- TDD로 `src/ui/router-logic.test.js`를 먼저 추가하고 실패를 확인한 뒤 구현.
+- `src/ui/router-logic.js`에 `getRouteFromHash`, `isNavLinkActive`를 분리.
+- `src/app.js`의 `getRoute`, `updateNavLinks`가 신규 로직 모듈을 사용하도록 전환.
+- 결과: 라우팅 규칙이 단위 테스트로 고정되어 회귀 위험이 감소.
+- 추가로 `resolveRouteTarget(path, id)`를 도입해 라우트 분기 결정을 순수 함수로 분리.
+- `src/app.js`의 `handleRoute`는 분기 계산 대신 실행만 담당하도록 단순화.
 
 ---
 
@@ -109,6 +124,8 @@
 - 완료: compare/predict/global-search 이벤트 `mount/unmount` 분리 (`src/ui/page-events.js`)
 - 완료: 홈 렌더링 분리 (`src/views/home.js`)
 - 추가: `src/views/player-detail.test.js`, `src/views/home.test.js`, `src/data/client.test.js`, `src/ui/responsive-nav.test.js`, `src/ui/page-events.test.js`
+- 추가: `src/views/teams-chart-logic.js`, `src/views/teams-chart-logic.test.js`
+- 추가: `src/ui/router-logic.js`, `src/ui/router-logic.test.js`
 - 상태: P1 완료, 다음 단계는 P2(CSS 분할)
 
 ### P2 (CSS 유지보수성)
