@@ -1,3 +1,7 @@
+/**
+ * DOM event mount helpers per page.
+ * Each mount returns a disposer to make route transitions safe.
+ */
 export function mountCompareEvents({
   getById,
   documentRef,
@@ -56,6 +60,7 @@ export function mountCompareEvents({
   });
 
   return () => {
+    // Remove all listeners registered through this mount call.
     listeners.forEach(([el, type, fn]) => el.removeEventListener(type, fn));
   };
 }

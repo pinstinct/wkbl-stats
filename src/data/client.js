@@ -1,8 +1,14 @@
+/**
+ * Data client facade used by views/controllers.
+ * Keeps DB initialization and query defaults in one place.
+ */
 export function resolvePlayersQuery({ season, defaultSeason }) {
   const isCurrentSeason = season === defaultSeason;
   return {
     seasonId: season === "all" ? null : season,
+    // Only the current season should be filtered by active roster.
     activeOnly: season !== "all" && isCurrentSeason,
+    // Historical season tables should still show players with 0 GP.
     includeNoGames: season !== "all",
   };
 }

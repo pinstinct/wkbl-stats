@@ -1,3 +1,4 @@
+/** Render helpers for the home dashboard sections. */
 export function renderLineupPlayers({
   container,
   lineup,

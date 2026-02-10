@@ -1,3 +1,4 @@
+/** Render helpers for games list view. */
 export function renderGamesList({ container, games, formatDate }) {
   if (!container) return;
   container.innerHTML = games

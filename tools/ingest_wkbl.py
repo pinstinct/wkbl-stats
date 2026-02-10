@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""WKBL ingest pipeline.
+
+Collects game/player/team data from WKBL endpoints, updates SQLite, and exports
+the frontend JSON snapshot used as a fallback data source.
+"""
+
 import argparse
 import datetime
 import hashlib

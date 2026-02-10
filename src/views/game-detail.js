@@ -1,3 +1,4 @@
+/** Render helpers for game detail and boxscore rows. */
 export function renderBoxscoreRows({
   game,
   predictions,

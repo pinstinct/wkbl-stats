@@ -1,3 +1,7 @@
+/**
+ * Responsive global navigation controller.
+ * Desktop keeps links expanded; mobile toggles through hamburger state.
+ */
 const DESKTOP_BREAKPOINT = 980;
 
 export function mountResponsiveNav({
@@ -32,6 +36,7 @@ export function mountResponsiveNav({
   };
 
   const onResize = () => {
+    // Ensure stale mobile-open state does not leak into desktop layout.
     if (windowRef.innerWidth > DESKTOP_BREAKPOINT) closeNavMenu();
   };
 

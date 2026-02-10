@@ -1,3 +1,4 @@
+/** Render helpers for teams listing and team detail tables. */
 export function renderStandingsTable({ tbody, standings }) {
   if (!tbody) return;
   tbody.innerHTML = standings

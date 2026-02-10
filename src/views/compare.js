@@ -1,3 +1,4 @@
+/** Render helpers for compare page inputs and result table. */
 export function renderCompareSelected({ container, selectedPlayers }) {
   if (!container) return;
   if (selectedPlayers.length === 0) {

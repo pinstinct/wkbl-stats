@@ -1,3 +1,4 @@
+/** Render helpers for leaders page category cards. */
 export function renderLeadersGrid({ grid, categories, leaderCategories }) {
   if (!grid) return;
   grid.innerHTML = leaderCategories

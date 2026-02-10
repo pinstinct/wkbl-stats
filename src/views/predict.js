@@ -1,3 +1,4 @@
+/** Render helpers for prediction page UI sections. */
 export function renderPredictSuggestions({
   container,
   players,

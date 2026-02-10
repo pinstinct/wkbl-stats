@@ -1,3 +1,4 @@
+/** Pure helpers for players page filtering/sorting state. */
 export function filterPlayers(
   players,
   { team = "all", pos = "all", search = "" },

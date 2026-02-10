@@ -1,3 +1,4 @@
+/** Prediction math utilities shared by the predict page. */
 function calcAvg(arr, key) {
   return arr.reduce((sum, g) => sum + (g[key] || 0), 0) / arr.length;
 }

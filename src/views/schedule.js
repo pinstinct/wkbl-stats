@@ -1,5 +1,6 @@
 import { getDayCountdownLabel } from "./schedule-logic.js";
 
+/** Render helpers for schedule page sections. */
 export function renderNextGameHighlight({
   nextGameCard,
   next,

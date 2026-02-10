@@ -1,3 +1,4 @@
+/** Render helpers for players list and stat tables. */
 export function renderPlayersTable({
   tbody,
   players,

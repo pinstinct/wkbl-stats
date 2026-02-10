@@ -1,3 +1,4 @@
+/** Render helpers for player detail page blocks. */
 export function renderCareerSummary({ summaryEl, seasons, courtMargin }) {
   if (!summaryEl || !seasons || seasons.length === 0) return;
   const totalGames = seasons.reduce((sum, s) => sum + s.gp, 0);

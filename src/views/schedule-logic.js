@@ -1,3 +1,4 @@
+/** Date helpers used by schedule countdown labels. */
 export function getDayCountdownLabel(gameDateStr, now = new Date()) {
   const gameDate = new Date(gameDateStr);
   const baseDate = new Date(now);
