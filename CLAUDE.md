@@ -435,7 +435,7 @@ uv run pre-commit run --all-files
 - HTTP responses are cached in `data/cache/` to avoid redundant network requests
 - **Static hosting**: Uses sql.js (WebAssembly) to run SQLite queries in browser
 - **Fallback chain**: Local DB (sql.js) → JSON file (API 폴백 제거됨)
-- Frontend falls back to `data/sample.json` if `wkbl-active.json` unavailable
+- Frontend falls back to `data/wkbl-active.json` when local DB is unavailable
 - **Player ID tracking**: Use `--load-all-players` to load all 700+ players (active, retired, foreign) and correctly map player IDs (pno). Without this flag, retired players in historical data may get incorrect placeholder IDs.
 - Player IDs (pno) are consistent across seasons, enabling tracking of player career stats and team transfer history.
 

@@ -189,7 +189,6 @@ GitHub Pages로 정적 파일 호스팅 (sql.js로 브라우저에서 SQLite 쿼
 ├── data/
 │   ├── wkbl-active.json    # 현역 선수 스탯 (자동 생성)
 │   ├── wkbl.db             # SQLite 데이터베이스
-│   ├── sample.json         # 폴백 샘플 데이터
 │   └── cache/              # 크롤링 캐시 (git 제외)
 ├── tools/
 │   ├── api.py              # REST API 엔드포인트
