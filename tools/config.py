@@ -12,6 +12,38 @@ PLAYER_LIST = "https://www.wkbl.or.kr/player/player_list.asp"
 PLAYER_LIST_RETIRED = "https://www.wkbl.or.kr/player/player_list.asp?player_group=11"
 PLAYER_LIST_FOREIGN = "https://www.wkbl.or.kr/player/player_list.asp?player_group=F11"
 TEAM_STANDINGS_URL = "https://www.wkbl.or.kr/game/ajax/ajax_team_rank.asp"
+PLAY_BY_PLAY_URL = BASE_URL + "/playByPlay"
+SHOT_CHART_URL = BASE_URL + "/shotCharts"
+TEAM_ANALYSIS_URL = BASE_URL + "/teamAnalysis"
+TEAM_CATEGORY_STATS_URL = "https://www.wkbl.or.kr/game/ajax/ajax_part_team_rank.asp"
+HEAD_TO_HEAD_URL = "https://www.wkbl.or.kr/game/ajax/ajax_report.asp"
+MVP_URL = "https://www.wkbl.or.kr/game/today_mvp.asp"
+
+# WKBL team codes for wkbl.or.kr endpoints (different from DB team IDs)
+WKBL_TEAM_CODES = {
+    "kb": "01",
+    "samsung": "03",
+    "woori": "05",
+    "shinhan": "07",
+    "hana": "09",
+    "bnk": "11",
+}
+
+# Team category stats part numbers → stat names
+TEAM_CATEGORY_PARTS = {
+    1: "pts",
+    2: "pts_against",
+    3: "reb",
+    4: "ast",
+    5: "stl",
+    6: "blk",
+    7: "tpm",
+    8: "two_pm",
+    9: "ftm",
+    10: "tpp",
+    11: "two_pp",
+    12: "ftp",
+}
 
 # Server Settings
 HOST = os.getenv("HOST", "")

@@ -1227,6 +1227,131 @@ const WKBLDatabase = (function () {
   }
 
   // =============================================================================
+  // Additional data query functions
+  // =============================================================================
+
+  /**
+   * Get play-by-play events for a game
+   * @param {string} gameId - Game ID
+   * @returns {Array} List of PBP events ordered by event_order
+   */
+  function getPlayByPlay(gameId) {
+    return query(
+      "SELECT * FROM play_by_play WHERE game_id = ? ORDER BY event_order",
+      [gameId],
+    );
+  }
+
+  /**
+   * Get shot chart data for a game
+   * @param {string} gameId - Game ID
+   * @param {string} [playerId] - Optional player filter
+   * @returns {Array} List of shot records
+   */
+  function getShotChart(gameId, playerId) {
+    if (playerId) {
+      return query(
+        `SELECT * FROM shot_charts
+         WHERE game_id = ? AND player_id = ?
+         ORDER BY quarter, game_minute, game_second`,
+        [gameId, playerId],
+      );
+    }
+    return query(
+      `SELECT * FROM shot_charts
+       WHERE game_id = ?
+       ORDER BY quarter, game_minute, game_second`,
+      [gameId],
+    );
+  }
+
+  /**
+   * Get team category stats for a season
+   * @param {string} seasonId - Season code
+   * @param {string} [category] - Optional category filter
+   * @returns {Array} List of team category stats
+   */
+  function getTeamCategoryStats(seasonId, category) {
+    if (category) {
+      return query(
+        `SELECT tcs.*, t.name as team_name, t.short_name
+         FROM team_category_stats tcs
+         JOIN teams t ON tcs.team_id = t.id
+         WHERE tcs.season_id = ? AND tcs.category = ?
+         ORDER BY tcs.rank`,
+        [seasonId, category],
+      );
+    }
+    return query(
+      `SELECT tcs.*, t.name as team_name, t.short_name
+       FROM team_category_stats tcs
+       JOIN teams t ON tcs.team_id = t.id
+       WHERE tcs.season_id = ?
+       ORDER BY tcs.category, tcs.rank`,
+      [seasonId],
+    );
+  }
+
+  /**
+   * Get head-to-head records for a season
+   * @param {string} seasonId - Season code
+   * @param {string} [team1Id] - Optional team1 filter
+   * @param {string} [team2Id] - Optional team2 filter
+   * @returns {Array} List of H2H records
+   */
+  function getHeadToHead(seasonId, team1Id, team2Id) {
+    if (team1Id && team2Id) {
+      return query(
+        `SELECT * FROM head_to_head
+         WHERE season_id = ? AND (
+           (team1_id = ? AND team2_id = ?) OR
+           (team1_id = ? AND team2_id = ?)
+         )
+         ORDER BY game_date`,
+        [seasonId, team1Id, team2Id, team2Id, team1Id],
+      );
+    }
+    return query(
+      `SELECT * FROM head_to_head
+       WHERE season_id = ?
+       ORDER BY team1_id, team2_id, game_date`,
+      [seasonId],
+    );
+  }
+
+  /**
+   * Get game MVP records for a season
+   * @param {string} seasonId - Season code
+   * @returns {Array} List of MVP records with player info
+   */
+  function getGameMVP(seasonId) {
+    return query(
+      `SELECT gm.*, p.name as player_name, t.name as team_name
+       FROM game_mvp gm
+       LEFT JOIN players p ON gm.player_id = p.id
+       LEFT JOIN teams t ON gm.team_id = t.id
+       WHERE gm.season_id = ?
+       ORDER BY gm.game_date DESC, gm.rank`,
+      [seasonId],
+    );
+  }
+
+  /**
+   * Get quarter scores and venue for a game
+   * @param {string} gameId - Game ID
+   * @returns {Object|null} Quarter scores and venue, or null if not found
+   */
+  function getGameQuarterScores(gameId) {
+    const rows = query(
+      `SELECT home_q1, home_q2, home_q3, home_q4, home_ot,
+              away_q1, away_q2, away_q3, away_q4, away_ot, venue
+       FROM games WHERE id = ?`,
+      [gameId],
+    );
+    return rows.length > 0 ? rows[0] : null;
+  }
+
+  // =============================================================================
   // Public API
   // =============================================================================
 
@@ -1260,6 +1385,14 @@ const WKBLDatabase = (function () {
     getNextGame,
     getGamePredictions,
     hasGamePredictions,
+
+    // Additional data
+    getPlayByPlay,
+    getShotChart,
+    getTeamCategoryStats,
+    getHeadToHead,
+    getGameMVP,
+    getGameQuarterScores,
   };
 })();
 

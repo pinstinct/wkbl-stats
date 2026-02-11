@@ -53,6 +53,17 @@ CREATE TABLE IF NOT EXISTS games (
     away_team_id TEXT NOT NULL,
     home_score INTEGER,
     away_score INTEGER,
+    home_q1 INTEGER,
+    home_q2 INTEGER,
+    home_q3 INTEGER,
+    home_q4 INTEGER,
+    home_ot INTEGER,
+    away_q1 INTEGER,
+    away_q2 INTEGER,
+    away_q3 INTEGER,
+    away_q4 INTEGER,
+    away_ot INTEGER,
+    venue TEXT,
     game_type TEXT DEFAULT 'regular',  -- regular, playoff, allstar
     FOREIGN KEY (season_id) REFERENCES seasons(id),
     FOREIGN KEY (home_team_id) REFERENCES teams(id),
@@ -202,6 +213,110 @@ CREATE TABLE IF NOT EXISTS game_team_predictions (
 CREATE INDEX IF NOT EXISTS idx_game_predictions_game ON game_predictions(game_id);
 CREATE INDEX IF NOT EXISTS idx_game_team_predictions_game ON game_team_predictions(game_id);
 
+-- Play-by-Play 테이블
+CREATE TABLE IF NOT EXISTS play_by_play (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id TEXT NOT NULL,
+    event_order INTEGER NOT NULL,
+    quarter TEXT,                       -- Q1, Q2, Q3, Q4, OT
+    game_clock TEXT,                    -- MM:SS
+    team_id TEXT,
+    player_id TEXT,
+    event_type TEXT,                    -- score, foul, turnover, timeout, etc.
+    event_detail TEXT,                  -- 2점슛, 3점슛, 자유투, etc.
+    home_score INTEGER,
+    away_score INTEGER,
+    description TEXT,
+    FOREIGN KEY (game_id) REFERENCES games(id),
+    FOREIGN KEY (team_id) REFERENCES teams(id),
+    FOREIGN KEY (player_id) REFERENCES players(id),
+    UNIQUE (game_id, event_order)
+);
+
+-- 샷 차트 테이블
+CREATE TABLE IF NOT EXISTS shot_charts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id TEXT NOT NULL,
+    player_id TEXT NOT NULL,
+    team_id TEXT,
+    quarter TEXT,                       -- Q1, Q2, Q3, Q4, OT
+    game_minute INTEGER,
+    game_second INTEGER,
+    x REAL,                            -- 코트 X 좌표
+    y REAL,                            -- 코트 Y 좌표
+    made INTEGER NOT NULL,             -- 1: 성공, 0: 실패
+    shot_zone TEXT,                    -- paint, mid, three, etc.
+    is_home INTEGER,                   -- 1: 홈, 0: 원정
+    FOREIGN KEY (game_id) REFERENCES games(id),
+    FOREIGN KEY (player_id) REFERENCES players(id),
+    FOREIGN KEY (team_id) REFERENCES teams(id),
+    UNIQUE (game_id, player_id, quarter, game_minute, game_second)
+);
+
+-- 팀 카테고리별 순위
+CREATE TABLE IF NOT EXISTS team_category_stats (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    season_id TEXT NOT NULL,
+    team_id TEXT NOT NULL,
+    category TEXT NOT NULL,            -- pts, reb, ast, stl, blk, etc.
+    rank INTEGER,
+    value REAL,
+    games_played INTEGER,
+    extra_values TEXT,                 -- JSON for additional values
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (season_id) REFERENCES seasons(id),
+    FOREIGN KEY (team_id) REFERENCES teams(id),
+    UNIQUE (season_id, team_id, category)
+);
+
+-- 상대전적 (Head-to-Head)
+CREATE TABLE IF NOT EXISTS head_to_head (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    season_id TEXT NOT NULL,
+    team1_id TEXT NOT NULL,
+    team2_id TEXT NOT NULL,
+    game_date TEXT NOT NULL,           -- YYYY-MM-DD
+    game_number TEXT,                  -- 경기 번호
+    venue TEXT,
+    team1_scores TEXT,                 -- JSON: Q1-Q4, OT scores
+    team2_scores TEXT,                 -- JSON: Q1-Q4, OT scores
+    total_score TEXT,                  -- "65-58"
+    winner_id TEXT,
+    FOREIGN KEY (season_id) REFERENCES seasons(id),
+    FOREIGN KEY (team1_id) REFERENCES teams(id),
+    FOREIGN KEY (team2_id) REFERENCES teams(id),
+    UNIQUE (season_id, team1_id, team2_id, game_date)
+);
+
+-- 경기 MVP
+CREATE TABLE IF NOT EXISTS game_mvp (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    season_id TEXT NOT NULL,
+    player_id TEXT,
+    team_id TEXT,
+    game_date TEXT,                    -- YYYY-MM-DD
+    rank INTEGER,                     -- 1위, 2위, ...
+    evaluation_score REAL,            -- EFF
+    minutes REAL,
+    pts INTEGER,
+    reb INTEGER,
+    ast INTEGER,
+    stl INTEGER,
+    blk INTEGER,
+    tov INTEGER,
+    FOREIGN KEY (season_id) REFERENCES seasons(id),
+    FOREIGN KEY (player_id) REFERENCES players(id),
+    FOREIGN KEY (team_id) REFERENCES teams(id),
+    UNIQUE (season_id, game_date, rank)
+);
+
+CREATE INDEX IF NOT EXISTS idx_play_by_play_game ON play_by_play(game_id);
+CREATE INDEX IF NOT EXISTS idx_shot_charts_game ON shot_charts(game_id);
+CREATE INDEX IF NOT EXISTS idx_shot_charts_player ON shot_charts(player_id);
+CREATE INDEX IF NOT EXISTS idx_team_category_stats_season ON team_category_stats(season_id);
+CREATE INDEX IF NOT EXISTS idx_head_to_head_season ON head_to_head(season_id);
+CREATE INDEX IF NOT EXISTS idx_game_mvp_season ON game_mvp(season_id);
+
 -- 메타데이터 테이블 (테이블/컬럼 설명)
 CREATE TABLE IF NOT EXISTS _meta_descriptions (
     table_name TEXT NOT NULL,
@@ -317,6 +432,40 @@ META_DESCRIPTIONS = [
     ("game_team_predictions", "", "경기별 팀 승률 예측"),
     ("game_team_predictions", "home_win_prob", "홈팀 승률 예측 (0-100)"),
     ("game_team_predictions", "away_win_prob", "원정팀 승률 예측 (0-100)"),
+    # games 추가 컬럼
+    ("games", "home_q1", "홈팀 1쿼터 점수"),
+    ("games", "home_q2", "홈팀 2쿼터 점수"),
+    ("games", "home_q3", "홈팀 3쿼터 점수"),
+    ("games", "home_q4", "홈팀 4쿼터 점수"),
+    ("games", "home_ot", "홈팀 연장전 점수"),
+    ("games", "away_q1", "원정팀 1쿼터 점수"),
+    ("games", "away_q2", "원정팀 2쿼터 점수"),
+    ("games", "away_q3", "원정팀 3쿼터 점수"),
+    ("games", "away_q4", "원정팀 4쿼터 점수"),
+    ("games", "away_ot", "원정팀 연장전 점수"),
+    ("games", "venue", "경기장 이름"),
+    # play_by_play 테이블
+    ("play_by_play", "", "경기 플레이바이플레이 이벤트"),
+    ("play_by_play", "event_order", "이벤트 순서"),
+    ("play_by_play", "event_type", "이벤트 유형 (score, foul 등)"),
+    ("play_by_play", "game_clock", "경기 시계 (MM:SS)"),
+    # shot_charts 테이블
+    ("shot_charts", "", "경기 샷 차트 (슈팅 위치)"),
+    ("shot_charts", "x", "코트 X 좌표"),
+    ("shot_charts", "y", "코트 Y 좌표"),
+    ("shot_charts", "made", "성공 여부 (1=성공, 0=실패)"),
+    # team_category_stats 테이블
+    ("team_category_stats", "", "팀 카테고리별 순위"),
+    ("team_category_stats", "category", "카테고리 (pts, reb, ast 등)"),
+    ("team_category_stats", "value", "카테고리 값"),
+    # head_to_head 테이블
+    ("head_to_head", "", "팀 간 상대전적"),
+    ("head_to_head", "team1_scores", "팀1 쿼터별 점수 (JSON)"),
+    ("head_to_head", "team2_scores", "팀2 쿼터별 점수 (JSON)"),
+    # game_mvp 테이블
+    ("game_mvp", "", "경기 MVP"),
+    ("game_mvp", "evaluation_score", "EFF (효율 점수)"),
+    ("game_mvp", "rank", "MVP 순위"),
 ]
 
 # WKBL 팀 마스터 데이터
@@ -422,14 +571,26 @@ def insert_game(
     home_score: Optional[int] = None,
     away_score: Optional[int] = None,
     game_type: str = "regular",
+    home_q1: Optional[int] = None,
+    home_q2: Optional[int] = None,
+    home_q3: Optional[int] = None,
+    home_q4: Optional[int] = None,
+    home_ot: Optional[int] = None,
+    away_q1: Optional[int] = None,
+    away_q2: Optional[int] = None,
+    away_q3: Optional[int] = None,
+    away_q4: Optional[int] = None,
+    away_ot: Optional[int] = None,
+    venue: Optional[str] = None,
 ):
     """Insert or update a game."""
     with get_connection() as conn:
         conn.execute(
             """INSERT OR REPLACE INTO games
                (id, season_id, game_date, home_team_id, away_team_id,
-                home_score, away_score, game_type)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                home_score, away_score, home_q1, home_q2, home_q3, home_q4, home_ot,
+                away_q1, away_q2, away_q3, away_q4, away_ot, venue, game_type)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 game_id,
                 season_id,
@@ -438,6 +599,17 @@ def insert_game(
                 away_team_id,
                 home_score,
                 away_score,
+                home_q1,
+                home_q2,
+                home_q3,
+                home_q4,
+                home_ot,
+                away_q1,
+                away_q2,
+                away_q3,
+                away_q4,
+                away_ot,
+                venue,
                 game_type,
             ),
         )
@@ -1042,6 +1214,405 @@ def has_game_predictions(game_id: str) -> bool:
             (game_id,),
         ).fetchone()
         return row["cnt"] > 0
+
+
+def update_game_quarter_scores(game_id: str, data: Dict[str, Any]):
+    """Update quarter scores and venue for an existing game.
+
+    Args:
+        game_id: Game ID
+        data: Dict with optional keys: home_q1..home_ot, away_q1..away_ot, venue
+    """
+    with get_connection() as conn:
+        conn.execute(
+            """UPDATE games SET
+                home_q1 = ?, home_q2 = ?, home_q3 = ?, home_q4 = ?, home_ot = ?,
+                away_q1 = ?, away_q2 = ?, away_q3 = ?, away_q4 = ?, away_ot = ?,
+                venue = ?
+               WHERE id = ?""",
+            (
+                data.get("home_q1"),
+                data.get("home_q2"),
+                data.get("home_q3"),
+                data.get("home_q4"),
+                data.get("home_ot"),
+                data.get("away_q1"),
+                data.get("away_q2"),
+                data.get("away_q3"),
+                data.get("away_q4"),
+                data.get("away_ot"),
+                data.get("venue"),
+                game_id,
+            ),
+        )
+        conn.commit()
+
+
+def bulk_update_quarter_scores(records: List[Dict[str, Any]]):
+    """Bulk update quarter scores for multiple games.
+
+    Args:
+        records: List of dicts with game_id and quarter score data
+    """
+    with get_connection() as conn:
+        for rec in records:
+            conn.execute(
+                """UPDATE games SET
+                    home_q1 = ?, home_q2 = ?, home_q3 = ?, home_q4 = ?, home_ot = ?,
+                    away_q1 = ?, away_q2 = ?, away_q3 = ?, away_q4 = ?, away_ot = ?,
+                    venue = ?
+                   WHERE id = ?""",
+                (
+                    rec.get("home_q1"),
+                    rec.get("home_q2"),
+                    rec.get("home_q3"),
+                    rec.get("home_q4"),
+                    rec.get("home_ot"),
+                    rec.get("away_q1"),
+                    rec.get("away_q2"),
+                    rec.get("away_q3"),
+                    rec.get("away_q4"),
+                    rec.get("away_ot"),
+                    rec.get("venue"),
+                    rec["game_id"],
+                ),
+            )
+        conn.commit()
+        logger.info(f"Updated quarter scores for {len(records)} games")
+
+
+def bulk_insert_play_by_play(game_id: str, events: List[Dict[str, Any]]):
+    """Bulk insert play-by-play events for a game.
+
+    Args:
+        game_id: Game ID
+        events: List of event dicts
+    """
+    with get_connection() as conn:
+        for event in events:
+            conn.execute(
+                """INSERT OR REPLACE INTO play_by_play
+                   (game_id, event_order, quarter, game_clock, team_id, player_id,
+                    event_type, event_detail, home_score, away_score, description)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    game_id,
+                    event.get("event_order"),
+                    event.get("quarter"),
+                    event.get("game_clock"),
+                    event.get("team_id"),
+                    event.get("player_id"),
+                    event.get("event_type"),
+                    event.get("event_detail"),
+                    event.get("home_score"),
+                    event.get("away_score"),
+                    event.get("description"),
+                ),
+            )
+        conn.commit()
+        logger.info(f"Inserted {len(events)} play-by-play events for game {game_id}")
+
+
+def get_play_by_play(game_id: str, quarter: Optional[str] = None) -> List[Dict]:
+    """Get play-by-play events for a game.
+
+    Args:
+        game_id: Game ID
+        quarter: Optional quarter filter (Q1, Q2, Q3, Q4, OT)
+
+    Returns:
+        List of event dicts ordered by event_order
+    """
+    with get_connection() as conn:
+        if quarter:
+            rows = conn.execute(
+                """SELECT * FROM play_by_play
+                   WHERE game_id = ? AND quarter = ?
+                   ORDER BY event_order""",
+                (game_id, quarter),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT * FROM play_by_play
+                   WHERE game_id = ?
+                   ORDER BY event_order""",
+                (game_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def bulk_insert_shot_charts(game_id: str, shots: List[Dict[str, Any]]):
+    """Bulk insert shot chart data for a game.
+
+    Args:
+        game_id: Game ID
+        shots: List of shot dicts
+    """
+    with get_connection() as conn:
+        for shot in shots:
+            conn.execute(
+                """INSERT OR REPLACE INTO shot_charts
+                   (game_id, player_id, team_id, quarter, game_minute, game_second,
+                    x, y, made, shot_zone, is_home)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    game_id,
+                    shot.get("player_id"),
+                    shot.get("team_id"),
+                    shot.get("quarter"),
+                    shot.get("game_minute"),
+                    shot.get("game_second"),
+                    shot.get("x"),
+                    shot.get("y"),
+                    shot.get("made"),
+                    shot.get("shot_zone"),
+                    shot.get("is_home"),
+                ),
+            )
+        conn.commit()
+        logger.info(f"Inserted {len(shots)} shot chart records for game {game_id}")
+
+
+def get_shot_chart(game_id: str, player_id: Optional[str] = None) -> List[Dict]:
+    """Get shot chart data for a game.
+
+    Args:
+        game_id: Game ID
+        player_id: Optional player filter
+
+    Returns:
+        List of shot dicts
+    """
+    with get_connection() as conn:
+        if player_id:
+            rows = conn.execute(
+                """SELECT * FROM shot_charts
+                   WHERE game_id = ? AND player_id = ?
+                   ORDER BY quarter, game_minute, game_second""",
+                (game_id, player_id),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT * FROM shot_charts
+                   WHERE game_id = ?
+                   ORDER BY quarter, game_minute, game_second""",
+                (game_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def bulk_insert_team_category_stats(
+    season_id: str, category: str, stats: List[Dict[str, Any]]
+):
+    """Bulk insert team category stats.
+
+    Args:
+        season_id: Season code
+        category: Category name (pts, reb, ast, etc.)
+        stats: List of team stat dicts
+    """
+    with get_connection() as conn:
+        for stat in stats:
+            conn.execute(
+                """INSERT OR REPLACE INTO team_category_stats
+                   (season_id, team_id, category, rank, value, games_played,
+                    extra_values, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+                (
+                    season_id,
+                    stat.get("team_id"),
+                    category,
+                    stat.get("rank"),
+                    stat.get("value"),
+                    stat.get("games_played"),
+                    stat.get("extra_values"),
+                ),
+            )
+        conn.commit()
+        logger.info(
+            f"Inserted {len(stats)} team category stats "
+            f"for {category} in season {season_id}"
+        )
+
+
+def get_team_category_stats(
+    season_id: str, category: Optional[str] = None
+) -> List[Dict]:
+    """Get team category stats.
+
+    Args:
+        season_id: Season code
+        category: Optional category filter
+
+    Returns:
+        List of team category stat dicts
+    """
+    with get_connection() as conn:
+        if category:
+            rows = conn.execute(
+                """SELECT tcs.*, t.name as team_name, t.short_name
+                   FROM team_category_stats tcs
+                   JOIN teams t ON tcs.team_id = t.id
+                   WHERE tcs.season_id = ? AND tcs.category = ?
+                   ORDER BY tcs.rank""",
+                (season_id, category),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT tcs.*, t.name as team_name, t.short_name
+                   FROM team_category_stats tcs
+                   JOIN teams t ON tcs.team_id = t.id
+                   WHERE tcs.season_id = ?
+                   ORDER BY tcs.category, tcs.rank""",
+                (season_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def bulk_insert_head_to_head(season_id: str, records: List[Dict[str, Any]]):
+    """Bulk insert head-to-head records.
+
+    Args:
+        season_id: Season code
+        records: List of H2H record dicts
+    """
+    with get_connection() as conn:
+        for rec in records:
+            conn.execute(
+                """INSERT OR REPLACE INTO head_to_head
+                   (season_id, team1_id, team2_id, game_date, game_number,
+                    venue, team1_scores, team2_scores, total_score, winner_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    season_id,
+                    rec.get("team1_id"),
+                    rec.get("team2_id"),
+                    rec.get("game_date"),
+                    rec.get("game_number"),
+                    rec.get("venue"),
+                    rec.get("team1_scores"),
+                    rec.get("team2_scores"),
+                    rec.get("total_score"),
+                    rec.get("winner_id"),
+                ),
+            )
+        conn.commit()
+        logger.info(
+            f"Inserted {len(records)} head-to-head records for season {season_id}"
+        )
+
+
+def get_head_to_head(
+    season_id: str,
+    team1_id: Optional[str] = None,
+    team2_id: Optional[str] = None,
+) -> List[Dict]:
+    """Get head-to-head records.
+
+    Supports bidirectional lookup (team1 vs team2 or team2 vs team1).
+
+    Args:
+        season_id: Season code
+        team1_id: Optional first team filter
+        team2_id: Optional second team filter
+
+    Returns:
+        List of H2H record dicts
+    """
+    with get_connection() as conn:
+        if team1_id and team2_id:
+            rows = conn.execute(
+                """SELECT * FROM head_to_head
+                   WHERE season_id = ? AND (
+                     (team1_id = ? AND team2_id = ?) OR
+                     (team1_id = ? AND team2_id = ?)
+                   )
+                   ORDER BY game_date""",
+                (season_id, team1_id, team2_id, team2_id, team1_id),
+            ).fetchall()
+        elif team1_id:
+            rows = conn.execute(
+                """SELECT * FROM head_to_head
+                   WHERE season_id = ? AND (team1_id = ? OR team2_id = ?)
+                   ORDER BY game_date""",
+                (season_id, team1_id, team1_id),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT * FROM head_to_head
+                   WHERE season_id = ?
+                   ORDER BY team1_id, team2_id, game_date""",
+                (season_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def bulk_insert_game_mvp(season_id: str, records: List[Dict[str, Any]]):
+    """Bulk insert game MVP records.
+
+    Args:
+        season_id: Season code
+        records: List of MVP record dicts
+    """
+    with get_connection() as conn:
+        for rec in records:
+            conn.execute(
+                """INSERT OR REPLACE INTO game_mvp
+                   (season_id, player_id, team_id, game_date, rank,
+                    evaluation_score, minutes, pts, reb, ast, stl, blk, tov)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    season_id,
+                    rec.get("player_id"),
+                    rec.get("team_id"),
+                    rec.get("game_date"),
+                    rec.get("rank"),
+                    rec.get("evaluation_score"),
+                    rec.get("minutes"),
+                    rec.get("pts"),
+                    rec.get("reb"),
+                    rec.get("ast"),
+                    rec.get("stl"),
+                    rec.get("blk"),
+                    rec.get("tov"),
+                ),
+            )
+        conn.commit()
+        logger.info(f"Inserted {len(records)} game MVP records for season {season_id}")
+
+
+def get_game_mvp(season_id: str, game_date: Optional[str] = None) -> List[Dict]:
+    """Get game MVP records.
+
+    Args:
+        season_id: Season code
+        game_date: Optional date filter (YYYY-MM-DD)
+
+    Returns:
+        List of MVP record dicts with player info
+    """
+    with get_connection() as conn:
+        if game_date:
+            rows = conn.execute(
+                """SELECT gm.*, p.name as player_name, t.name as team_name
+                   FROM game_mvp gm
+                   LEFT JOIN players p ON gm.player_id = p.id
+                   LEFT JOIN teams t ON gm.team_id = t.id
+                   WHERE gm.season_id = ? AND gm.game_date = ?
+                   ORDER BY gm.rank""",
+                (season_id, game_date),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT gm.*, p.name as player_name, t.name as team_name
+                   FROM game_mvp gm
+                   LEFT JOIN players p ON gm.player_id = p.id
+                   LEFT JOIN teams t ON gm.team_id = t.id
+                   WHERE gm.season_id = ?
+                   ORDER BY gm.game_date DESC, gm.rank""",
+                (season_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
 
 if __name__ == "__main__":

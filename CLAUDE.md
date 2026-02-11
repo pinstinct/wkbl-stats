@@ -77,6 +77,12 @@ python3 tools/ingest_wkbl.py \
 | `--include-future`                  | Save future (scheduled) games with NULL scores to database                            |
 | `--fetch-profiles`                  | Fetch individual player profiles for birth_date (slower, use with --load-all-players) |
 | `--backfill-games {id...}`          | Backfill predictions for specific game IDs                                            |
+| `--fetch-play-by-play`              | Fetch play-by-play data for each game (per-game, slower)                              |
+| `--fetch-shot-charts`               | Fetch shot chart data for each game (per-game, slower)                                |
+| `--fetch-team-category-stats`       | Fetch team category rankings (12 categories per season)                               |
+| `--fetch-head-to-head`              | Fetch head-to-head records for all team pairs (15 pairs per season)                   |
+| `--fetch-game-mvp`                  | Fetch game MVP data for the season                                                    |
+| `--fetch-quarter-scores`            | Fetch quarter scores and venue via Team Analysis (15 requests per season)             |
 
 ### Testing
 
@@ -92,14 +98,16 @@ uv run pytest tests/test_database.py -v
 uv run pytest tests/test_api.py -v
 ```
 
-**Test coverage (53 tests total):**
+**Test coverage (77 tests total):**
 
-- `test_database.py`: Database operations (28 tests)
+- `test_database.py`: Database operations (42 tests)
   - Database init, CRUD operations, season stats, boxscore, standings, predictions
   - Team game operations, game queries, bulk operations, future game predictions
-- `test_api.py`: REST API endpoints (23 tests)
+  - Quarter scores, play-by-play, shot charts, team category stats, head-to-head, game MVP
+- `test_api.py`: REST API endpoints (30 tests)
   - Health, players, teams, games, seasons, standings, leaders, search, compare
-- `test_ingest_predictions.py`: Ingest prediction backfill (2 tests)
+- `test_ingest_predictions.py`: Ingest prediction backfill (3 tests)
+- `test_refactor_p0.py`: Advanced stats and season resolver (2 tests)
 
 ## Frontend Pages (SPA)
 
@@ -221,8 +229,13 @@ teams ───┼──→ games ──→ player_games (per-game player stats)
          │        └──→ team_games (per-game team stats)
          │        └──→ game_predictions (player stat predictions)
          │        └──→ game_team_predictions (team win predictions)
+         │        └──→ play_by_play (play-by-play events)
+         │        └──→ shot_charts (shot chart data)
          │
-         └──→ team_standings (season standings)
+         ├──→ team_standings (season standings)
+         ├──→ team_category_stats (team category rankings)
+         ├──→ head_to_head (team H2H records)
+         └──→ game_mvp (game MVP records)
 players ─┘
 ```
 
@@ -231,12 +244,17 @@ Key tables:
 - `seasons`: Season info (id=046, label=2025-26, start_date, end_date)
 - `teams`: Team info (id=kb, name=KB스타즈, short_name=KB)
 - `players`: Player info (id=pno, name, team_id, position, height)
-- `games`: Game metadata (id=04601055, date, home/away teams, scores, game_type)
+- `games`: Game metadata (id=04601055, date, home/away teams, scores, quarter scores, venue, game_type)
 - `player_games`: Per-game player stats (MIN, PTS, REB, AST, shooting splits)
 - `team_games`: Per-game team stats (fast_break_pts, paint_pts, two_pts, three_pts)
 - `team_standings`: Season standings (rank, wins, losses, win_pct, home/away records, streak, last5)
 - `game_predictions`: Player stat predictions (predicted_pts/reb/ast with confidence intervals)
 - `game_team_predictions`: Team win probability predictions (home/away win_prob, predicted_pts)
+- `play_by_play`: Play-by-play events (quarter, game_clock, event_type, scores)
+- `shot_charts`: Shot chart data (x, y coordinates, made/missed, player, quarter)
+- `team_category_stats`: Team category rankings (pts, reb, ast, etc. per season)
+- `head_to_head`: Head-to-head records between teams (scores, venue, winner)
+- `game_mvp`: Game MVP records (player stats, evaluation score, rank)
 - `_meta_descriptions`: Table/column descriptions metadata
 
 **Note:** Predictions are generated during ingest (`--include-future`) and stored in DB tables. Browser reads from DB via sql.js.

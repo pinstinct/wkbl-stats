@@ -265,22 +265,137 @@ https://www.wkbl.or.kr/player/detail2.asp?pno=095035
 - 시즌/팀 이동과 무관하게 고유한 선수 식별자
 - `--load-all-players` 옵션으로 현역+은퇴+외국인 선수 전체 로드 가능
 
+### 7. Play-by-Play (DataLab)
+
+경기의 실시간 이벤트를 추출합니다.
+
+**엔드포인트:**
+
+```
+GET https://datalab.wkbl.or.kr/playByPlay?menu=playByPlay&selectedId={game_id}
+```
+
+**데이터:** `drawPlayerButton()` 호출에서 이벤트 ID, 홈/원정 점수, 쿼터, 시간 추출
+
+### 8. Shot Chart (DataLab)
+
+경기의 슈팅 위치 데이터를 추출합니다.
+
+**엔드포인트:**
+
+```
+GET https://datalab.wkbl.or.kr/shotCharts?menu=shotCharts&selectedId={game_id}
+```
+
+**데이터:** `<a class="shot-icon shot-suc/fail">` 요소에서 좌표(x, y), 성공/실패, 선수 ID, 쿼터 추출
+
+### 9. 팀 카테고리별 순위 (WKBL 공식)
+
+팀별 12개 카테고리 순위를 수집합니다.
+
+**엔드포인트:**
+
+```
+POST https://www.wkbl.or.kr/game/ajax/ajax_part_team_rank.asp
+```
+
+**파라미터:**
+
+```
+season_gu=046  # 시즌 코드
+opart=1~12     # 카테고리 (1=득점, 2=실점, 3=리바운드, ...)
+```
+
+**카테고리:** pts, pts_against, reb, ast, stl, blk, tpm, two_pm, ftm, tpp, two_pp, ftp
+
+### 10. 상대전적 (WKBL 공식)
+
+팀 간 상대전적을 수집합니다 (6C2 = 15 조합).
+
+**엔드포인트:**
+
+```
+POST https://www.wkbl.or.kr/game/ajax/ajax_report.asp
+```
+
+**파라미터:**
+
+```
+season_gu=046
+tcode1=01      # WKBL 팀 코드 (01=KB, 03=삼성, 05=우리, 07=신한, 09=하나, 11=BNK)
+tcode2=03
+```
+
+### 11. 경기 MVP (WKBL 공식)
+
+시즌 경기 MVP 목록을 수집합니다.
+
+**엔드포인트:**
+
+```
+GET https://www.wkbl.or.kr/game/today_mvp.asp?sscode={season_code}
+```
+
+**데이터:** 순위, 선수(pno 포함), 팀, 날짜, 출전시간, PTS, REB, AST, STL, BLK, TOV, EFF
+
+### 12. Team Analysis (DataLab)
+
+팀 매치업 분석 페이지에서 쿼터별 점수와 경기장 정보를 추출합니다.
+
+**엔드포인트:**
+
+```
+GET https://datalab.wkbl.or.kr/teamAnalysis?id={game_id}&homeTeamCode={code1}&awayTeamCode={code2}
+```
+
+**데이터:** HTML 내 `JSON.parse('...')` 패턴에서 추출
+
+```json
+{
+  "matchRecordList": [
+    {
+      "gameID": "04601012",
+      "gameDate": "20251129",
+      "courtName": "인천도원체육관",
+      "homeTeamScoreQ1": 20,
+      "homeTeamScoreQ2": 12,
+      "homeTeamScoreQ3": 22,
+      "homeTeamScoreQ4": 11,
+      "homeTeamScoreEQ": 0,
+      "awayTeamScoreQ1": 15,
+      "awayTeamScoreQ2": 18,
+      "awayTeamScoreQ3": 14,
+      "awayTeamScoreQ4": 11,
+      "awayTeamScoreEQ": 0
+    }
+  ]
+}
+```
+
+**효율:** 15 요청(6C2 매치업)으로 시즌 전체 쿼터 점수 수집 (경기당 요청보다 6배 효율적)
+
 ---
 
 ## 데이터 소스 요약
 
-| 데이터             | URL                                                  | 용도                   |
-| ------------------ | ---------------------------------------------------- | ---------------------- |
-| 경기별 박스스코어  | `datalab.wkbl.or.kr:9001/data_lab/record_player.asp` | 선수별 경기 기록       |
-| 경기별 팀 기록     | `datalab.wkbl.or.kr:9001/data_lab/record_team.asp`   | 팀별 경기 기록         |
-| 경기 목록          | `datalab.wkbl.or.kr/game/list/month`                 | game_id 수집           |
-| 경기 일정          | `wkbl.or.kr/game/sch/inc_list_1_new.asp`             | 홈/원정 팀, 날짜       |
-| 팀 순위            | `wkbl.or.kr/game/ajax/ajax_team_rank.asp`            | 시즌 순위표 (POST)     |
-| 현역 선수 명단     | `wkbl.or.kr/player/player_list.asp`                  | 현역 선수 pno 수집     |
-| 은퇴 선수 명단     | `wkbl.or.kr/player/player_list.asp?player_group=11`  | 은퇴 선수 pno 수집     |
-| 외국인 선수 명단   | `wkbl.or.kr/player/player_list.asp?player_group=F11` | 외국인 선수 pno 수집   |
-| 선수 프로필 (현역) | `wkbl.or.kr/player/detail.asp`                       | 포지션, 신장, 생년월일 |
-| 선수 프로필 (은퇴) | `wkbl.or.kr/player/detail2.asp`                      | 포지션, 신장, 생년월일 |
+| 데이터             | URL                                                  | 용도                            |
+| ------------------ | ---------------------------------------------------- | ------------------------------- |
+| 경기별 박스스코어  | `datalab.wkbl.or.kr:9001/data_lab/record_player.asp` | 선수별 경기 기록                |
+| 경기별 팀 기록     | `datalab.wkbl.or.kr:9001/data_lab/record_team.asp`   | 팀별 경기 기록                  |
+| 경기 목록          | `datalab.wkbl.or.kr/game/list/month`                 | game_id 수집                    |
+| 경기 일정          | `wkbl.or.kr/game/sch/inc_list_1_new.asp`             | 홈/원정 팀, 날짜                |
+| 팀 순위            | `wkbl.or.kr/game/ajax/ajax_team_rank.asp`            | 시즌 순위표 (POST)              |
+| 현역 선수 명단     | `wkbl.or.kr/player/player_list.asp`                  | 현역 선수 pno 수집              |
+| 은퇴 선수 명단     | `wkbl.or.kr/player/player_list.asp?player_group=11`  | 은퇴 선수 pno 수집              |
+| 외국인 선수 명단   | `wkbl.or.kr/player/player_list.asp?player_group=F11` | 외국인 선수 pno 수집            |
+| 선수 프로필 (현역) | `wkbl.or.kr/player/detail.asp`                       | 포지션, 신장, 생년월일          |
+| 선수 프로필 (은퇴) | `wkbl.or.kr/player/detail2.asp`                      | 포지션, 신장, 생년월일          |
+| Play-by-Play       | `datalab.wkbl.or.kr/playByPlay`                      | 경기 실시간 이벤트              |
+| Shot Chart         | `datalab.wkbl.or.kr/shotCharts`                      | 슈팅 위치 데이터                |
+| 팀 카테고리 순위   | `wkbl.or.kr/game/ajax/ajax_part_team_rank.asp`       | 팀별 12개 카테고리 순위 (POST)  |
+| 상대전적 (H2H)     | `wkbl.or.kr/game/ajax/ajax_report.asp`               | 팀 간 상대전적 (POST)           |
+| 경기 MVP           | `wkbl.or.kr/game/today_mvp.asp`                      | 시즌 경기 MVP 목록              |
+| Team Analysis      | `datalab.wkbl.or.kr/teamAnalysis`                    | 쿼터별 점수, 경기장 정보 (JSON) |
 
 ---
 
@@ -293,20 +408,30 @@ seasons ─┐
          │
 teams ───┼──→ games ──→ player_games (경기별 선수 기록)
          │        └──→ team_games (경기별 팀 기록)
+         │        └──→ play_by_play (플레이바이플레이)
+         │        └──→ shot_charts (샷 차트)
          │
-         └──→ team_standings (시즌 순위)
+         ├──→ team_standings (시즌 순위)
+         ├──→ team_category_stats (팀 카테고리 순위)
+         ├──→ head_to_head (상대전적)
+         └──→ game_mvp (경기 MVP)
 players ─┘
 ```
 
-| 테이블           | 설명                                                  |
-| ---------------- | ----------------------------------------------------- |
-| `seasons`        | 시즌 정보 (label, 시작일, 종료일)                     |
-| `teams`          | 팀 정보 (이름, 약칭)                                  |
-| `players`        | 선수 정보 (pno, 이름, 팀, 포지션, 신장, 생년월일)     |
-| `games`          | 경기 정보 (날짜, 홈/원정팀, 점수, game_type)          |
-| `player_games`   | 경기별 선수 기록 (MIN, PTS, REB, AST, 슈팅 등)        |
-| `team_games`     | 경기별 팀 기록 (속공, 페인트존 득점 등)               |
-| `team_standings` | 시즌 순위 (rank, wins, losses, win_pct, games_behind) |
+| 테이블                | 설명                                                            |
+| --------------------- | --------------------------------------------------------------- |
+| `seasons`             | 시즌 정보 (label, 시작일, 종료일)                               |
+| `teams`               | 팀 정보 (이름, 약칭)                                            |
+| `players`             | 선수 정보 (pno, 이름, 팀, 포지션, 신장, 생년월일)               |
+| `games`               | 경기 정보 (날짜, 홈/원정팀, 점수, 쿼터 점수, 경기장, game_type) |
+| `player_games`        | 경기별 선수 기록 (MIN, PTS, REB, AST, 슈팅 등)                  |
+| `team_games`          | 경기별 팀 기록 (속공, 페인트존 득점 등)                         |
+| `team_standings`      | 시즌 순위 (rank, wins, losses, win_pct, games_behind)           |
+| `play_by_play`        | 플레이바이플레이 이벤트 (쿼터, 시계, 이벤트 유형, 점수)         |
+| `shot_charts`         | 샷 차트 (선수, 좌표, 성공/실패, 쿼터)                           |
+| `team_category_stats` | 팀 카테고리별 순위 (12개 카테고리)                              |
+| `head_to_head`        | 팀 간 상대전적 (점수, 경기장, 승자)                             |
+| `game_mvp`            | 경기 MVP (선수, 스탯, EFF)                                      |
 
 ### Game Types
 
@@ -362,6 +487,17 @@ players ─┘
 | `away_team_id` | TEXT    | 원정팀 ID (FK → teams.id)           |
 | `home_score`   | INTEGER | 홈팀 점수                           |
 | `away_score`   | INTEGER | 원정팀 점수                         |
+| `home_q1`      | INTEGER | 홈팀 1쿼터 점수                     |
+| `home_q2`      | INTEGER | 홈팀 2쿼터 점수                     |
+| `home_q3`      | INTEGER | 홈팀 3쿼터 점수                     |
+| `home_q4`      | INTEGER | 홈팀 4쿼터 점수                     |
+| `home_ot`      | INTEGER | 홈팀 연장전 점수                    |
+| `away_q1`      | INTEGER | 원정팀 1쿼터 점수                   |
+| `away_q2`      | INTEGER | 원정팀 2쿼터 점수                   |
+| `away_q3`      | INTEGER | 원정팀 3쿼터 점수                   |
+| `away_q4`      | INTEGER | 원정팀 4쿼터 점수                   |
+| `away_ot`      | INTEGER | 원정팀 연장전 점수                  |
+| `venue`        | TEXT    | 경기장 이름                         |
 | `game_type`    | TEXT    | 경기 유형 (regular/playoff/allstar) |
 
 #### players (선수)

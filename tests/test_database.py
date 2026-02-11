@@ -32,6 +32,11 @@ class TestDatabaseInit:
             "game_predictions",
             "game_team_predictions",
             "_meta_descriptions",
+            "play_by_play",
+            "shot_charts",
+            "team_category_stats",
+            "head_to_head",
+            "game_mvp",
         }
         assert expected_tables.issubset(tables), (
             f"Missing tables: {expected_tables - tables}"
@@ -778,3 +783,398 @@ class TestBulkTeamStandings:
         team2 = next(s for s in result if s["team_id"] == sample_team2["id"])
         assert team2["rank"] == 2
         assert team2["games_behind"] == 2.0
+
+
+class TestQuarterScores:
+    """Tests for game quarter scores and venue."""
+
+    def test_update_game_quarter_scores(self, populated_db, sample_game):
+        """Test updating quarter scores for an existing game."""
+        import database
+
+        data = {
+            "home_q1": 20,
+            "home_q2": 18,
+            "home_q3": 22,
+            "home_q4": 15,
+            "home_ot": None,
+            "away_q1": 16,
+            "away_q2": 20,
+            "away_q3": 14,
+            "away_q4": 18,
+            "away_ot": None,
+            "venue": "인천도원체육관",
+        }
+        database.update_game_quarter_scores(sample_game["game_id"], data)
+
+        with database.get_connection() as conn:
+            row = conn.execute(
+                "SELECT home_q1, home_q2, away_q3, venue FROM games WHERE id = ?",
+                (sample_game["game_id"],),
+            ).fetchone()
+
+        assert row is not None
+        assert row[0] == 20  # home_q1
+        assert row[1] == 18  # home_q2
+        assert row[2] == 14  # away_q3
+        assert row[3] == "인천도원체육관"
+
+    def test_bulk_update_quarter_scores(self, populated_db, sample_game):
+        """Test bulk updating quarter scores."""
+        import database
+
+        records = [
+            {
+                "game_id": sample_game["game_id"],
+                "home_q1": 22,
+                "home_q2": 19,
+                "home_q3": 20,
+                "home_q4": 14,
+                "away_q1": 18,
+                "away_q2": 15,
+                "away_q3": 17,
+                "away_q4": 18,
+                "venue": "잠실실내체육관",
+            }
+        ]
+        database.bulk_update_quarter_scores(records)
+
+        with database.get_connection() as conn:
+            row = conn.execute(
+                "SELECT home_q1, away_q4, venue FROM games WHERE id = ?",
+                (sample_game["game_id"],),
+            ).fetchone()
+
+        assert row[0] == 22
+        assert row[1] == 18
+        assert row[2] == "잠실실내체육관"
+
+
+class TestPlayByPlay:
+    """Tests for play-by-play operations."""
+
+    def test_bulk_insert_and_get(self, populated_db, sample_game, sample_team):
+        """Test inserting and retrieving play-by-play events."""
+        import database
+
+        events = [
+            {
+                "event_order": 1,
+                "quarter": "Q1",
+                "game_clock": "09:45",
+                "team_id": sample_team["id"],
+                "player_id": None,
+                "event_type": "score",
+                "event_detail": "2점슛",
+                "home_score": 2,
+                "away_score": 0,
+                "description": "삼성 2점슛 성공",
+            },
+            {
+                "event_order": 2,
+                "quarter": "Q1",
+                "game_clock": "09:20",
+                "team_id": None,
+                "player_id": None,
+                "event_type": "foul",
+                "event_detail": None,
+                "home_score": 2,
+                "away_score": 0,
+                "description": "파울",
+            },
+            {
+                "event_order": 3,
+                "quarter": "Q2",
+                "game_clock": "08:00",
+                "team_id": sample_team["id"],
+                "player_id": None,
+                "event_type": "score",
+                "event_detail": "3점슛",
+                "home_score": 5,
+                "away_score": 2,
+                "description": "삼성 3점슛 성공",
+            },
+        ]
+        database.bulk_insert_play_by_play(sample_game["game_id"], events)
+
+        # Get all events
+        result = database.get_play_by_play(sample_game["game_id"])
+        assert len(result) == 3
+        assert result[0]["event_order"] == 1
+        assert result[0]["quarter"] == "Q1"
+
+    def test_get_play_by_play_quarter_filter(
+        self, populated_db, sample_game, sample_team
+    ):
+        """Test filtering play-by-play by quarter."""
+        import database
+
+        events = [
+            {
+                "event_order": 1,
+                "quarter": "Q1",
+                "game_clock": "09:45",
+                "event_type": "score",
+                "home_score": 2,
+                "away_score": 0,
+            },
+            {
+                "event_order": 2,
+                "quarter": "Q2",
+                "game_clock": "08:00",
+                "event_type": "score",
+                "home_score": 5,
+                "away_score": 2,
+            },
+        ]
+        database.bulk_insert_play_by_play(sample_game["game_id"], events)
+
+        q1_events = database.get_play_by_play(sample_game["game_id"], quarter="Q1")
+        assert len(q1_events) == 1
+        assert q1_events[0]["quarter"] == "Q1"
+
+
+class TestShotCharts:
+    """Tests for shot chart operations."""
+
+    def test_bulk_insert_and_get(self, populated_db, sample_game, sample_player):
+        """Test inserting and retrieving shot chart data."""
+        import database
+
+        shots = [
+            {
+                "player_id": sample_player["player_id"],
+                "team_id": "samsung",
+                "quarter": "Q1",
+                "game_minute": 9,
+                "game_second": 30,
+                "x": 45.5,
+                "y": 60.2,
+                "made": 1,
+                "shot_zone": "paint",
+                "is_home": 1,
+            },
+            {
+                "player_id": sample_player["player_id"],
+                "team_id": "samsung",
+                "quarter": "Q1",
+                "game_minute": 8,
+                "game_second": 15,
+                "x": 70.0,
+                "y": 30.0,
+                "made": 0,
+                "shot_zone": "three",
+                "is_home": 1,
+            },
+        ]
+        database.bulk_insert_shot_charts(sample_game["game_id"], shots)
+
+        result = database.get_shot_chart(sample_game["game_id"])
+        assert len(result) == 2
+        assert result[0]["made"] == 0  # Ordered by time, 8:15 before 9:30
+        assert result[1]["x"] == 45.5
+
+    def test_get_shot_chart_player_filter(
+        self, populated_db, sample_game, sample_player, sample_player2
+    ):
+        """Test filtering shot chart by player."""
+        import database
+
+        shots = [
+            {
+                "player_id": sample_player["player_id"],
+                "quarter": "Q1",
+                "game_minute": 9,
+                "game_second": 30,
+                "x": 45.5,
+                "y": 60.2,
+                "made": 1,
+            },
+            {
+                "player_id": sample_player2["player_id"],
+                "quarter": "Q1",
+                "game_minute": 8,
+                "game_second": 10,
+                "x": 30.0,
+                "y": 40.0,
+                "made": 0,
+            },
+        ]
+        database.bulk_insert_shot_charts(sample_game["game_id"], shots)
+
+        result = database.get_shot_chart(
+            sample_game["game_id"], player_id=sample_player["player_id"]
+        )
+        assert len(result) == 1
+        assert result[0]["player_id"] == sample_player["player_id"]
+
+
+class TestTeamCategoryStats:
+    """Tests for team category stats operations."""
+
+    def test_insert_and_get_by_category(self, populated_db, sample_season, sample_team):
+        """Test inserting and retrieving team category stats."""
+        import database
+
+        stats = [
+            {
+                "team_id": sample_team["id"],
+                "rank": 1,
+                "value": 78.5,
+                "games_played": 20,
+                "extra_values": '{"total": 1570}',
+            },
+        ]
+        database.bulk_insert_team_category_stats(
+            sample_season["season_id"], "pts", stats
+        )
+
+        result = database.get_team_category_stats(
+            sample_season["season_id"], category="pts"
+        )
+        assert len(result) == 1
+        assert result[0]["rank"] == 1
+        assert result[0]["value"] == 78.5
+        assert result[0]["team_name"] == "삼성생명"
+
+    def test_get_all_categories(
+        self, populated_db, sample_season, sample_team, sample_team2
+    ):
+        """Test retrieving all team category stats."""
+        import database
+
+        database.bulk_insert_team_category_stats(
+            sample_season["season_id"],
+            "pts",
+            [{"team_id": sample_team["id"], "rank": 1, "value": 78.5}],
+        )
+        database.bulk_insert_team_category_stats(
+            sample_season["season_id"],
+            "reb",
+            [{"team_id": sample_team2["id"], "rank": 1, "value": 40.2}],
+        )
+
+        result = database.get_team_category_stats(sample_season["season_id"])
+        assert len(result) == 2
+        categories = {r["category"] for r in result}
+        assert categories == {"pts", "reb"}
+
+
+class TestHeadToHead:
+    """Tests for head-to-head operations."""
+
+    def test_insert_and_get(
+        self, populated_db, sample_season, sample_team, sample_team2
+    ):
+        """Test inserting and retrieving H2H records."""
+        import database
+
+        records = [
+            {
+                "team1_id": sample_team["id"],
+                "team2_id": sample_team2["id"],
+                "game_date": "2025-11-01",
+                "game_number": "1",
+                "venue": "인천도원체육관",
+                "team1_scores": '{"q1": 20, "q2": 18, "q3": 22, "q4": 15}',
+                "team2_scores": '{"q1": 16, "q2": 20, "q3": 14, "q4": 18}',
+                "total_score": "75-68",
+                "winner_id": sample_team["id"],
+            }
+        ]
+        database.bulk_insert_head_to_head(sample_season["season_id"], records)
+
+        result = database.get_head_to_head(
+            sample_season["season_id"], sample_team["id"], sample_team2["id"]
+        )
+        assert len(result) == 1
+        assert result[0]["winner_id"] == sample_team["id"]
+        assert result[0]["venue"] == "인천도원체육관"
+
+    def test_bidirectional_lookup(
+        self, populated_db, sample_season, sample_team, sample_team2
+    ):
+        """Test that H2H lookup works in both directions."""
+        import database
+
+        records = [
+            {
+                "team1_id": sample_team["id"],
+                "team2_id": sample_team2["id"],
+                "game_date": "2025-11-01",
+                "total_score": "75-68",
+                "winner_id": sample_team["id"],
+            }
+        ]
+        database.bulk_insert_head_to_head(sample_season["season_id"], records)
+
+        # Query in reverse order (team2 vs team1)
+        result = database.get_head_to_head(
+            sample_season["season_id"], sample_team2["id"], sample_team["id"]
+        )
+        assert len(result) == 1
+        assert result[0]["winner_id"] == sample_team["id"]
+
+
+class TestGameMVP:
+    """Tests for game MVP operations."""
+
+    def test_insert_and_get(
+        self, populated_db, sample_season, sample_player, sample_team
+    ):
+        """Test inserting and retrieving game MVP records."""
+        import database
+
+        records = [
+            {
+                "player_id": sample_player["player_id"],
+                "team_id": sample_team["id"],
+                "game_date": "2025-11-01",
+                "rank": 1,
+                "evaluation_score": 28.5,
+                "minutes": 35.0,
+                "pts": 25,
+                "reb": 8,
+                "ast": 5,
+                "stl": 3,
+                "blk": 1,
+                "tov": 2,
+            },
+        ]
+        database.bulk_insert_game_mvp(sample_season["season_id"], records)
+
+        result = database.get_game_mvp(sample_season["season_id"])
+        assert len(result) == 1
+        assert result[0]["rank"] == 1
+        assert result[0]["evaluation_score"] == 28.5
+        assert result[0]["player_name"] == sample_player["name"]
+
+    def test_get_by_date(self, populated_db, sample_season, sample_player, sample_team):
+        """Test filtering MVP records by date."""
+        import database
+
+        records = [
+            {
+                "player_id": sample_player["player_id"],
+                "team_id": sample_team["id"],
+                "game_date": "2025-11-01",
+                "rank": 1,
+                "evaluation_score": 28.5,
+                "pts": 25,
+            },
+            {
+                "player_id": sample_player["player_id"],
+                "team_id": sample_team["id"],
+                "game_date": "2025-11-05",
+                "rank": 1,
+                "evaluation_score": 22.0,
+                "pts": 20,
+            },
+        ]
+        database.bulk_insert_game_mvp(sample_season["season_id"], records)
+
+        result = database.get_game_mvp(
+            sample_season["season_id"], game_date="2025-11-01"
+        )
+        assert len(result) == 1
+        assert result[0]["pts"] == 25

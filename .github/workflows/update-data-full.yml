@@ -30,6 +30,12 @@ jobs:
             --fetch-standings \
             --fetch-team-stats \
             --include-future \
+            --fetch-play-by-play \
+            --fetch-shot-charts \
+            --fetch-team-category-stats \
+            --fetch-head-to-head \
+            --fetch-game-mvp \
+            --fetch-quarter-scores \
             --output data/wkbl-active.json
 
       - name: Check for changes

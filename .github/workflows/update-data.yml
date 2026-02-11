@@ -30,6 +30,10 @@ jobs:
             --save-db \
             --load-all-players \
             --include-future \
+            --fetch-team-category-stats \
+            --fetch-head-to-head \
+            --fetch-game-mvp \
+            --fetch-quarter-scores \
             --end-date $(date +%Y%m%d) \
             --active-only \
             --output data/wkbl-active.json

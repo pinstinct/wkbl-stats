@@ -8,6 +8,7 @@ the frontend JSON snapshot used as a fallback data source.
 import argparse
 import datetime
 import hashlib
+import itertools
 import json
 import os
 import re
@@ -21,16 +22,24 @@ import database
 from config import (
     BASE_URL,
     DELAY,
+    HEAD_TO_HEAD_URL,
     MAX_RETRIES,
+    MVP_URL,
+    PLAY_BY_PLAY_URL,
     PLAYER_LIST,
     PLAYER_LIST_FOREIGN,
     PLAYER_LIST_RETIRED,
     PLAYER_RECORD_WRAPPER,
     RETRY_BACKOFF,
     SEASON_CODES,
+    SHOT_CHART_URL,
+    TEAM_ANALYSIS_URL,
+    TEAM_CATEGORY_PARTS,
+    TEAM_CATEGORY_STATS_URL,
     TEAM_STANDINGS_URL,
     TIMEOUT,
     USER_AGENT,
+    WKBL_TEAM_CODES,
     setup_logging,
 )
 
@@ -1045,6 +1054,658 @@ def parse_standings_html(html, season_code):
         )
 
     return standings
+
+
+# =============================================================================
+# Additional data parsers and fetch functions
+# =============================================================================
+
+
+def parse_play_by_play(html):
+    """Parse play-by-play events from DataLab playByPlay page.
+
+    HTML structure: <li class="item ..."> with event info in <dt> and <dd> tags.
+
+    Args:
+        html: HTML content from playByPlay page
+
+    Returns:
+        List of event dicts with event_order, quarter, game_clock, etc.
+    """
+    events = []
+    # Extract drawPlayerButton calls for score events and quarter headers
+    # Pattern: drawPlayerButton(false, eventId, homeScore, awayScore, 'Q1', ...)
+    draw_calls = re.findall(
+        r"drawPlayerButton\(false,\s*(\d+),\s*(\d+),\s*(\d+),\s*'(Q\d+|OT\d*)',"
+        r"\s*\d+,\s*\d+,\s*(\d+),\s*(\d+),\s*(true|false),\s*(true|false)\)",
+        html,
+    )
+
+    for i, match in enumerate(draw_calls):
+        event_id, home_score, away_score, quarter, minute, second, is_home, is_away = (
+            match
+        )
+        events.append(
+            {
+                "event_order": i + 1,
+                "quarter": quarter,
+                "game_clock": f"{int(minute):02d}:{int(second):02d}",
+                "team_id": None,  # Resolved by caller with game context
+                "player_id": None,
+                "event_type": "score",
+                "event_detail": None,
+                "home_score": int(home_score),
+                "away_score": int(away_score),
+                "description": None,
+            }
+        )
+
+    # Also parse li.item elements for richer event data
+    items = re.findall(r'<li\s+class="item[^"]*"[^>]*>(.*?)</li>', html, re.S)
+    if items and not events:
+        for i, item_html in enumerate(items):
+            quarter_m = re.search(r'data-quarter="(Q\d+|OT\d*)"', item_html)
+            clock_m = re.search(r'<span class="time">(\d+:\d+)</span>', item_html)
+            desc_m = re.search(r'<dd class="player-info">(.*?)</dd>', item_html, re.S)
+            score_m = re.search(
+                r'<span class="score">(\d+)\s*-\s*(\d+)</span>', item_html
+            )
+
+            events.append(
+                {
+                    "event_order": i + 1,
+                    "quarter": quarter_m.group(1) if quarter_m else None,
+                    "game_clock": clock_m.group(1) if clock_m else None,
+                    "team_id": None,
+                    "player_id": None,
+                    "event_type": "event",
+                    "event_detail": None,
+                    "home_score": int(score_m.group(1)) if score_m else None,
+                    "away_score": int(score_m.group(2)) if score_m else None,
+                    "description": strip_tags(desc_m.group(1)) if desc_m else None,
+                }
+            )
+
+    return events
+
+
+def parse_shot_chart(html):
+    """Parse shot chart data from DataLab shotCharts page.
+
+    HTML structure: <a class="shot-icon shot-suc/fail" data-player data-quarter
+    style="left:X%;top:Y%"> inside map-home/map-away containers.
+
+    Args:
+        html: HTML content from shotCharts page
+
+    Returns:
+        List of shot dicts with player_id, x, y, made, quarter, etc.
+    """
+    shots = []
+
+    # Find home and away sections
+    for is_home, section_class in [(1, "map-home"), (0, "map-away")]:
+        # Extract section HTML
+        section_m = re.search(
+            rf'class="{section_class}"[^>]*>(.*?)</div>\s*</div>',
+            html,
+            re.S,
+        )
+        if not section_m:
+            continue
+
+        section_html = section_m.group(1)
+
+        # Find shot icons
+        shot_pattern = (
+            r'<a[^>]*class="shot-icon\s+(shot-suc|shot-fail)"'
+            r'[^>]*data-player="(\d*)"'
+            r'[^>]*data-quarter="(Q\d+|OT\d*)"'
+            r'[^>]*style="[^"]*left:\s*([\d.]+)%?;\s*top:\s*([\d.]+)%?"'
+        )
+        for match in re.finditer(shot_pattern, section_html, re.S):
+            result, player_id, quarter, x, y = match.groups()
+            shots.append(
+                {
+                    "player_id": player_id if player_id else None,
+                    "team_id": None,  # Resolved by caller
+                    "quarter": quarter,
+                    "game_minute": 0,
+                    "game_second": len(shots),  # Use index for uniqueness
+                    "x": float(x),
+                    "y": float(y),
+                    "made": 1 if result == "shot-suc" else 0,
+                    "shot_zone": None,
+                    "is_home": is_home,
+                }
+            )
+
+    return shots
+
+
+def parse_team_category_stats(html, category):
+    """Parse team category stats from WKBL AJAX response.
+
+    HTML structure: Each row has all stat columns; the active category's
+    cell is marked with class='on'. Tied teams have an empty rank cell.
+
+    Args:
+        html: HTML content from ajax_part_team_rank.asp
+        category: Category name (pts, reb, ast, etc.)
+
+    Returns:
+        List of team stat dicts
+    """
+    stats = []
+    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S)
+    last_rank = 0
+
+    for row_html in rows:
+        if "<th" in row_html:
+            continue
+
+        cells = re.findall(r"<td[^>]*>(.*?)</td>", row_html, re.S)
+        if len(cells) < 4:
+            continue
+
+        cell_texts = [strip_tags(c) for c in cells]
+
+        # Handle empty rank (tied teams)
+        rank_text = cell_texts[0].strip()
+        if rank_text:
+            try:
+                last_rank = int(rank_text)
+            except ValueError:
+                continue
+        rank = last_rank
+
+        team_name = cell_texts[1]
+        team_id = get_team_id(team_name)
+
+        try:
+            games_played = int(cell_texts[2])
+        except (ValueError, IndexError):
+            games_played = 0
+
+        # Find the category value from the cell with class='on'
+        on_cells = re.findall(r"<td\s+class='on'>(.*?)</td>", row_html, re.S)
+        if on_cells:
+            try:
+                value = float(strip_tags(on_cells[0]))
+            except (ValueError, TypeError):
+                value = 0.0
+        else:
+            try:
+                value = float(cell_texts[3])
+            except (ValueError, IndexError):
+                value = 0.0
+
+        # Collect extra values (remaining cells after rank, team, games)
+        extra = cell_texts[3:] if len(cell_texts) > 3 else []
+        extra_json = json.dumps(extra) if extra else None
+
+        stats.append(
+            {
+                "team_id": team_id,
+                "rank": rank,
+                "value": value,
+                "games_played": games_played,
+                "extra_values": extra_json,
+            }
+        )
+
+    return stats
+
+
+def parse_head_to_head(html, team1_id, team2_id):
+    """Parse head-to-head records from WKBL AJAX response.
+
+    HTML structure: paired <tr> rows with game details.
+
+    Args:
+        html: HTML content from ajax_report.asp
+        team1_id: First team DB ID
+        team2_id: Second team DB ID
+
+    Returns:
+        List of H2H record dicts
+    """
+    records = []
+    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S)
+
+    for row_html in rows:
+        if "<th" in row_html:
+            continue
+
+        cells = re.findall(r"<td[^>]*>(.*?)</td>", row_html, re.S)
+        if len(cells) < 5:
+            continue
+
+        cell_texts = [strip_tags(c) for c in cells]
+
+        # Try to extract date (format: YYYY-MM-DD or YYYY.MM.DD)
+        date_m = re.search(r"(\d{4})[.\-/](\d{2})[.\-/](\d{2})", cell_texts[0])
+        if not date_m:
+            continue
+
+        game_date = f"{date_m.group(1)}-{date_m.group(2)}-{date_m.group(3)}"
+
+        # Extract game number
+        game_number = cell_texts[1].strip() if len(cell_texts) > 1 else None
+
+        # Extract venue
+        venue = cell_texts[2].strip() if len(cell_texts) > 2 else None
+
+        # Extract scores - try to find total scores
+        total_score = None
+        winner_id = None
+        for cell in cell_texts[3:]:
+            score_m = re.search(r"(\d+)\s*[-:]\s*(\d+)", cell)
+            if score_m:
+                s1, s2 = int(score_m.group(1)), int(score_m.group(2))
+                total_score = f"{s1}-{s2}"
+                if s1 > s2:
+                    winner_id = team1_id
+                elif s2 > s1:
+                    winner_id = team2_id
+                break
+
+        records.append(
+            {
+                "team1_id": team1_id,
+                "team2_id": team2_id,
+                "game_date": game_date,
+                "game_number": game_number,
+                "venue": venue,
+                "team1_scores": None,
+                "team2_scores": None,
+                "total_score": total_score,
+                "winner_id": winner_id,
+            }
+        )
+
+    return records
+
+
+def parse_game_mvp(html):
+    """Parse game MVP data from WKBL today_mvp page.
+
+    HTML structure (Table 3 - season MVP history):
+      Cell 0: player name (with pno link) + team (in span data-kr="[팀명]")
+      Cell 1: date (YY.MM.DD)
+      Cell 2: MIN (MM:SS)
+      Cell 3: FGM-A
+      Cell 4: FTM-A
+      Cell 5: REB
+      Cell 6: AST
+      Cell 7: ST
+      Cell 8: BS
+      Cell 9: TO
+      Cell 10: PTS
+      Cell 11: EFF
+
+    Args:
+        html: HTML content from today_mvp.asp
+
+    Returns:
+        List of MVP record dicts
+    """
+    records = []
+
+    # The MVP history is the last table (table index 3)
+    tables = re.findall(r"<table[^>]*>(.*?)</table>", html, re.S)
+    if len(tables) < 4:
+        return records
+
+    table_html = tables[3]
+    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", table_html, re.S)
+
+    for rank, row_html in enumerate(rows, start=0):
+        if "<th" in row_html:
+            continue
+
+        cells = re.findall(r"<td[^>]*>(.*?)</td>", row_html, re.S)
+        if len(cells) < 10:
+            continue
+
+        # Cell 0: player name + team
+        pno_m = re.search(r"pno=(\d+)", cells[0])
+        player_id = pno_m.group(1) if pno_m else None
+
+        # Extract player name from data-kr attribute or link text
+        name_m = re.search(r'data-kr="([^"]+)"', cells[0])
+        if name_m:
+            player_name = name_m.group(1)
+        else:
+            player_name = strip_tags(cells[0]).strip()
+
+        # Extract team from span data-kr="[팀명]"
+        team_m = re.search(r'<span[^>]*data-kr="\[([^\]]+)\]"', cells[0])
+        if team_m:
+            team_name = team_m.group(1)
+            team_id = get_team_id(team_name)
+        else:
+            team_id = None
+
+        # Cell 1: date (YY.MM.DD)
+        date_text = strip_tags(cells[1]).strip()
+        date_m = re.search(r"(\d{2})\.(\d{2})\.(\d{2})", date_text)
+        if date_m:
+            yy, mm, dd = date_m.group(1), date_m.group(2), date_m.group(3)
+            game_date = f"20{yy}-{mm}-{dd}"
+        else:
+            game_date = None
+
+        cell_texts = [strip_tags(c).strip() for c in cells]
+
+        def _safe_int(val):
+            try:
+                return int(val)
+            except (ValueError, TypeError):
+                return 0
+
+        def _safe_float(val):
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return 0.0
+
+        # Cell 2: MIN (MM:SS) → convert to float minutes
+        min_text = cell_texts[2]
+        min_m = re.match(r"(\d+):(\d+)", min_text)
+        if min_m:
+            minutes = int(min_m.group(1)) + int(min_m.group(2)) / 60.0
+        else:
+            minutes = _safe_float(min_text)
+
+        records.append(
+            {
+                "player_id": player_id,
+                "player_name": player_name,
+                "team_id": team_id,
+                "game_date": game_date,
+                "rank": rank,
+                "minutes": round(minutes, 1),
+                "pts": _safe_int(cell_texts[10]) if len(cell_texts) > 10 else 0,
+                "reb": _safe_int(cell_texts[5]) if len(cell_texts) > 5 else 0,
+                "ast": _safe_int(cell_texts[6]) if len(cell_texts) > 6 else 0,
+                "stl": _safe_int(cell_texts[7]) if len(cell_texts) > 7 else 0,
+                "blk": _safe_int(cell_texts[8]) if len(cell_texts) > 8 else 0,
+                "tov": _safe_int(cell_texts[9]) if len(cell_texts) > 9 else 0,
+                "evaluation_score": (
+                    _safe_float(cell_texts[11]) if len(cell_texts) > 11 else 0.0
+                ),
+            }
+        )
+
+    return records
+
+
+def parse_team_analysis_json(html):
+    """Parse Team Analysis page for embedded JSON data.
+
+    Extracts JSON.parse('...') content containing matchRecordList with
+    quarter scores and courtName.
+
+    Args:
+        html: HTML content from teamAnalysis page
+
+    Returns:
+        Dict with parsed JSON data or empty dict
+    """
+    # Find JSON.parse('...') patterns
+    json_matches = re.findall(r"JSON\.parse\('([^']+)'\)", html)
+
+    result = {}
+    for json_str in json_matches:
+        # Unescape the JSON string
+        json_str = json_str.replace("\\/", "/")
+        try:
+            data = json.loads(json_str)
+        except json.JSONDecodeError:
+            continue
+
+        # Look for matchRecordList
+        if isinstance(data, dict):
+            if "matchRecordList" in data:
+                result["matchRecordList"] = data["matchRecordList"]
+            if "versusList" in data:
+                result["versusList"] = data["versusList"]
+            if "homeTeamStatistics" in data:
+                result["homeTeamStatistics"] = data["homeTeamStatistics"]
+            if "awayTeamStatistics" in data:
+                result["awayTeamStatistics"] = data["awayTeamStatistics"]
+
+    return result
+
+
+def _wkbl_team_code_to_id(code):
+    """Convert WKBL numeric team code to DB team ID."""
+    code_to_id = {v: k for k, v in WKBL_TEAM_CODES.items()}
+    return code_to_id.get(code)
+
+
+# --- Fetch functions ---
+
+
+def fetch_play_by_play(game_id, cache_dir, use_cache=True, delay=0.0):
+    """Fetch play-by-play data for a game.
+
+    Args:
+        game_id: WKBL game ID
+        cache_dir: Cache directory
+        use_cache: Whether to use cache
+        delay: Delay between requests
+
+    Returns:
+        List of event dicts
+    """
+    url = f"{PLAY_BY_PLAY_URL}?menu=playByPlay&selectedId={game_id}"
+    html = fetch(url, cache_dir, use_cache=use_cache, delay=delay)
+    return parse_play_by_play(html)
+
+
+def fetch_shot_chart(game_id, cache_dir, use_cache=True, delay=0.0):
+    """Fetch shot chart data for a game.
+
+    Args:
+        game_id: WKBL game ID
+        cache_dir: Cache directory
+        use_cache: Whether to use cache
+        delay: Delay between requests
+
+    Returns:
+        List of shot dicts
+    """
+    url = f"{SHOT_CHART_URL}?menu=shotCharts&selectedId={game_id}"
+    html = fetch(url, cache_dir, use_cache=use_cache, delay=delay)
+    return parse_shot_chart(html)
+
+
+def fetch_team_category_stats(season_code, cache_dir, use_cache=True, delay=0.0):
+    """Fetch all team category stats for a season (12 categories).
+
+    Args:
+        season_code: WKBL season code (e.g., '046')
+        cache_dir: Cache directory
+        use_cache: Whether to use cache
+        delay: Delay between requests
+
+    Returns:
+        Dict mapping category name to list of team stats
+    """
+    all_stats = {}
+
+    for opart, category in TEAM_CATEGORY_PARTS.items():
+        data = {
+            "season_gu": season_code,
+            "opart": str(opart),
+        }
+        try:
+            html = fetch_post(
+                TEAM_CATEGORY_STATS_URL,
+                data,
+                cache_dir,
+                use_cache=use_cache,
+                delay=delay,
+            )
+            stats = parse_team_category_stats(html, category)
+            if stats:
+                all_stats[category] = stats
+                logger.debug(f"Fetched {len(stats)} teams for category {category}")
+        except Exception as e:
+            logger.warning(f"Failed to fetch category {category}: {e}")
+
+    return all_stats
+
+
+def fetch_all_head_to_head(season_code, cache_dir, use_cache=True, delay=0.0):
+    """Fetch all head-to-head records for a season (6C2 = 15 team pairs).
+
+    Args:
+        season_code: WKBL season code
+        cache_dir: Cache directory
+        use_cache: Whether to use cache
+        delay: Delay between requests
+
+    Returns:
+        List of all H2H record dicts
+    """
+    all_records = []
+    team_ids = list(WKBL_TEAM_CODES.keys())
+
+    for team1_id, team2_id in itertools.combinations(team_ids, 2):
+        tcode1 = WKBL_TEAM_CODES[team1_id]
+        tcode2 = WKBL_TEAM_CODES[team2_id]
+
+        data = {
+            "season_gu": season_code,
+            "tcode1": tcode1,
+            "tcode2": tcode2,
+        }
+        try:
+            html = fetch_post(
+                HEAD_TO_HEAD_URL,
+                data,
+                cache_dir,
+                use_cache=use_cache,
+                delay=delay,
+            )
+            records = parse_head_to_head(html, team1_id, team2_id)
+            all_records.extend(records)
+            if records:
+                logger.debug(
+                    f"Fetched {len(records)} H2H records for {team1_id} vs {team2_id}"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to fetch H2H for {team1_id} vs {team2_id}: {e}")
+
+    return all_records
+
+
+def fetch_game_mvp(season_code, cache_dir, use_cache=True, delay=0.0):
+    """Fetch game MVP data for a season.
+
+    Args:
+        season_code: WKBL season code
+        cache_dir: Cache directory
+        use_cache: Whether to use cache
+        delay: Delay between requests
+
+    Returns:
+        List of MVP record dicts
+    """
+    url = f"{MVP_URL}?sscode={season_code}"
+    html = fetch(url, cache_dir, use_cache=use_cache, delay=delay)
+    return parse_game_mvp(html)
+
+
+def fetch_quarter_scores(season_code, cache_dir, use_cache=True, delay=0.0):
+    """Fetch quarter scores for all games in a season via Team Analysis.
+
+    Makes 15 requests (one per team matchup) to collect all quarter scores.
+
+    Args:
+        season_code: WKBL season code
+        cache_dir: Cache directory
+        use_cache: Whether to use cache
+        delay: Delay between requests
+
+    Returns:
+        List of game quarter score dicts ready for bulk_update_quarter_scores
+    """
+    all_records = []
+    seen_game_ids = set()
+
+    # Build a map of (team1, team2) -> game_id from the database.
+    # The API uses game_id to determine the matchup, ignoring team code params.
+    import sqlite3
+
+    try:
+        conn = sqlite3.connect(database.DB_PATH)
+        conn.row_factory = sqlite3.Row
+        matchup_games = conn.execute(
+            "SELECT id, home_team_id, away_team_id FROM games "
+            "WHERE id LIKE ? AND home_score IS NOT NULL "
+            "ORDER BY id",
+            (f"{season_code}%",),
+        ).fetchall()
+        conn.close()
+    except Exception:
+        matchup_games = []
+
+    # Map each team pair to a representative game_id
+    pair_to_game_id = {}
+    for g in matchup_games:
+        pair = tuple(sorted([g["home_team_id"], g["away_team_id"]]))
+        if pair not in pair_to_game_id:
+            pair_to_game_id[pair] = g["id"]
+
+    if not pair_to_game_id:
+        logger.warning("No completed games found for quarter scores")
+        return all_records
+
+    for pair, matchup_game_id in pair_to_game_id.items():
+        url = f"{TEAM_ANALYSIS_URL}?id={matchup_game_id}"
+        try:
+            html = fetch(url, cache_dir, use_cache=use_cache, delay=delay)
+            data = parse_team_analysis_json(html)
+
+            match_records = data.get("matchRecordList", [])
+            for match in match_records:
+                game_id = match.get("gameID")
+                if not game_id or game_id in seen_game_ids:
+                    continue
+                seen_game_ids.add(game_id)
+
+                home_code = match.get("homeTeamCode")
+                away_code = match.get("awayTeamCode")
+
+                all_records.append(
+                    {
+                        "game_id": game_id,
+                        "home_q1": match.get("homeTeamScoreQ1"),
+                        "home_q2": match.get("homeTeamScoreQ2"),
+                        "home_q3": match.get("homeTeamScoreQ3"),
+                        "home_q4": match.get("homeTeamScoreQ4"),
+                        "home_ot": match.get("homeTeamScoreEQ"),
+                        "away_q1": match.get("awayTeamScoreQ1"),
+                        "away_q2": match.get("awayTeamScoreQ2"),
+                        "away_q3": match.get("awayTeamScoreQ3"),
+                        "away_q4": match.get("awayTeamScoreQ4"),
+                        "away_ot": match.get("awayTeamScoreEQ"),
+                        "venue": match.get("courtName"),
+                        "home_team_code": home_code,
+                        "away_team_code": away_code,
+                    }
+                )
+        except Exception as e:
+            logger.warning(
+                f"Failed to fetch quarter scores for {pair[0]} vs {pair[1]}: {e}"
+            )
+
+    logger.info(f"Collected quarter scores for {len(all_records)} games")
+    return all_records
 
 
 def _fetch_schedule_from_wkbl(
@@ -2168,6 +2829,118 @@ def _ingest_single_season(args, season_code, season_label, active_players, game_
         except Exception as e:
             logger.warning(f"Failed to fetch standings for {season_label}: {e}")
 
+    # Fetch and save team category stats if requested
+    if getattr(args, "fetch_team_category_stats", False) and args.save_db:
+        try:
+            all_cat_stats = fetch_team_category_stats(
+                season_code,
+                args.cache_dir,
+                use_cache=not args.no_cache,
+                delay=args.delay,
+            )
+            for category, stats in all_cat_stats.items():
+                database.bulk_insert_team_category_stats(season_code, category, stats)
+            total = sum(len(s) for s in all_cat_stats.values())
+            logger.info(
+                f"Saved {total} team category stats "
+                f"({len(all_cat_stats)} categories) for season {season_label}"
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to fetch team category stats for {season_label}: {e}"
+            )
+
+    # Fetch and save head-to-head records if requested
+    if getattr(args, "fetch_head_to_head", False) and args.save_db:
+        try:
+            h2h_records = fetch_all_head_to_head(
+                season_code,
+                args.cache_dir,
+                use_cache=not args.no_cache,
+                delay=args.delay,
+            )
+            if h2h_records:
+                database.bulk_insert_head_to_head(season_code, h2h_records)
+                logger.info(
+                    f"Saved {len(h2h_records)} H2H records for season {season_label}"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to fetch H2H for {season_label}: {e}")
+
+    # Fetch and save game MVP if requested
+    if getattr(args, "fetch_game_mvp", False) and args.save_db:
+        try:
+            mvp_records = fetch_game_mvp(
+                season_code,
+                args.cache_dir,
+                use_cache=not args.no_cache,
+                delay=args.delay,
+            )
+            if mvp_records:
+                database.bulk_insert_game_mvp(season_code, mvp_records)
+                logger.info(
+                    f"Saved {len(mvp_records)} MVP records for season {season_label}"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to fetch game MVP for {season_label}: {e}")
+
+    # Fetch and save quarter scores if requested
+    if getattr(args, "fetch_quarter_scores", False) and args.save_db:
+        try:
+            qs_records = fetch_quarter_scores(
+                season_code,
+                args.cache_dir,
+                use_cache=not args.no_cache,
+                delay=args.delay,
+            )
+            if qs_records:
+                database.bulk_update_quarter_scores(qs_records)
+                logger.info(
+                    f"Updated quarter scores for {len(qs_records)} games "
+                    f"in season {season_label}"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to fetch quarter scores for {season_label}: {e}")
+
+    # Fetch per-game data (play-by-play, shot charts) if requested
+    if (
+        getattr(args, "fetch_play_by_play", False)
+        or getattr(args, "fetch_shot_charts", False)
+    ) and args.save_db:
+        # Get completed game IDs for this season
+        completed_ids = database.get_existing_game_ids(season_code)
+        logger.info(
+            f"Fetching per-game data for {len(completed_ids)} games "
+            f"in season {season_label}"
+        )
+
+        for gid in sorted(completed_ids):
+            if getattr(args, "fetch_play_by_play", False):
+                try:
+                    pbp_events = fetch_play_by_play(
+                        gid,
+                        args.cache_dir,
+                        use_cache=not args.no_cache,
+                        delay=args.delay,
+                    )
+                    if pbp_events:
+                        database.bulk_insert_play_by_play(gid, pbp_events)
+                except Exception as e:
+                    logger.warning(f"Failed to fetch PBP for game {gid}: {e}")
+
+            if getattr(args, "fetch_shot_charts", False):
+                try:
+                    shots = fetch_shot_chart(
+                        gid,
+                        args.cache_dir,
+                        use_cache=not args.no_cache,
+                        delay=args.delay,
+                    )
+                    if shots:
+                        database.bulk_insert_shot_charts(gid, shots)
+                except Exception as e:
+                    logger.warning(f"Failed to fetch shot chart for game {gid}: {e}")
+
     return records, team_records, game_items
 
 
@@ -2311,6 +3084,36 @@ def main():
         nargs="+",
         help="game IDs to backfill predictions for (requires existing DB data)",
     )
+    parser.add_argument(
+        "--fetch-play-by-play",
+        action="store_true",
+        help="fetch play-by-play data for each game",
+    )
+    parser.add_argument(
+        "--fetch-shot-charts",
+        action="store_true",
+        help="fetch shot chart data for each game",
+    )
+    parser.add_argument(
+        "--fetch-team-category-stats",
+        action="store_true",
+        help="fetch team category rankings (12 categories)",
+    )
+    parser.add_argument(
+        "--fetch-head-to-head",
+        action="store_true",
+        help="fetch head-to-head records for all team pairs",
+    )
+    parser.add_argument(
+        "--fetch-game-mvp",
+        action="store_true",
+        help="fetch game MVP data for the season",
+    )
+    parser.add_argument(
+        "--fetch-quarter-scores",
+        action="store_true",
+        help="fetch quarter scores and venue info via Team Analysis",
+    )
 
     args = parser.parse_args()
 
@@ -2450,6 +3253,123 @@ def main():
                 logger.warning("No standings data found")
         except Exception as e:
             logger.error(f"Failed to fetch standings: {e}")
+
+    # Fetch and save additional data for single-season mode
+    season_code = args.selected_id[:3] if args.selected_id else "046"
+    season_label = args.season_label
+
+    # Fetch and save team category stats if requested
+    if getattr(args, "fetch_team_category_stats", False) and args.save_db:
+        try:
+            all_cat_stats = fetch_team_category_stats(
+                season_code,
+                args.cache_dir,
+                use_cache=not args.no_cache,
+                delay=args.delay,
+            )
+            for category, stats in all_cat_stats.items():
+                database.bulk_insert_team_category_stats(season_code, category, stats)
+            total = sum(len(s) for s in all_cat_stats.values())
+            logger.info(
+                f"Saved {total} team category stats "
+                f"({len(all_cat_stats)} categories) for season {season_label}"
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to fetch team category stats for {season_label}: {e}"
+            )
+
+    # Fetch and save head-to-head records if requested
+    if getattr(args, "fetch_head_to_head", False) and args.save_db:
+        try:
+            h2h_records = fetch_all_head_to_head(
+                season_code,
+                args.cache_dir,
+                use_cache=not args.no_cache,
+                delay=args.delay,
+            )
+            if h2h_records:
+                database.bulk_insert_head_to_head(season_code, h2h_records)
+                logger.info(
+                    f"Saved {len(h2h_records)} H2H records for season {season_label}"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to fetch H2H for {season_label}: {e}")
+
+    # Fetch and save game MVP if requested
+    if getattr(args, "fetch_game_mvp", False) and args.save_db:
+        try:
+            mvp_records = fetch_game_mvp(
+                season_code,
+                args.cache_dir,
+                use_cache=not args.no_cache,
+                delay=args.delay,
+            )
+            if mvp_records:
+                database.bulk_insert_game_mvp(season_code, mvp_records)
+                logger.info(
+                    f"Saved {len(mvp_records)} MVP records for season {season_label}"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to fetch game MVP for {season_label}: {e}")
+
+    # Fetch and save quarter scores if requested
+    if getattr(args, "fetch_quarter_scores", False) and args.save_db:
+        try:
+            qs_records = fetch_quarter_scores(
+                season_code,
+                args.cache_dir,
+                use_cache=not args.no_cache,
+                delay=args.delay,
+            )
+            if qs_records:
+                database.bulk_update_quarter_scores(qs_records)
+                logger.info(
+                    f"Updated quarter scores for {len(qs_records)} games "
+                    f"in season {season_label}"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to fetch quarter scores for {season_label}: {e}")
+
+    # Fetch per-game data (play-by-play, shot charts) if requested
+    if (
+        getattr(args, "fetch_play_by_play", False)
+        or getattr(args, "fetch_shot_charts", False)
+    ) and args.save_db:
+        completed_ids = database.get_existing_game_ids(season_code)
+        logger.info(
+            f"Fetching per-game data for {len(completed_ids)} games "
+            f"in season {season_label}"
+        )
+
+        for gid in sorted(completed_ids):
+            if getattr(args, "fetch_play_by_play", False):
+                try:
+                    pbp_events = fetch_play_by_play(
+                        gid,
+                        args.cache_dir,
+                        use_cache=not args.no_cache,
+                        delay=args.delay,
+                    )
+                    if pbp_events:
+                        database.bulk_insert_play_by_play(gid, pbp_events)
+                except Exception as e:
+                    logger.warning(f"Failed to fetch PBP for game {gid}: {e}")
+
+            if getattr(args, "fetch_shot_charts", False):
+                try:
+                    shots = fetch_shot_chart(
+                        gid,
+                        args.cache_dir,
+                        use_cache=not args.no_cache,
+                        delay=args.delay,
+                    )
+                    if shots:
+                        database.bulk_insert_shot_charts(gid, shots)
+                except Exception as e:
+                    logger.warning(f"Failed to fetch shot chart for game {gid}: {e}")
+
+        logger.info("Per-game data fetch complete")
 
     logger.info("Ingest complete")
 
