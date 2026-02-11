@@ -1146,7 +1146,6 @@ def parse_play_by_play(html):
                 "player_id": None,  # Resolved by caller
                 "player_name": player_name,  # For player_id resolution
                 "event_type": event_type,
-                "event_detail": None,
                 "home_score": home_score,
                 "away_score": away_score,
                 "description": description,
@@ -2977,6 +2976,8 @@ def _ingest_single_season(args, season_code, season_label, active_players, game_
                 logger.info(
                     f"Saved {len(h2h_records)} H2H records for season {season_label}"
                 )
+                # Populate games quarter scores from H2H data
+                database.populate_quarter_scores_from_h2h(season_code)
         except Exception as e:
             logger.warning(f"Failed to fetch H2H for {season_label}: {e}")
 
@@ -3406,6 +3407,8 @@ def main():
                 logger.info(
                     f"Saved {len(h2h_records)} H2H records for season {season_label}"
                 )
+                # Populate games quarter scores from H2H data
+                database.populate_quarter_scores_from_h2h(season_code)
         except Exception as e:
             logger.warning(f"Failed to fetch H2H for {season_label}: {e}")
 

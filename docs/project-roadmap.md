@@ -264,6 +264,14 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] PBP player_id 해결 (player_games 테이블에서 이름 매칭)
 - [x] 파서 테스트 16개 추가 (총 93개)
 
+### Phase 6.2: 스키마 정리 + 쿼터점수 보강 (2026-02-11)
+
+- [x] event_detail 컬럼 제거 (play_by_play, 100% NULL 중복)
+- [x] play_by_play.event_type → event_types.code FK 추가
+- [x] "정규작전타임" → "timeout" 이벤트 타입 추가 (537건 unknown 해소)
+- [x] H2H 데이터에서 games 쿼터점수 자동 채우기 (populate_quarter_scores_from_h2h)
+- [x] 테스트 2개 추가 (총 95개)
+
 ---
 
 ## 4. 기술 스택

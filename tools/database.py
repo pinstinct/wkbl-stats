@@ -222,14 +222,14 @@ CREATE TABLE IF NOT EXISTS play_by_play (
     game_clock TEXT,                    -- MM:SS
     team_id TEXT,
     player_id TEXT,
-    event_type TEXT,                    -- score, foul, turnover, timeout, etc.
-    event_detail TEXT,                  -- 2점슛, 3점슛, 자유투, etc.
+    event_type TEXT,                    -- 2pt_made, 3pt_miss, foul, timeout, etc.
     home_score INTEGER,
     away_score INTEGER,
     description TEXT,
     FOREIGN KEY (game_id) REFERENCES games(id),
     FOREIGN KEY (team_id) REFERENCES teams(id),
     FOREIGN KEY (player_id) REFERENCES players(id),
+    FOREIGN KEY (event_type) REFERENCES event_types(code),
     UNIQUE (game_id, event_order)
 );
 
@@ -1299,6 +1299,95 @@ def bulk_update_quarter_scores(records: List[Dict[str, Any]]):
         logger.info(f"Updated quarter scores for {len(records)} games")
 
 
+def populate_quarter_scores_from_h2h(season_id: str):
+    """Populate games quarter scores and venue from head_to_head data.
+
+    Matches H2H records to games by date + team pair, then parses
+    team1_scores/team2_scores (format: "Q1-Q2-Q3-Q4-OT") into
+    home_q1..home_ot, away_q1..away_ot columns.
+
+    Args:
+        season_id: Season code (e.g., "046")
+
+    Returns:
+        Number of games updated
+    """
+    with get_connection() as conn:
+        # Get all H2H records for this season
+        h2h_rows = conn.execute(
+            "SELECT * FROM head_to_head WHERE season_id = ?", (season_id,)
+        ).fetchall()
+
+        updated = 0
+        for h2h in h2h_rows:
+            t1 = h2h["team1_id"]
+            t2 = h2h["team2_id"]
+            gdate = h2h["game_date"]
+            t1_scores = h2h["team1_scores"]
+            t2_scores = h2h["team2_scores"]
+            venue = h2h["venue"]
+
+            if not t1_scores or not t2_scores:
+                continue
+
+            t1_parts = t1_scores.split("-")
+            t2_parts = t2_scores.split("-")
+            if len(t1_parts) < 4 or len(t2_parts) < 4:
+                continue
+
+            # Try matching: H2H team1=home, team2=away
+            game = conn.execute(
+                """SELECT id FROM games
+                   WHERE game_date = ? AND home_team_id = ? AND away_team_id = ?
+                   AND season_id = ?""",
+                (gdate, t1, t2, season_id),
+            ).fetchone()
+
+            if game:
+                home_parts, away_parts = t1_parts, t2_parts
+            else:
+                # Try reverse: H2H team1=away, team2=home
+                game = conn.execute(
+                    """SELECT id FROM games
+                       WHERE game_date = ? AND home_team_id = ? AND away_team_id = ?
+                       AND season_id = ?""",
+                    (gdate, t2, t1, season_id),
+                ).fetchone()
+                if game:
+                    home_parts, away_parts = t2_parts, t1_parts
+                else:
+                    continue
+
+            conn.execute(
+                """UPDATE games SET
+                    home_q1 = ?, home_q2 = ?, home_q3 = ?, home_q4 = ?, home_ot = ?,
+                    away_q1 = ?, away_q2 = ?, away_q3 = ?, away_q4 = ?, away_ot = ?,
+                    venue = COALESCE(venue, ?)
+                   WHERE id = ?""",
+                (
+                    int(home_parts[0]),
+                    int(home_parts[1]),
+                    int(home_parts[2]),
+                    int(home_parts[3]),
+                    int(home_parts[4]) if len(home_parts) > 4 else 0,
+                    int(away_parts[0]),
+                    int(away_parts[1]),
+                    int(away_parts[2]),
+                    int(away_parts[3]),
+                    int(away_parts[4]) if len(away_parts) > 4 else 0,
+                    venue,
+                    game["id"],
+                ),
+            )
+            updated += 1
+
+        conn.commit()
+        logger.info(
+            f"Populated quarter scores for {updated}/{len(h2h_rows)} games from H2H"
+        )
+        return updated
+
+
 def bulk_insert_play_by_play(game_id: str, events: List[Dict[str, Any]]):
     """Bulk insert play-by-play events for a game.
 
@@ -1311,8 +1400,8 @@ def bulk_insert_play_by_play(game_id: str, events: List[Dict[str, Any]]):
             conn.execute(
                 """INSERT OR REPLACE INTO play_by_play
                    (game_id, event_order, quarter, game_clock, team_id, player_id,
-                    event_type, event_detail, home_score, away_score, description)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    event_type, home_score, away_score, description)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     game_id,
                     event.get("event_order"),
@@ -1321,7 +1410,6 @@ def bulk_insert_play_by_play(game_id: str, events: List[Dict[str, Any]]):
                     event.get("team_id"),
                     event.get("player_id"),
                     event.get("event_type"),
-                    event.get("event_detail"),
                     event.get("home_score"),
                     event.get("away_score"),
                     event.get("description"),

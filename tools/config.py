@@ -70,6 +70,7 @@ EVENT_TYPE_MAP = {
     "속공성공": "fastbreak_made",
     "속공실패": "fastbreak_miss",
     "굿디펜스": "good_defense",
+    "정규작전타임": "timeout",
 }
 
 # Event type categories
@@ -97,6 +98,7 @@ EVENT_TYPE_CATEGORIES = {
     "fastbreak_made": "scoring",
     "fastbreak_miss": "scoring",
     "good_defense": "defense",
+    "timeout": "other",
 }
 
 

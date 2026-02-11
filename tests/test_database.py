@@ -851,6 +851,93 @@ class TestQuarterScores:
         assert row[2] == "잠실실내체육관"
 
 
+class TestPopulateQuarterScoresFromH2H:
+    """Tests for populate_quarter_scores_from_h2h()."""
+
+    def test_populates_from_h2h_match(self, populated_db, sample_game, sample_season):
+        """Test quarter scores populated when H2H matches game by date+teams."""
+        import database
+
+        # Insert H2H record matching the sample game (team1=home, team2=away)
+        database.bulk_insert_head_to_head(
+            sample_season["season_id"],
+            [
+                {
+                    "team1_id": "samsung",
+                    "team2_id": "kb",
+                    "game_date": "2025-10-18",
+                    "game_number": "1",
+                    "venue": "수원체육관",
+                    "team1_scores": "20-18-22-15-0",
+                    "team2_scores": "17-15-19-17-0",
+                    "total_score": "75-68",
+                    "winner_id": "samsung",
+                }
+            ],
+        )
+
+        updated = database.populate_quarter_scores_from_h2h(sample_season["season_id"])
+        assert updated == 1
+
+        with database.get_connection() as conn:
+            row = conn.execute(
+                "SELECT home_q1, home_q2, home_q3, home_q4, home_ot, "
+                "away_q1, away_q2, away_q3, away_q4, away_ot, venue "
+                "FROM games WHERE id = ?",
+                (sample_game["game_id"],),
+            ).fetchone()
+
+        assert row["home_q1"] == 20
+        assert row["home_q2"] == 18
+        assert row["home_q3"] == 22
+        assert row["home_q4"] == 15
+        assert row["home_ot"] == 0
+        assert row["away_q1"] == 17
+        assert row["away_q2"] == 15
+        assert row["away_q3"] == 19
+        assert row["away_q4"] == 17
+        assert row["venue"] == "수원체육관"
+
+    def test_populates_reversed_team_order(
+        self, populated_db, sample_game, sample_season
+    ):
+        """Test matching when H2H team order is reversed from game."""
+        import database
+
+        # Insert H2H with team1=kb (away), team2=samsung (home)
+        database.bulk_insert_head_to_head(
+            sample_season["season_id"],
+            [
+                {
+                    "team1_id": "kb",
+                    "team2_id": "samsung",
+                    "game_date": "2025-10-18",
+                    "game_number": "1",
+                    "venue": "청주체육관",
+                    "team1_scores": "17-15-19-17-0",
+                    "team2_scores": "20-18-22-15-0",
+                    "total_score": "68-75",
+                    "winner_id": "samsung",
+                }
+            ],
+        )
+
+        updated = database.populate_quarter_scores_from_h2h(sample_season["season_id"])
+        assert updated == 1
+
+        with database.get_connection() as conn:
+            row = conn.execute(
+                "SELECT home_q1, away_q1, venue FROM games WHERE id = ?",
+                (sample_game["game_id"],),
+            ).fetchone()
+
+        # samsung is home → should get team2_scores (20-18-22-15-0)
+        assert row["home_q1"] == 20
+        # kb is away → should get team1_scores (17-15-19-17-0)
+        assert row["away_q1"] == 17
+        assert row["venue"] == "청주체육관"
+
+
 class TestPlayByPlay:
     """Tests for play-by-play operations."""
 
@@ -866,7 +953,6 @@ class TestPlayByPlay:
                 "team_id": sample_team["id"],
                 "player_id": None,
                 "event_type": "score",
-                "event_detail": "2점슛",
                 "home_score": 2,
                 "away_score": 0,
                 "description": "삼성 2점슛 성공",
@@ -878,7 +964,6 @@ class TestPlayByPlay:
                 "team_id": None,
                 "player_id": None,
                 "event_type": "foul",
-                "event_detail": None,
                 "home_score": 2,
                 "away_score": 0,
                 "description": "파울",
@@ -890,7 +975,6 @@ class TestPlayByPlay:
                 "team_id": sample_team["id"],
                 "player_id": None,
                 "event_type": "score",
-                "event_detail": "3점슛",
                 "home_score": 5,
                 "away_score": 2,
                 "description": "삼성 3점슛 성공",
