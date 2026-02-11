@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from config import DB_PATH, setup_logging
+from config import DB_PATH, EVENT_TYPE_CATEGORIES, EVENT_TYPE_MAP, setup_logging
 
 logger = setup_logging(__name__)
 
@@ -245,8 +245,7 @@ CREATE TABLE IF NOT EXISTS shot_charts (
     x REAL,                            -- 코트 X 좌표
     y REAL,                            -- 코트 Y 좌표
     made INTEGER NOT NULL,             -- 1: 성공, 0: 실패
-    shot_zone TEXT,                    -- paint, mid, three, etc.
-    is_home INTEGER,                   -- 1: 홈, 0: 원정
+    shot_zone TEXT,                    -- paint, mid_range, three_pt
     FOREIGN KEY (game_id) REFERENCES games(id),
     FOREIGN KEY (player_id) REFERENCES players(id),
     FOREIGN KEY (team_id) REFERENCES teams(id),
@@ -316,6 +315,14 @@ CREATE INDEX IF NOT EXISTS idx_shot_charts_player ON shot_charts(player_id);
 CREATE INDEX IF NOT EXISTS idx_team_category_stats_season ON team_category_stats(season_id);
 CREATE INDEX IF NOT EXISTS idx_head_to_head_season ON head_to_head(season_id);
 CREATE INDEX IF NOT EXISTS idx_game_mvp_season ON game_mvp(season_id);
+
+-- 이벤트 유형 마스터 테이블
+CREATE TABLE IF NOT EXISTS event_types (
+    code TEXT PRIMARY KEY,
+    name_kr TEXT NOT NULL,
+    name_en TEXT,
+    category TEXT                  -- scoring, rebounding, playmaking, defense, other
+);
 
 -- 메타데이터 테이블 (테이블/컬럼 설명)
 CREATE TABLE IF NOT EXISTS _meta_descriptions (
@@ -513,6 +520,17 @@ def init_db():
             """INSERT OR REPLACE INTO _meta_descriptions (table_name, column_name, description)
                VALUES (?, ?, ?)""",
             META_DESCRIPTIONS,
+        )
+
+        # Populate event_types from config
+        event_type_data = [
+            (code, name_kr, code, EVENT_TYPE_CATEGORIES.get(code, "other"))
+            for name_kr, code in EVENT_TYPE_MAP.items()
+        ]
+        cursor.executemany(
+            """INSERT OR IGNORE INTO event_types (code, name_kr, name_en, category)
+               VALUES (?, ?, ?, ?)""",
+            event_type_data,
         )
 
         conn.commit()
@@ -1353,8 +1371,8 @@ def bulk_insert_shot_charts(game_id: str, shots: List[Dict[str, Any]]):
             conn.execute(
                 """INSERT OR REPLACE INTO shot_charts
                    (game_id, player_id, team_id, quarter, game_minute, game_second,
-                    x, y, made, shot_zone, is_home)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    x, y, made, shot_zone)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     game_id,
                     shot.get("player_id"),
@@ -1366,7 +1384,6 @@ def bulk_insert_shot_charts(game_id: str, shots: List[Dict[str, Any]]):
                     shot.get("y"),
                     shot.get("made"),
                     shot.get("shot_zone"),
-                    shot.get("is_home"),
                 ),
             )
         conn.commit()

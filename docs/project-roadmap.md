@@ -252,6 +252,18 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] `src/db.js`에 프론트엔드 쿼리 함수 6개 추가
 - [x] 데이터베이스 테스트 12개 추가 (총 77개)
 
+### Phase 6.1: 파서 버그 수정 + 데이터 품질 개선 ✅ 완료 (2026-02-11)
+
+- [x] 쿼터 점수 시즌 필터 수정 (API가 전 시즌 데이터 반환하는 문제)
+- [x] H2H 파서 재작성 (paired row 파싱, team1/2_scores 쿼터점수 추출)
+- [x] PBP 파서 재작성 (li 태그 전체 캡처, quarter/clock/score/team_id 추출)
+- [x] EVENT_TYPE_MAP 추가 (한국어→영어 이벤트 코드 24종)
+- [x] event_types 마스터 테이블 추가 (코드, 한국어명, 카테고리)
+- [x] shot_charts 스키마 개선 (is_home 제거, shot_zone 좌표 기반 자동 분류)
+- [x] shot_chart 파서: team_id 해결 (home/away 선수 체크박스 파싱)
+- [x] PBP player_id 해결 (player_games 테이블에서 이름 매칭)
+- [x] 파서 테스트 16개 추가 (총 93개)
+
 ---
 
 ## 4. 기술 스택

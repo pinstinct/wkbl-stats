@@ -1064,7 +1064,19 @@ def parse_standings_html(html, season_code):
 def parse_play_by_play(html):
     """Parse play-by-play events from DataLab playByPlay page.
 
-    HTML structure: <li class="item ..."> with event info in <dt> and <dd> tags.
+    HTML structure:
+        <li class="item item-left first keb" data-quarter="Q1">
+          <dl>
+            <dt class="event-info">
+              <strong>09:44</strong>        <!-- game_clock -->
+              <strong>하나은행</strong>      <!-- team_name -->
+              <strong>0-0</strong>           <!-- score -->
+            </dt>
+            <dd class="player-info">
+              <a class="keb"> 고서연  2점슛시도 </a>
+            </dd>
+          </dl>
+        </li>
 
     Args:
         html: HTML content from playByPlay page
@@ -1072,59 +1084,74 @@ def parse_play_by_play(html):
     Returns:
         List of event dicts with event_order, quarter, game_clock, etc.
     """
-    events = []
-    # Extract drawPlayerButton calls for score events and quarter headers
-    # Pattern: drawPlayerButton(false, eventId, homeScore, awayScore, 'Q1', ...)
-    draw_calls = re.findall(
-        r"drawPlayerButton\(false,\s*(\d+),\s*(\d+),\s*(\d+),\s*'(Q\d+|OT\d*)',"
-        r"\s*\d+,\s*\d+,\s*(\d+),\s*(\d+),\s*(true|false),\s*(true|false)\)",
-        html,
-    )
+    from config import EVENT_TYPE_MAP
 
-    for i, match in enumerate(draw_calls):
-        event_id, home_score, away_score, quarter, minute, second, is_home, is_away = (
-            match
+    events = []
+    # Capture full <li> tags including attributes
+    items = re.findall(r"(<li\s+class=\"item[^\"]*\"[^>]*>.*?</li>)", html, re.S)
+
+    for i, item_html in enumerate(items):
+        # Quarter from li tag attribute
+        quarter_m = re.search(r'data-quarter="(Q\d+|OT\d*)"', item_html)
+        quarter = quarter_m.group(1) if quarter_m else None
+
+        # Extract <strong> tags from <dt class="event-info">
+        dt_m = re.search(r'<dt[^>]*class="event-info"[^>]*>(.*?)</dt>', item_html, re.S)
+        game_clock = None
+        team_name = None
+        home_score = None
+        away_score = None
+        if dt_m:
+            strongs = re.findall(r"<strong>(.*?)</strong>", dt_m.group(1), re.S)
+            if len(strongs) >= 1:
+                game_clock = strongs[0].strip()
+            if len(strongs) >= 2:
+                team_name = strongs[1].strip()
+            if len(strongs) >= 3:
+                score_text = strongs[2].strip()
+                score_m = re.match(r"(\d+)\s*-\s*(\d+)", score_text)
+                if score_m:
+                    home_score = int(score_m.group(1))
+                    away_score = int(score_m.group(2))
+
+        # Resolve team_id from team_name
+        team_id = get_team_id(team_name) if team_name else None
+
+        # Extract description from <a> tag in player-info
+        desc_m = re.search(
+            r'<dd[^>]*class="player-info"[^>]*>.*?<a[^>]*>(.*?)</a>', item_html, re.S
         )
+        description = strip_tags(desc_m.group(1)).strip() if desc_m else None
+
+        # Parse player_name and event_type from description
+        # Format: "고서연  2점슛시도" or "팀턴오버"
+        event_type = None
+        player_name = None
+        if description:
+            # Try matching each known event type (longest first to avoid partial)
+            for kr_event in sorted(EVENT_TYPE_MAP.keys(), key=len, reverse=True):
+                if kr_event in description:
+                    event_type = EVENT_TYPE_MAP[kr_event]
+                    player_name = description.replace(kr_event, "").strip()
+                    break
+            if not event_type:
+                event_type = "unknown"
+
         events.append(
             {
                 "event_order": i + 1,
                 "quarter": quarter,
-                "game_clock": f"{int(minute):02d}:{int(second):02d}",
-                "team_id": None,  # Resolved by caller with game context
-                "player_id": None,
-                "event_type": "score",
+                "game_clock": game_clock,
+                "team_id": team_id,
+                "player_id": None,  # Resolved by caller
+                "player_name": player_name,  # For player_id resolution
+                "event_type": event_type,
                 "event_detail": None,
-                "home_score": int(home_score),
-                "away_score": int(away_score),
-                "description": None,
+                "home_score": home_score,
+                "away_score": away_score,
+                "description": description,
             }
         )
-
-    # Also parse li.item elements for richer event data
-    items = re.findall(r'<li\s+class="item[^"]*"[^>]*>(.*?)</li>', html, re.S)
-    if items and not events:
-        for i, item_html in enumerate(items):
-            quarter_m = re.search(r'data-quarter="(Q\d+|OT\d*)"', item_html)
-            clock_m = re.search(r'<span class="time">(\d+:\d+)</span>', item_html)
-            desc_m = re.search(r'<dd class="player-info">(.*?)</dd>', item_html, re.S)
-            score_m = re.search(
-                r'<span class="score">(\d+)\s*-\s*(\d+)</span>', item_html
-            )
-
-            events.append(
-                {
-                    "event_order": i + 1,
-                    "quarter": quarter_m.group(1) if quarter_m else None,
-                    "game_clock": clock_m.group(1) if clock_m else None,
-                    "team_id": None,
-                    "player_id": None,
-                    "event_type": "event",
-                    "event_detail": None,
-                    "home_score": int(score_m.group(1)) if score_m else None,
-                    "away_score": int(score_m.group(2)) if score_m else None,
-                    "description": strip_tags(desc_m.group(1)) if desc_m else None,
-                }
-            )
 
     return events
 
@@ -1136,13 +1163,23 @@ def parse_shot_chart(html):
     data-player="PNO" data-minute="M" data-second="S" data-quarter="Q1"
     style="left: Xpx; top: Ypx;">
 
+    Also extracts home/away player lists for team_id resolution.
+
     Args:
         html: HTML content from shotCharts page
 
     Returns:
-        List of shot dicts with player_id, x, y, made, quarter, etc.
+        List of shot dicts with player_id, x, y, made, quarter, shot_zone, etc.
     """
+    from config import get_shot_zone
+
     shots = []
+
+    # Build home player set from checkboxes for team_id resolution
+    # Home: <input class="player-input home" id="095830" name="homePlayer">
+    home_players = set(
+        re.findall(r'<input[^>]*class="player-input\s+home"[^>]*id="(\d+)"', html)
+    )
 
     shot_pattern = (
         r'<a[^>]*class="shot-icon\s+(shot-suc|shot-fail)[^"]*"'
@@ -1154,18 +1191,20 @@ def parse_shot_chart(html):
     )
     for match in re.finditer(shot_pattern, html, re.S):
         result, player_id, minute, second, quarter, x, y = match.groups()
+        x_f, y_f = float(x), float(y)
+        is_home = player_id in home_players if player_id else False
         shots.append(
             {
                 "player_id": player_id if player_id else None,
-                "team_id": None,
+                "team_id": None,  # Resolved by caller with game context
                 "quarter": quarter,
                 "game_minute": int(minute),
                 "game_second": int(second),
-                "x": float(x),
-                "y": float(y),
+                "x": x_f,
+                "y": y_f,
                 "made": 1 if result == "shot-suc" else 0,
-                "shot_zone": None,
-                "is_home": 0,
+                "shot_zone": get_shot_zone(x_f, y_f),
+                "_is_home": is_home,  # Temporary, for team_id resolution
             }
         )
 
@@ -1249,7 +1288,10 @@ def parse_team_category_stats(html, category):
 def parse_head_to_head(html, team1_id, team2_id):
     """Parse head-to-head records from WKBL AJAX response.
 
-    HTML structure: paired <tr> rows with game details.
+    HTML structure: paired <tr> rows with rowspan=2.
+    Row 1 (13 cells): date, game_number, home, away, venue, team1_name,
+           Q1, Q2, Q3, Q4, OT, total_score, winner
+    Row 2 (6 cells): team2_name, Q1, Q2, Q3, Q4, OT
 
     Args:
         html: HTML content from ajax_report.asp
@@ -1262,42 +1304,66 @@ def parse_head_to_head(html, team1_id, team2_id):
     records = []
     rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S)
 
-    for row_html in rows:
-        if "<th" in row_html:
+    i = 0
+    while i < len(rows):
+        row1_html = rows[i]
+        if "<th" in row1_html:
+            i += 1
             continue
 
-        cells = re.findall(r"<td[^>]*>(.*?)</td>", row_html, re.S)
-        if len(cells) < 5:
+        cells1 = re.findall(r"<td[^>]*>(.*?)</td>", row1_html, re.S)
+        # Row 1 should have 13 cells (with rowspan=2 cells)
+        if len(cells1) < 11:
+            i += 1
             continue
 
-        cell_texts = [strip_tags(c) for c in cells]
+        cell_texts1 = [strip_tags(c) for c in cells1]
 
-        # Try to extract date (format: YYYY-MM-DD or YYYY.MM.DD)
-        date_m = re.search(r"(\d{4})[.\-/](\d{2})[.\-/](\d{2})", cell_texts[0])
+        # Extract date
+        date_m = re.search(r"(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})", cell_texts1[0])
         if not date_m:
+            i += 1
             continue
 
-        game_date = f"{date_m.group(1)}-{date_m.group(2)}-{date_m.group(3)}"
+        game_date = (
+            f"{date_m.group(1)}-{int(date_m.group(2)):02d}-{int(date_m.group(3)):02d}"
+        )
+        game_number = cell_texts1[1].strip()
 
-        # Extract game number
-        game_number = cell_texts[1].strip() if len(cell_texts) > 1 else None
+        # cells1[2] = home team, cells1[3] = away team
+        venue = cell_texts1[4].strip()
 
-        # Extract venue
-        venue = cell_texts[2].strip() if len(cell_texts) > 2 else None
+        # cells1[5] = team1 name, cells1[6..10] = Q1-Q4,OT scores
+        team1_q = "-".join(cell_texts1[6:11])
 
-        # Extract scores - try to find total scores
+        # cells1[11] = total score (e.g., "61:82"), cells1[12] = winner
+        total_score_text = cell_texts1[11].strip() if len(cell_texts1) > 11 else ""
+        winner_name = cell_texts1[12].strip() if len(cell_texts1) > 12 else ""
+
+        # Parse total score
+        score_m = re.search(r"(\d+)\s*[:]\s*(\d+)", total_score_text)
         total_score = None
         winner_id = None
-        for cell in cell_texts[3:]:
-            score_m = re.search(r"(\d+)\s*[-:]\s*(\d+)", cell)
-            if score_m:
-                s1, s2 = int(score_m.group(1)), int(score_m.group(2))
-                total_score = f"{s1}-{s2}"
-                if s1 > s2:
-                    winner_id = team1_id
-                elif s2 > s1:
-                    winner_id = team2_id
-                break
+        if score_m:
+            s1, s2 = int(score_m.group(1)), int(score_m.group(2))
+            total_score = f"{s1}-{s2}"
+            # Determine winner from winner_name
+            w_id = get_team_id(winner_name)
+            if w_id:
+                winner_id = w_id
+
+        # Parse row 2 for team2 quarter scores
+        team2_q = None
+        if i + 1 < len(rows):
+            row2_html = rows[i + 1]
+            cells2 = re.findall(r"<td[^>]*>(.*?)</td>", row2_html, re.S)
+            if len(cells2) >= 6:
+                cell_texts2 = [strip_tags(c) for c in cells2]
+                # cells2[0] = team2 name, cells2[1..5] = Q1-Q4,OT
+                team2_q = "-".join(cell_texts2[1:6])
+            i += 2
+        else:
+            i += 1
 
         records.append(
             {
@@ -1306,8 +1372,8 @@ def parse_head_to_head(html, team1_id, team2_id):
                 "game_date": game_date,
                 "game_number": game_number,
                 "venue": venue,
-                "team1_scores": None,
-                "team2_scores": None,
+                "team1_scores": team1_q,
+                "team2_scores": team2_q,
                 "total_score": total_score,
                 "winner_id": winner_id,
             }
@@ -1480,6 +1546,8 @@ def _wkbl_team_code_to_id(code):
 def fetch_play_by_play(game_id, cache_dir, use_cache=True, delay=0.0):
     """Fetch play-by-play data for a game.
 
+    Parses events and resolves player_id from player_name using DB.
+
     Args:
         game_id: WKBL game ID
         cache_dir: Cache directory
@@ -1491,11 +1559,38 @@ def fetch_play_by_play(game_id, cache_dir, use_cache=True, delay=0.0):
     """
     url = f"{PLAY_BY_PLAY_URL}?menu=playByPlay&selectedId={game_id}"
     html = fetch(url, cache_dir, use_cache=use_cache, delay=delay)
-    return parse_play_by_play(html)
+    events = parse_play_by_play(html)
+
+    # Resolve player_id from player_name using player_games for this game
+    import sqlite3
+
+    try:
+        conn = sqlite3.connect(database.DB_PATH)
+        conn.row_factory = sqlite3.Row
+        game_players = conn.execute(
+            """SELECT DISTINCT pg.player_id, p.name
+               FROM player_games pg
+               JOIN players p ON pg.player_id = p.id
+               WHERE pg.game_id = ?""",
+            (game_id,),
+        ).fetchall()
+        conn.close()
+        name_to_id = {row["name"]: row["player_id"] for row in game_players}
+    except Exception:
+        name_to_id = {}
+
+    for event in events:
+        pname = event.pop("player_name", None)
+        if pname and name_to_id:
+            event["player_id"] = name_to_id.get(pname)
+
+    return events
 
 
 def fetch_shot_chart(game_id, cache_dir, use_cache=True, delay=0.0):
     """Fetch shot chart data for a game.
+
+    Resolves team_id for each shot using game's home/away teams.
 
     Args:
         game_id: WKBL game ID
@@ -1508,7 +1603,33 @@ def fetch_shot_chart(game_id, cache_dir, use_cache=True, delay=0.0):
     """
     url = f"{SHOT_CHART_URL}?menu=shotCharts&selectedId={game_id}"
     html = fetch(url, cache_dir, use_cache=use_cache, delay=delay)
-    return parse_shot_chart(html)
+    shots = parse_shot_chart(html)
+
+    # Resolve team_id from game's home/away teams
+    import sqlite3
+
+    home_team_id = None
+    away_team_id = None
+    try:
+        conn = sqlite3.connect(database.DB_PATH)
+        conn.row_factory = sqlite3.Row
+        game = conn.execute(
+            "SELECT home_team_id, away_team_id FROM games WHERE id = ?",
+            (game_id,),
+        ).fetchone()
+        conn.close()
+        if game:
+            home_team_id = game["home_team_id"]
+            away_team_id = game["away_team_id"]
+    except Exception as e:
+        logger.debug(f"Could not fetch game teams for {game_id}: {e}")
+
+    for shot in shots:
+        is_home = shot.pop("_is_home", False)
+        if home_team_id and away_team_id:
+            shot["team_id"] = home_team_id if is_home else away_team_id
+
+    return shots
 
 
 def fetch_team_category_stats(season_code, cache_dir, use_cache=True, delay=0.0):
@@ -1664,6 +1785,9 @@ def fetch_quarter_scores(season_code, cache_dir, use_cache=True, delay=0.0):
             for match in match_records:
                 game_id = match.get("gameID")
                 if not game_id or game_id in seen_game_ids:
+                    continue
+                # Filter to current season only (API returns all seasons)
+                if not game_id.startswith(season_code):
                     continue
                 seen_game_ids.add(game_id)
 

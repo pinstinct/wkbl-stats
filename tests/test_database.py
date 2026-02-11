@@ -37,6 +37,7 @@ class TestDatabaseInit:
             "team_category_stats",
             "head_to_head",
             "game_mvp",
+            "event_types",
         }
         assert expected_tables.issubset(tables), (
             f"Missing tables: {expected_tables - tables}"
@@ -952,7 +953,6 @@ class TestShotCharts:
                 "y": 60.2,
                 "made": 1,
                 "shot_zone": "paint",
-                "is_home": 1,
             },
             {
                 "player_id": sample_player["player_id"],
@@ -963,8 +963,7 @@ class TestShotCharts:
                 "x": 70.0,
                 "y": 30.0,
                 "made": 0,
-                "shot_zone": "three",
-                "is_home": 1,
+                "shot_zone": "three_pt",
             },
         ]
         database.bulk_insert_shot_charts(sample_game["game_id"], shots)

@@ -45,6 +45,90 @@ TEAM_CATEGORY_PARTS = {
     12: "ftp",
 }
 
+# Play-by-play event type mapping (Korean → English code)
+EVENT_TYPE_MAP = {
+    "2점슛성공": "2pt_made",
+    "2점슛시도": "2pt_miss",
+    "3점슛성공": "3pt_made",
+    "3점슛시도": "3pt_miss",
+    "페인트존2점슛성공": "paint_2pt_made",
+    "자유투성공": "ft_made",
+    "자유투실패": "ft_miss",
+    "공격리바운드": "off_rebound",
+    "수비리바운드": "def_rebound",
+    "팀공격리바운드": "team_off_rebound",
+    "팀수비리바운드": "team_def_rebound",
+    "어시스트": "assist",
+    "스틸": "steal",
+    "블록": "block",
+    "턴오버": "turnover",
+    "팀턴오버": "team_turnover",
+    "파울": "foul",
+    "테크니컬파울": "tech_foul",
+    "교체(IN)": "sub_in",
+    "교체(OUT)": "sub_out",
+    "속공성공": "fastbreak_made",
+    "속공실패": "fastbreak_miss",
+    "굿디펜스": "good_defense",
+}
+
+# Event type categories
+EVENT_TYPE_CATEGORIES = {
+    "2pt_made": "scoring",
+    "2pt_miss": "scoring",
+    "3pt_made": "scoring",
+    "3pt_miss": "scoring",
+    "paint_2pt_made": "scoring",
+    "ft_made": "scoring",
+    "ft_miss": "scoring",
+    "off_rebound": "rebounding",
+    "def_rebound": "rebounding",
+    "team_off_rebound": "rebounding",
+    "team_def_rebound": "rebounding",
+    "assist": "playmaking",
+    "steal": "defense",
+    "block": "defense",
+    "turnover": "other",
+    "team_turnover": "other",
+    "foul": "other",
+    "tech_foul": "other",
+    "sub_in": "substitution",
+    "sub_out": "substitution",
+    "fastbreak_made": "scoring",
+    "fastbreak_miss": "scoring",
+    "good_defense": "defense",
+}
+
+
+def get_shot_zone(x, y):
+    """Classify shot zone from WKBL court coordinates.
+
+    Court coordinate system (half court, 0-based px):
+      X range: ~0-291, Y range: ~18-176
+      Basket is roughly at (150, 10) based on coordinate distribution.
+
+    Args:
+        x: X coordinate (px)
+        y: Y coordinate (px)
+
+    Returns:
+        Shot zone string: paint, mid_range, three_pt
+    """
+    # Distance from basket center (approx 150, 10)
+    bx, by = 150.0, 10.0
+    dx = x - bx
+    dy = y - by
+    dist = (dx * dx + dy * dy) ** 0.5
+
+    # Paint area (roughly within 50px of basket)
+    if dist <= 50:
+        return "paint"
+    # Three-point line (roughly 120px from basket)
+    if dist >= 120:
+        return "three_pt"
+    return "mid_range"
+
+
 # Server Settings
 HOST = os.getenv("HOST", "")
 PORT = int(os.getenv("PORT", "8000"))

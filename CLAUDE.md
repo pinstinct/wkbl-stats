@@ -98,7 +98,7 @@ uv run pytest tests/test_database.py -v
 uv run pytest tests/test_api.py -v
 ```
 
-**Test coverage (77 tests total):**
+**Test coverage (93 tests total):**
 
 - `test_database.py`: Database operations (42 tests)
   - Database init, CRUD operations, season stats, boxscore, standings, predictions
@@ -106,6 +106,8 @@ uv run pytest tests/test_api.py -v
   - Quarter scores, play-by-play, shot charts, team category stats, head-to-head, game MVP
 - `test_api.py`: REST API endpoints (30 tests)
   - Health, players, teams, games, seasons, standings, leaders, search, compare
+- `test_parsers.py`: Parser functions (16 tests)
+  - Play-by-play, head-to-head, shot chart, player profile, event type mapping
 - `test_ingest_predictions.py`: Ingest prediction backfill (3 tests)
 - `test_refactor_p0.py`: Advanced stats and season resolver (2 tests)
 
@@ -237,6 +239,7 @@ teams ───┼──→ games ──→ player_games (per-game player stats)
          ├──→ head_to_head (team H2H records)
          └──→ game_mvp (game MVP records)
 players ─┘
+event_types (master table for PBP event codes)
 ```
 
 Key tables:
@@ -250,8 +253,9 @@ Key tables:
 - `team_standings`: Season standings (rank, wins, losses, win_pct, home/away records, streak, last5)
 - `game_predictions`: Player stat predictions (predicted_pts/reb/ast with confidence intervals)
 - `game_team_predictions`: Team win probability predictions (home/away win_prob, predicted_pts)
-- `play_by_play`: Play-by-play events (quarter, game_clock, event_type, scores)
-- `shot_charts`: Shot chart data (x, y coordinates, made/missed, player, quarter)
+- `play_by_play`: Play-by-play events (quarter, game_clock, event_type, team_id, player_id, scores)
+- `shot_charts`: Shot chart data (x, y coordinates, made/missed, player, team_id, quarter, shot_zone)
+- `event_types`: Event type master table (code, name_kr, category: scoring/rebounding/defense/etc.)
 - `team_category_stats`: Team category rankings (pts, reb, ast, etc. per season)
 - `head_to_head`: Head-to-head records between teams (scores, venue, winner)
 - `game_mvp`: Game MVP records (player stats, evaluation score, rank)
