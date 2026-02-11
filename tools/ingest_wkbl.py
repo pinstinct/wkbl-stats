@@ -1132,8 +1132,9 @@ def parse_play_by_play(html):
 def parse_shot_chart(html):
     """Parse shot chart data from DataLab shotCharts page.
 
-    HTML structure: <a class="shot-icon shot-suc/fail" data-player data-quarter
-    style="left:X%;top:Y%"> inside map-home/map-away containers.
+    HTML structure: <a class="shot-icon shot-suc/fail [has-video]"
+    data-player="PNO" data-minute="M" data-second="S" data-quarter="Q1"
+    style="left: Xpx; top: Ypx;">
 
     Args:
         html: HTML content from shotCharts page
@@ -1143,42 +1144,30 @@ def parse_shot_chart(html):
     """
     shots = []
 
-    # Find home and away sections
-    for is_home, section_class in [(1, "map-home"), (0, "map-away")]:
-        # Extract section HTML
-        section_m = re.search(
-            rf'class="{section_class}"[^>]*>(.*?)</div>\s*</div>',
-            html,
-            re.S,
+    shot_pattern = (
+        r'<a[^>]*class="shot-icon\s+(shot-suc|shot-fail)[^"]*"'
+        r'[^>]*data-player="(\d*)"'
+        r'[^>]*data-minute="(\d+)"'
+        r'[^>]*data-second="(\d+)"'
+        r'[^>]*data-quarter="(Q\d+|OT\d*)"'
+        r'[^>]*style="[^"]*left:\s*([\d.]+)[^;]*;\s*top:\s*([\d.]+)'
+    )
+    for match in re.finditer(shot_pattern, html, re.S):
+        result, player_id, minute, second, quarter, x, y = match.groups()
+        shots.append(
+            {
+                "player_id": player_id if player_id else None,
+                "team_id": None,
+                "quarter": quarter,
+                "game_minute": int(minute),
+                "game_second": int(second),
+                "x": float(x),
+                "y": float(y),
+                "made": 1 if result == "shot-suc" else 0,
+                "shot_zone": None,
+                "is_home": 0,
+            }
         )
-        if not section_m:
-            continue
-
-        section_html = section_m.group(1)
-
-        # Find shot icons
-        shot_pattern = (
-            r'<a[^>]*class="shot-icon\s+(shot-suc|shot-fail)"'
-            r'[^>]*data-player="(\d*)"'
-            r'[^>]*data-quarter="(Q\d+|OT\d*)"'
-            r'[^>]*style="[^"]*left:\s*([\d.]+)%?;\s*top:\s*([\d.]+)%?"'
-        )
-        for match in re.finditer(shot_pattern, section_html, re.S):
-            result, player_id, quarter, x, y = match.groups()
-            shots.append(
-                {
-                    "player_id": player_id if player_id else None,
-                    "team_id": None,  # Resolved by caller
-                    "quarter": quarter,
-                    "game_minute": 0,
-                    "game_second": len(shots),  # Use index for uniqueness
-                    "x": float(x),
-                    "y": float(y),
-                    "made": 1 if result == "shot-suc" else 0,
-                    "shot_zone": None,
-                    "is_home": is_home,
-                }
-            )
 
     return shots
 
