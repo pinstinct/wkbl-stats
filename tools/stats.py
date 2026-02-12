@@ -174,6 +174,11 @@ def compute_advanced_stats(
         if dreb_denom > 0:
             d["dreb_pct"] = _r(100 * def_reb_avg * team_min_5 / dreb_denom, 1)
 
+        # REB% = 100 * REB * (Team_MIN/5) / (MIN * (Team_REB + Opp_REB))
+        reb_denom = min_avg * (ts["team_reb"] + ts["opp_reb"])
+        if reb_denom > 0:
+            d["reb_pct"] = _r(100 * reb_avg * team_min_5 / reb_denom, 1)
+
         # AST% = 100 * AST / ((MIN/(Team_MIN/5)) * Team_FGM - FGM)
         if team_min_5 > 0:
             min_frac = min_avg / team_min_5

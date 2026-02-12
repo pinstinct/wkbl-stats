@@ -25,7 +25,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 | Phase 5   | ✅ 완료 | 고급 기능 (선수 비교, 트렌드 차트, 전역 검색)               |
 | Phase 6   | ✅ 완료 | 추가 데이터 수집 (PBP, 샷차트, H2H, MVP, 쿼터점수)          |
 | Phase 6.3 | ✅ 완료 | 데이터 품질 (고아 선수 해결, 이벤트 카테고리 세분화)        |
-| Phase 7   | ✅ 완료 | 고급 지표 Tier 1 (GmSc, USG%, ORtg/DRtg, Pace, PER 등 13개) |
+| Phase 7   | ✅ 완료 | 고급 지표 Tier 1 (GmSc, USG%, ORtg/DRtg, Pace, PER 등 14개) |
 
 ---
 
@@ -291,13 +291,13 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] USG% (Usage Rate) — `usg_pct`
 - [x] ORtg / DRtg / Net Rating (팀 공격·수비 효율) — `off_rtg`, `def_rtg`, `net_rtg`
 - [x] Pace (팀 경기 속도) — `pace`
-- [x] OREB% / DREB% (리바운드 비율) — `oreb_pct`, `dreb_pct`
+- [x] OREB% / DREB% / REB% (리바운드 비율) — `oreb_pct`, `dreb_pct`, `reb_pct`
 - [x] AST% / STL% / BLK% (기여도 비율) — `ast_pct`, `stl_pct`, `blk_pct`
 - [x] PER (Player Efficiency Rating, Hollinger) — `per`
 - [x] DB 인프라: `get_team_season_totals()`, `get_opponent_season_totals()`, `get_league_season_totals()`
 - [x] `compute_advanced_stats()` 시그니처 확장 (team_stats, league_stats kwargs)
 - [x] API 통합: `get_players()`, `get_player_detail()`, `get_player_comparison()` 모두 고급 지표 포함
-- [x] 테스트 19개 추가 (총 121개)
+- [x] 테스트 20개 추가 (총 122개)
 
 ---
 

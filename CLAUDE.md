@@ -101,7 +101,7 @@ uv run pytest tests/test_database.py -v
 uv run pytest tests/test_api.py -v
 ```
 
-**Test coverage (121 tests total):**
+**Test coverage (122 tests total):**
 
 - `test_database.py`: Database operations (49 tests)
   - Database init, CRUD operations, season stats, boxscore, standings, predictions
@@ -115,7 +115,7 @@ uv run pytest tests/test_api.py -v
   - Play-by-play, head-to-head, shot chart, player profile, event type mapping
   - Ambiguous player resolution (season adjacency, overlap exclusion, minutes tiebreak, tie detection)
 - `test_ingest_predictions.py`: Ingest prediction backfill (3 tests)
-- `test_refactor_p0.py`: Advanced stats and season resolver (18 tests)
+- `test_refactor_p0.py`: Advanced stats and season resolver (19 tests)
   - Basic stats (TS%, eFG%, PIR, Per-36), Game Score, TOV%
   - Team-context stats (USG%, ORtg, DRtg, Net Rating, Pace)
   - Rate stats (OREB%, DREB%, AST%, STL%, BLK%)
@@ -326,6 +326,7 @@ External endpoints (documented in `docs/data-sources.md`):
   "pace": 90.6,
   "oreb_pct": 3.3,
   "dreb_pct": 13.0,
+  "reb_pct": 8.2,
   "ast_pct": 20.8,
   "stl_pct": 3.0,
   "blk_pct": 2.4,

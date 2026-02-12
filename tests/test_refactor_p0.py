@@ -306,6 +306,17 @@ def test_compute_dreb_pct():
     assert computed["dreb_pct"] == 13.0
 
 
+def test_compute_reb_pct():
+    """REB% = 100 * REB * (Team_MIN/5) / (MIN * (Team_REB + Opp_REB))"""
+    from stats import compute_advanced_stats
+
+    computed = compute_advanced_stats(dict(_BASE_ROW), team_stats=dict(_TEAM_STATS))
+
+    # REB% = 100 * 5.0 * (2000/5) / (30.0 * (420 + 390))
+    #       = 100 * 2000 / (30 * 810) = 100 * 2000 / 24300 = 8.2
+    assert computed["reb_pct"] == 8.2
+
+
 def test_compute_ast_pct():
     """AST% = 100 * AST / ((MIN/(Team_MIN/5)) * Team_FGM - FGM)"""
     from stats import compute_advanced_stats
