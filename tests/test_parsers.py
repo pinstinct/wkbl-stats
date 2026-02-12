@@ -342,6 +342,119 @@ class TestParsePlayerProfile:
         assert birth_date is None
 
 
+class TestResolveAmbiguousPlayers:
+    """Tests for resolve_ambiguous_players()."""
+
+    def test_resolves_transfer_by_season_adjacency(self):
+        """Player transferred: orphan seasons 041-042, candidate starts 043."""
+        from ingest_wkbl import resolve_ambiguous_players
+
+        player_id_map = {
+            "고아라|금호생명": "095027",
+            "고아라|우리은행": "095068",
+            "고아라|하나은행": "고아라_하나은행",  # orphan
+        }
+        player_id_by_name = {"고아라": ["095027", "095068"]}
+        game_records = [
+            # 095068 on woori in seasons 043-044
+            {"name": "고아라", "team": "우리은행", "_game_id": "04301001"},
+            {"name": "고아라", "team": "우리은행", "_game_id": "04401001"},
+            # orphan on hana in seasons 041-042
+            {"name": "고아라", "team": "하나은행", "_game_id": "04101001"},
+            {"name": "고아라", "team": "하나은행", "_game_id": "04201001"},
+            # 095027 on 금호생명 - no game records
+        ]
+        resolved = resolve_ambiguous_players(
+            player_id_map, player_id_by_name, game_records
+        )
+        assert resolved == 1
+        assert player_id_map["고아라|하나은행"] == "095068"
+
+    def test_resolves_with_overlapping_candidate_excluded(self):
+        """One candidate overlaps orphan seasons, other doesn't."""
+        from ingest_wkbl import resolve_ambiguous_players
+
+        player_id_map = {
+            "김단비|삼성생명": "095226",
+            "김단비|우리은행": "095104",
+            "김단비|신한은행": "김단비_신한은행",  # orphan
+        }
+        player_id_by_name = {"김단비": ["095226", "095104"]}
+        game_records = [
+            # 095226 samsung: overlaps with orphan seasons 041-042
+            {"name": "김단비", "team": "삼성생명", "_game_id": "04101001"},
+            {"name": "김단비", "team": "삼성생명", "_game_id": "04201001"},
+            # 095104 woori: starts after orphan ends (043+)
+            {"name": "김단비", "team": "우리은행", "_game_id": "04301001"},
+            {"name": "김단비", "team": "우리은행", "_game_id": "04401001"},
+            # orphan on shinhan: 041-042
+            {"name": "김단비", "team": "신한은행", "_game_id": "04101002"},
+            {"name": "김단비", "team": "신한은행", "_game_id": "04201002"},
+        ]
+        resolved = resolve_ambiguous_players(
+            player_id_map, player_id_by_name, game_records
+        )
+        assert resolved == 1
+        assert player_id_map["김단비|신한은행"] == "095104"
+
+    def test_tiebreak_by_minutes_similarity(self):
+        """Two candidates with same gap resolved by avg minutes similarity."""
+        from ingest_wkbl import resolve_ambiguous_players
+
+        player_id_map = {
+            "김정은|하나은행": "095041",
+            "김정은|BNK썸": "095899",
+            "김정은|우리은행": "김정은_우리은행",  # orphan
+        }
+        player_id_by_name = {"김정은": ["095041", "095899"]}
+        game_records = [
+            # 095041 (hana): ~29 min → similar to orphan
+            {"name": "김정은", "team": "하나은행", "_game_id": "04401001", "min": 29},
+            {"name": "김정은", "team": "하나은행", "_game_id": "04401002", "min": 29},
+            # 095899 (BNK): ~16 min → rookie, different level
+            {"name": "김정은", "team": "BNK썸", "_game_id": "04401003", "min": 16},
+            {"name": "김정은", "team": "BNK썸", "_game_id": "04401004", "min": 16},
+            # orphan: ~30 min → veteran
+            {"name": "김정은", "team": "우리은행", "_game_id": "04301001", "min": 30},
+            {"name": "김정은", "team": "우리은행", "_game_id": "04301002", "min": 30},
+        ]
+        resolved = resolve_ambiguous_players(
+            player_id_map, player_id_by_name, game_records
+        )
+        assert resolved == 1
+        assert player_id_map["김정은|우리은행"] == "095041"
+
+    def test_no_resolution_identical_minutes(self):
+        """Two candidates with same gap AND same minutes - can't resolve."""
+        from ingest_wkbl import resolve_ambiguous_players
+
+        player_id_map = {
+            "선수A|팀X": "001",
+            "선수A|팀Y": "002",
+            "선수A|팀Z": "선수A_팀Z",
+        }
+        player_id_by_name = {"선수A": ["001", "002"]}
+        game_records = [
+            {"name": "선수A", "team": "팀X", "_game_id": "04401001", "min": 20},
+            {"name": "선수A", "team": "팀Y", "_game_id": "04401002", "min": 20},
+            {"name": "선수A", "team": "팀Z", "_game_id": "04301001", "min": 20},
+        ]
+        resolved = resolve_ambiguous_players(
+            player_id_map, player_id_by_name, game_records
+        )
+        assert resolved == 0
+        assert player_id_map["선수A|팀Z"] == "선수A_팀Z"
+
+    def test_no_orphans_returns_zero(self):
+        """No orphan players to resolve."""
+        from ingest_wkbl import resolve_ambiguous_players
+
+        player_id_map = {"선수A|팀1": "095001"}
+        player_id_by_name = {"선수A": ["095001"]}
+        resolved = resolve_ambiguous_players(player_id_map, player_id_by_name, [])
+        assert resolved == 0
+
+
 class TestEventTypeMap:
     """Tests for EVENT_TYPE_MAP configuration."""
 

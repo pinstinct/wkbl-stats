@@ -71,6 +71,7 @@ EVENT_TYPE_MAP = {
     "속공실패": "fastbreak_miss",
     "굿디펜스": "good_defense",
     "정규작전타임": "timeout",
+    "UnsportsManLike": "unsportsmanlike_foul",
 }
 
 # Event type categories
@@ -89,16 +90,17 @@ EVENT_TYPE_CATEGORIES = {
     "assist": "playmaking",
     "steal": "defense",
     "block": "defense",
-    "turnover": "other",
-    "team_turnover": "other",
-    "foul": "other",
-    "tech_foul": "other",
+    "turnover": "turnover",
+    "team_turnover": "turnover",
+    "foul": "foul",
+    "tech_foul": "foul",
     "sub_in": "substitution",
     "sub_out": "substitution",
     "fastbreak_made": "scoring",
     "fastbreak_miss": "scoring",
     "good_defense": "defense",
     "timeout": "other",
+    "unsportsmanlike_foul": "foul",
 }
 
 

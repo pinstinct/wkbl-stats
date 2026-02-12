@@ -1388,6 +1388,134 @@ def populate_quarter_scores_from_h2h(season_id: str):
         return updated
 
 
+def resolve_orphan_players():
+    """Resolve orphan players with non-numeric IDs (e.g. 고아라_하나은행) in the DB.
+
+    Uses season non-overlap and temporal adjacency to match orphans to their
+    correct pno. After resolution, updates all referencing tables and removes
+    the orphan player entry.
+
+    Returns:
+        Number of orphan players resolved.
+    """
+    with get_connection() as conn:
+        # Find orphan players (non-numeric IDs containing underscores)
+        orphans = conn.execute(
+            """SELECT id, name, team_id FROM players
+               WHERE id GLOB '*[^0-9]*' AND id LIKE '%_%'"""
+        ).fetchall()
+        if not orphans:
+            return 0
+
+        resolved = 0
+        for orphan in orphans:
+            oid, name = orphan["id"], orphan["name"]
+
+            # Find candidate pnos (numeric IDs with same name)
+            candidates = conn.execute(
+                "SELECT id FROM players WHERE name = ? AND id GLOB '[0-9]*'",
+                (name,),
+            ).fetchall()
+            if len(candidates) < 2:
+                continue
+
+            # Get seasons where orphan has games
+            orphan_seasons = {
+                row["season_id"]
+                for row in conn.execute(
+                    """SELECT DISTINCT g.season_id FROM player_games pg
+                       JOIN games g ON pg.game_id = g.id
+                       WHERE pg.player_id = ?""",
+                    (oid,),
+                ).fetchall()
+            }
+            if not orphan_seasons:
+                continue
+
+            # For each candidate, get their game seasons and avg minutes
+            best_pno = None
+            best_gap = float("inf")
+            best_avg_min = -1.0
+            tied = False
+
+            # Get orphan's avg minutes for similarity comparison
+            orphan_avg = (
+                conn.execute(
+                    "SELECT AVG(minutes) FROM player_games WHERE player_id = ?",
+                    (oid,),
+                ).fetchone()[0]
+                or 0.0
+            )
+
+            for cand in candidates:
+                cand_id = cand["id"]
+                cand_row = conn.execute(
+                    """SELECT GROUP_CONCAT(DISTINCT g.season_id) as seasons,
+                              AVG(pg.minutes) as avg_min
+                       FROM player_games pg
+                       JOIN games g ON pg.game_id = g.id
+                       WHERE pg.player_id = ?""",
+                    (cand_id,),
+                ).fetchone()
+
+                cand_seasons = (
+                    set(cand_row["seasons"].split(","))
+                    if cand_row["seasons"]
+                    else set()
+                )
+                cand_avg_min = cand_row["avg_min"] or 0.0
+
+                # Skip if overlapping seasons (different person)
+                if cand_seasons & orphan_seasons:
+                    continue
+
+                # Skip if no game records
+                if not cand_seasons:
+                    continue
+
+                # Find minimum season gap
+                min_gap = min(
+                    abs(int(c) - int(o)) for c in cand_seasons for o in orphan_seasons
+                )
+                if min_gap < best_gap:
+                    best_pno = cand_id
+                    best_gap = min_gap
+                    best_avg_min = cand_avg_min
+                    tied = False
+                elif min_gap == best_gap:
+                    # Tiebreak: prefer candidate with similar avg minutes
+                    cand_diff = abs(cand_avg_min - orphan_avg)
+                    best_diff = abs(best_avg_min - orphan_avg)
+                    if cand_diff < best_diff:
+                        best_pno = cand_id
+                        best_avg_min = cand_avg_min
+                        tied = False
+                    elif cand_diff == best_diff:
+                        tied = True
+
+            if best_pno and not tied:
+                # Update all references from orphan ID to resolved pno
+                for table, col in [
+                    ("player_games", "player_id"),
+                    ("play_by_play", "player_id"),
+                    ("shot_charts", "player_id"),
+                ]:
+                    conn.execute(
+                        f"UPDATE {table} SET {col} = ? WHERE {col} = ?",  # noqa: S608  # nosec B608 - table/col are hardcoded constants
+                        (best_pno, oid),
+                    )
+                # Delete orphan player entry (data now under resolved pno)
+                conn.execute("DELETE FROM players WHERE id = ?", (oid,))
+                resolved += 1
+                logger.info(
+                    f"Resolved orphan '{oid}' -> pno {best_pno} "
+                    f"(seasons {sorted(orphan_seasons)})"
+                )
+
+        conn.commit()
+        return resolved
+
+
 def bulk_insert_play_by_play(game_id: str, events: List[Dict[str, Any]]):
     """Bulk insert play-by-play events for a game.
 

@@ -98,16 +98,18 @@ uv run pytest tests/test_database.py -v
 uv run pytest tests/test_api.py -v
 ```
 
-**Test coverage (95 tests total):**
+**Test coverage (102 tests total):**
 
-- `test_database.py`: Database operations (44 tests)
+- `test_database.py`: Database operations (46 tests)
   - Database init, CRUD operations, season stats, boxscore, standings, predictions
   - Team game operations, game queries, bulk operations, future game predictions
   - Quarter scores, H2H quarter score population, play-by-play, shot charts, team category stats, head-to-head, game MVP
+  - Orphan player resolution (cross-season transfer, minutes tiebreak)
 - `test_api.py`: REST API endpoints (30 tests)
   - Health, players, teams, games, seasons, standings, leaders, search, compare
-- `test_parsers.py`: Parser functions (16 tests)
+- `test_parsers.py`: Parser functions (21 tests)
   - Play-by-play, head-to-head, shot chart, player profile, event type mapping
+  - Ambiguous player resolution (season adjacency, overlap exclusion, minutes tiebreak, tie detection)
 - `test_ingest_predictions.py`: Ingest prediction backfill (3 tests)
 - `test_refactor_p0.py`: Advanced stats and season resolver (2 tests)
 

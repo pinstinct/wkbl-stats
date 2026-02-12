@@ -938,6 +938,253 @@ class TestPopulateQuarterScoresFromH2H:
         assert row["venue"] == "청주체육관"
 
 
+class TestResolveOrphanPlayers:
+    """Tests for resolve_orphan_players() DB-level resolution."""
+
+    def test_resolves_cross_season_transfer(self, test_db):
+        """Orphan player with non-numeric ID resolved to correct pno."""
+        import database
+
+        # Set up two seasons
+        database.insert_season(season_id="041", label="2020-21")
+        database.insert_season(season_id="043", label="2022-23")
+
+        with database.get_connection() as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO teams (id, name) VALUES ('hana', '하나은행')"
+            )
+            conn.execute(
+                "INSERT OR IGNORE INTO teams (id, name) VALUES ('woori', '우리은행')"
+            )
+            conn.commit()
+
+        # Orphan player (played for hana in 041)
+        database.insert_player(
+            player_id="고아라_하나은행", name="고아라", team_id="hana"
+        )
+        # Real pno player (played for woori in 043)
+        database.insert_player(player_id="095068", name="고아라", team_id="woori")
+        # Another 고아라 with different pno but no games
+        database.insert_player(player_id="095027", name="고아라", team_id="other")
+
+        # Insert games for seasons
+        database.insert_game(
+            game_id="04101010",
+            season_id="041",
+            game_date="2020-11-01",
+            home_team_id="hana",
+            away_team_id="woori",
+        )
+        database.insert_game(
+            game_id="04301010",
+            season_id="043",
+            game_date="2022-11-01",
+            home_team_id="woori",
+            away_team_id="hana",
+        )
+
+        # Orphan has games in season 041
+        database.insert_player_game(
+            game_id="04101010",
+            player_id="고아라_하나은행",
+            team_id="hana",
+            stats={
+                "pts": 10,
+                "reb": 5,
+                "ast": 3,
+                "minutes": 20,
+                "stl": 0,
+                "blk": 0,
+                "tov": 0,
+                "pf": 0,
+                "off_reb": 0,
+                "def_reb": 5,
+                "fgm": 4,
+                "fga": 8,
+                "tpm": 0,
+                "tpa": 0,
+                "ftm": 2,
+                "fta": 2,
+                "two_pm": 4,
+                "two_pa": 8,
+            },
+        )
+        # Real pno has games in season 043
+        database.insert_player_game(
+            game_id="04301010",
+            player_id="095068",
+            team_id="woori",
+            stats={
+                "pts": 12,
+                "reb": 3,
+                "ast": 2,
+                "minutes": 25,
+                "stl": 1,
+                "blk": 0,
+                "tov": 1,
+                "pf": 2,
+                "off_reb": 1,
+                "def_reb": 2,
+                "fgm": 5,
+                "fga": 10,
+                "tpm": 0,
+                "tpa": 0,
+                "ftm": 2,
+                "fta": 3,
+                "two_pm": 5,
+                "two_pa": 10,
+            },
+        )
+
+        resolved = database.resolve_orphan_players()
+        assert resolved == 1
+
+        # Verify orphan was deleted
+        with database.get_connection() as conn:
+            orphan = conn.execute(
+                "SELECT * FROM players WHERE id = '고아라_하나은행'"
+            ).fetchone()
+            assert orphan is None
+
+            # Verify player_games reference was updated
+            pg = conn.execute(
+                "SELECT player_id FROM player_games WHERE game_id = '04101010'"
+            ).fetchone()
+            assert pg["player_id"] == "095068"
+
+    def test_tiebreak_by_minutes(self, test_db):
+        """Resolves tie using avg minutes similarity (veteran vs rookie)."""
+        import database
+
+        database.insert_season(season_id="041", label="2020-21")
+        database.insert_season(season_id="044", label="2023-24")
+
+        with database.get_connection() as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO teams (id, name) VALUES ('woori', '우리은행')"
+            )
+            conn.execute(
+                "INSERT OR IGNORE INTO teams (id, name) VALUES ('hana', '하나은행')"
+            )
+            conn.execute("INSERT OR IGNORE INTO teams (id, name) VALUES ('bnk', 'BNK')")
+            conn.commit()
+
+        database.insert_player(
+            player_id="김정은_우리은행", name="김정은", team_id="woori"
+        )
+        database.insert_player(player_id="095041", name="김정은", team_id="hana")
+        database.insert_player(player_id="095899", name="김정은", team_id="bnk")
+
+        database.insert_game(
+            game_id="04101020",
+            season_id="041",
+            game_date="2020-11-01",
+            home_team_id="woori",
+            away_team_id="hana",
+        )
+        database.insert_game(
+            game_id="04401020",
+            season_id="044",
+            game_date="2023-11-01",
+            home_team_id="hana",
+            away_team_id="bnk",
+        )
+
+        # Orphan: ~30 min (veteran)
+        database.insert_player_game(
+            game_id="04101020",
+            player_id="김정은_우리은행",
+            team_id="woori",
+            stats={
+                "pts": 10,
+                "reb": 5,
+                "ast": 3,
+                "minutes": 30,
+                "stl": 0,
+                "blk": 0,
+                "tov": 0,
+                "pf": 0,
+                "off_reb": 0,
+                "def_reb": 5,
+                "fgm": 4,
+                "fga": 8,
+                "tpm": 0,
+                "tpa": 0,
+                "ftm": 2,
+                "fta": 2,
+                "two_pm": 4,
+                "two_pa": 8,
+            },
+        )
+        # 095041: ~29 min (similar to orphan → transfer match)
+        database.insert_player_game(
+            game_id="04401020",
+            player_id="095041",
+            team_id="hana",
+            stats={
+                "pts": 8,
+                "reb": 3,
+                "ast": 2,
+                "minutes": 29,
+                "stl": 0,
+                "blk": 0,
+                "tov": 0,
+                "pf": 0,
+                "off_reb": 0,
+                "def_reb": 3,
+                "fgm": 3,
+                "fga": 7,
+                "tpm": 0,
+                "tpa": 0,
+                "ftm": 2,
+                "fta": 3,
+                "two_pm": 3,
+                "two_pa": 7,
+            },
+        )
+        # 095899: ~10 min (rookie, very different)
+        database.insert_player_game(
+            game_id="04401020",
+            player_id="095899",
+            team_id="bnk",
+            stats={
+                "pts": 2,
+                "reb": 1,
+                "ast": 0,
+                "minutes": 10,
+                "stl": 0,
+                "blk": 0,
+                "tov": 0,
+                "pf": 0,
+                "off_reb": 0,
+                "def_reb": 1,
+                "fgm": 1,
+                "fga": 3,
+                "tpm": 0,
+                "tpa": 0,
+                "ftm": 0,
+                "fta": 0,
+                "two_pm": 1,
+                "two_pa": 3,
+            },
+        )
+
+        resolved = database.resolve_orphan_players()
+        assert resolved == 1
+
+        with database.get_connection() as conn:
+            # Orphan should be deleted
+            orphan = conn.execute(
+                "SELECT * FROM players WHERE id = '김정은_우리은행'"
+            ).fetchone()
+            assert orphan is None
+            # Games should be under 095041
+            pg = conn.execute(
+                "SELECT player_id FROM player_games WHERE game_id = '04101020'"
+            ).fetchone()
+            assert pg["player_id"] == "095041"
+
+
 class TestPlayByPlay:
     """Tests for play-by-play operations."""
 

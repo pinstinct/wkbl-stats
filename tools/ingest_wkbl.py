@@ -279,6 +279,121 @@ def normalize_team(team):
     return re.sub(r"\s+", " ", team).strip()
 
 
+def resolve_ambiguous_players(player_id_map, player_id_by_name, game_records):
+    """Resolve ambiguous player IDs using season non-overlap heuristic.
+
+    When a player name matches multiple pnos and their team doesn't match
+    any roster entry, uses game record seasons to find the correct pno
+    by identifying non-overlapping, temporally adjacent season ranges.
+
+    Args:
+        player_id_map: dict of name|team -> player_id (modified in place)
+        player_id_by_name: dict of name -> [pno, ...]
+        game_records: list of game record dicts with _game_id field
+
+    Returns:
+        Number of orphan players resolved.
+    """
+    # Find orphan keys (non-numeric placeholder IDs)
+    orphan_keys = [key for key, pid in player_id_map.items() if not pid.isdigit()]
+    if not orphan_keys:
+        return 0
+
+    # Build season sets per key from game records
+    key_seasons = {}
+    for record in game_records:
+        rec_key = f"{record['name']}|{normalize_team(record['team'])}"
+        game_id = record.get("_game_id", "")
+        if len(game_id) >= 3:
+            key_seasons.setdefault(rec_key, set()).add(game_id[:3])
+
+    # Build season sets and avg minutes per pno from matched keys
+    pno_seasons = {}
+    pno_minutes = {}  # pno -> list of minutes
+    for key, pid in player_id_map.items():
+        if pid.isdigit() and key in key_seasons:
+            pno_seasons.setdefault(pid, set()).update(key_seasons[key])
+
+    # Build per-pno avg minutes from game records
+    for record in game_records:
+        rec_key = f"{record['name']}|{normalize_team(record['team'])}"
+        pid = player_id_map.get(rec_key)
+        if pid and pid.isdigit():
+            mins = record.get("min", 0) or 0
+            pno_minutes.setdefault(pid, []).append(mins)
+
+    # Build orphan avg minutes
+    orphan_minutes = {}
+    for record in game_records:
+        rec_key = f"{record['name']}|{normalize_team(record['team'])}"
+        pid = player_id_map.get(rec_key)
+        if pid and not pid.isdigit():
+            mins = record.get("min", 0) or 0
+            orphan_minutes.setdefault(rec_key, []).append(mins)
+
+    resolved = 0
+    for orphan_key in orphan_keys:
+        name = orphan_key.split("|")[0]
+        candidates = player_id_by_name.get(name, [])
+        if len(candidates) < 2:
+            continue
+
+        orphan_szns = key_seasons.get(orphan_key, set())
+        if not orphan_szns:
+            continue
+
+        orphan_avg = sum(orphan_minutes.get(orphan_key, [0])) / max(
+            len(orphan_minutes.get(orphan_key, [1])), 1
+        )
+
+        # Find non-overlapping candidates, pick the one closest in seasons
+        best_pno = None
+        best_gap = float("inf")
+        best_avg_min = -1.0
+        tied = False
+
+        for pno in candidates:
+            cand_szns = pno_seasons.get(pno, set())
+
+            # Skip candidates with overlapping seasons (different person)
+            if cand_szns & orphan_szns:
+                continue
+
+            # Skip candidates with no game records (weak signal)
+            if not cand_szns:
+                continue
+
+            cand_avg = sum(pno_minutes.get(pno, [0])) / max(
+                len(pno_minutes.get(pno, [1])), 1
+            )
+
+            # Find minimum season gap between the two sets
+            min_gap = min(abs(int(c) - int(o)) for c in cand_szns for o in orphan_szns)
+            if min_gap < best_gap:
+                best_pno = pno
+                best_gap = min_gap
+                best_avg_min = cand_avg
+                tied = False
+            elif min_gap == best_gap:
+                # Tiebreak: prefer candidate with similar avg minutes
+                cand_diff = abs(cand_avg - orphan_avg)
+                best_diff = abs(best_avg_min - orphan_avg)
+                if cand_diff < best_diff:
+                    best_pno = pno
+                    best_avg_min = cand_avg
+                    tied = False
+                elif cand_diff == best_diff:
+                    tied = True
+
+        if best_pno and not tied:
+            player_id_map[orphan_key] = best_pno
+            # Update pno_seasons so subsequent orphans see this resolution
+            pno_seasons.setdefault(best_pno, set()).update(orphan_szns)
+            resolved += 1
+
+    return resolved
+
+
 # Game type mapping based on game_id structure
 # Game ID format: SSSTTGGG where SSS=season, TT=type, GGG=game number
 # Examples: 04601055 = season 046, type 01 (regular), game 055
@@ -2276,21 +2391,31 @@ def _save_to_db(
                 "pos": p.get("pos"),
             }
 
-    # Insert all players (from game records + active players)
-    players_inserted = 0
+    # Assign pno for all players: exact match, unique name, or placeholder
     for key, info in all_players.items():
-        # Try to find pno: 1) exact name|team match, 2) name-only match if unique
         player_id = player_id_map.get(key)
         if not player_id:
             name = info["name"]
             name_matches = player_id_by_name.get(name, [])
             if len(name_matches) == 1:
-                # Unique name match - use this pno (handles team transfers)
                 player_id = name_matches[0]
             else:
-                # No match or ambiguous - generate ID
                 player_id = key.replace("|", "_").replace(" ", "_")
         player_id_map[key] = player_id
+
+    # Resolve ambiguous players using season adjacency heuristic
+    resolved_count = resolve_ambiguous_players(
+        player_id_map, player_id_by_name, game_records
+    )
+    if resolved_count:
+        logger.info(
+            f"Resolved {resolved_count} ambiguous player IDs via season adjacency"
+        )
+
+    # Insert all players (from game records + active players)
+    players_inserted = 0
+    for key, info in all_players.items():
+        player_id = player_id_map[key]
         team_id = get_team_id(info["team"])
         is_active = 1 if key in active_keys else 0
 
@@ -3126,6 +3251,12 @@ def _ingest_multiple_seasons(args):
     logger.info(
         f"Multi-season ingest complete: {total_games} total new games across {len(season_codes)} seasons"
     )
+
+    # Resolve orphan players across seasons using DB-level season adjacency
+    if args.save_db:
+        resolved = database.resolve_orphan_players()
+        if resolved:
+            logger.info(f"Resolved {resolved} orphan player IDs across seasons")
 
 
 def main():
