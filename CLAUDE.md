@@ -101,20 +101,25 @@ uv run pytest tests/test_database.py -v
 uv run pytest tests/test_api.py -v
 ```
 
-**Test coverage (102 tests total):**
+**Test coverage (121 tests total):**
 
-- `test_database.py`: Database operations (46 tests)
+- `test_database.py`: Database operations (49 tests)
   - Database init, CRUD operations, season stats, boxscore, standings, predictions
   - Team game operations, game queries, bulk operations, future game predictions
   - Quarter scores, H2H quarter score population, play-by-play, shot charts, team category stats, head-to-head, game MVP
   - Orphan player resolution (cross-season transfer, minutes tiebreak)
+  - Team/opponent/league season totals for advanced stats
 - `test_api.py`: REST API endpoints (30 tests)
   - Health, players, teams, games, seasons, standings, leaders, search, compare
 - `test_parsers.py`: Parser functions (21 tests)
   - Play-by-play, head-to-head, shot chart, player profile, event type mapping
   - Ambiguous player resolution (season adjacency, overlap exclusion, minutes tiebreak, tie detection)
 - `test_ingest_predictions.py`: Ingest prediction backfill (3 tests)
-- `test_refactor_p0.py`: Advanced stats and season resolver (2 tests)
+- `test_refactor_p0.py`: Advanced stats and season resolver (18 tests)
+  - Basic stats (TS%, eFG%, PIR, Per-36), Game Score, TOV%
+  - Team-context stats (USG%, ORtg, DRtg, Net Rating, Pace)
+  - Rate stats (OREB%, DREB%, AST%, STL%, BLK%)
+  - PER (Player Efficiency Rating)
 
 ## Frontend Pages (SPA)
 
@@ -184,6 +189,7 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.jso
 - `tools/api.py` - REST API endpoints (players, teams, games, compare, search)
 - `tools/ingest_wkbl.py` - Web scraper and data aggregation pipeline
 - `tools/database.py` - SQLite schema and database operations
+- `tools/stats.py` - Advanced stat calculations (TS%, eFG%, PER, USG%, etc.)
 - `tools/config.py` - Centralized configuration (URLs, paths, settings)
 
 **Data & Config:**
@@ -310,7 +316,20 @@ External endpoints (documented in `docs/data-sources.md`):
   "reb36": 4.7,
   "ast36": 7.3,
   "pir": 12.5,
-  "dd_cats": 2
+  "dd_cats": 2,
+  "game_score": 14.2,
+  "tov_pct": 16.4,
+  "usg_pct": 23.5,
+  "off_rtg": 98.0,
+  "def_rtg": 95.1,
+  "net_rtg": 2.9,
+  "pace": 90.6,
+  "oreb_pct": 3.3,
+  "dreb_pct": 13.0,
+  "ast_pct": 20.8,
+  "stl_pct": 3.0,
+  "blk_pct": 2.4,
+  "per": 14.2
 }
 ```
 

@@ -14,7 +14,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from config import CURRENT_SEASON, SEASON_CODES, setup_logging
-from database import get_connection, init_db
+from database import (
+    get_connection,
+    get_league_season_totals,
+    get_opponent_season_totals,
+    get_team_season_totals,
+    init_db,
+)
 from season_utils import resolve_season
 from stats import compute_advanced_stats
 
@@ -148,6 +154,81 @@ class LeaderCategory(BaseModel):
 # =============================================================================
 
 
+def _build_team_stats(
+    team_id: str,
+    team_totals: dict[str, dict],
+    opp_totals: dict[str, dict],
+) -> Optional[dict]:
+    """Build the team_stats dict for compute_advanced_stats from DB aggregates."""
+    tt = team_totals.get(team_id)
+    ot = opp_totals.get(team_id)
+    if not tt or not ot:
+        return None
+    return {
+        "team_fga": tt["fga"],
+        "team_fta": tt["fta"],
+        "team_tov": tt["tov"],
+        "team_oreb": tt["oreb"],
+        "team_dreb": tt["dreb"],
+        "team_fgm": tt["fgm"],
+        "team_ast": tt["ast"],
+        "team_pts": tt["pts"],
+        "team_min": tt["min"],
+        "team_gp": tt["gp"],
+        "team_stl": tt["stl"],
+        "team_blk": tt["blk"],
+        "team_pf": tt["pf"],
+        "team_ftm": tt["ftm"],
+        "team_tpm": tt["tpm"],
+        "team_tpa": tt["tpa"],
+        "team_reb": tt["reb"],
+        "opp_fga": ot["fga"],
+        "opp_fta": ot["fta"],
+        "opp_tov": ot["tov"],
+        "opp_oreb": ot["oreb"],
+        "opp_dreb": ot["dreb"],
+        "opp_pts": ot["pts"],
+        "opp_tpa": ot["tpa"],
+        "opp_fgm": ot["fgm"],
+        "opp_reb": ot["reb"],
+    }
+
+
+def _build_league_stats(season_id: str, team_totals: dict[str, dict]) -> Optional[dict]:
+    """Build the league_stats dict for compute_advanced_stats."""
+    from stats import estimate_possessions
+
+    lg = get_league_season_totals(season_id)
+    if not lg or not lg.get("pts"):
+        return None
+
+    # Compute league pace: average across all teams
+    total_poss = 0.0
+    total_team_min_5 = 0.0
+    for tt in team_totals.values():
+        poss = estimate_possessions(tt["fga"], tt["fta"], tt["tov"], tt["oreb"])
+        total_poss += poss
+        total_team_min_5 += tt["min"] / 5
+
+    lg_pace = 40 * total_poss / total_team_min_5 if total_team_min_5 > 0 else 0
+
+    return {
+        "lg_pts": lg["pts"],
+        "lg_fga": lg["fga"],
+        "lg_fta": lg["fta"],
+        "lg_ftm": lg["ftm"],
+        "lg_oreb": lg["oreb"],
+        "lg_reb": lg["reb"],
+        "lg_ast": lg["ast"],
+        "lg_fgm": lg["fgm"],
+        "lg_tov": lg["tov"],
+        "lg_pf": lg["pf"],
+        "lg_min": lg["min"],
+        "lg_pace": lg_pace,
+        "lg_poss": total_poss,
+    }
+
+
 def get_players(
     season_id: Optional[str] = None,
     team_id: Optional[str] = None,
@@ -178,7 +259,10 @@ def get_players(
             SUM(pg.tpm) as total_tpm,
             SUM(pg.tpa) as total_tpa,
             SUM(pg.ftm) as total_ftm,
-            SUM(pg.fta) as total_fta
+            SUM(pg.fta) as total_fta,
+            AVG(pg.off_reb) as off_reb,
+            AVG(pg.def_reb) as def_reb,
+            AVG(pg.pf) as pf
         FROM player_games pg
         JOIN games g ON pg.game_id = g.id
         JOIN players p ON pg.player_id = p.id
@@ -200,15 +284,38 @@ def get_players(
 
     query += " GROUP BY pg.player_id ORDER BY AVG(pg.pts) DESC"
 
+    # Pre-fetch team context for advanced stats
+    team_totals: dict[str, dict] = {}
+    opp_totals: dict[str, dict] = {}
+    league_ctx: Optional[dict] = None
+    if season_id:
+        team_totals = get_team_season_totals(season_id)
+        opp_totals = get_opponent_season_totals(season_id)
+        league_ctx = _build_league_stats(season_id, team_totals)
+
     with get_connection() as conn:
         rows = conn.execute(query, params).fetchall()
 
         result = []
         for row in rows:
             d = dict(row)
-            for key in ["min", "pts", "reb", "ast", "stl", "blk", "tov"]:
+            for key in [
+                "min",
+                "pts",
+                "reb",
+                "ast",
+                "stl",
+                "blk",
+                "tov",
+                "off_reb",
+                "def_reb",
+                "pf",
+            ]:
                 d[key] = round(d[key], 1) if d[key] else 0.0
-            result.append(compute_advanced_stats(d))
+            ts = _build_team_stats(d.get("team_id", ""), team_totals, opp_totals)
+            result.append(
+                compute_advanced_stats(d, team_stats=ts, league_stats=league_ctx)
+            )
 
         if include_no_games and season_id:
             # Contract: season player tables may include gp=0 players
@@ -357,6 +464,7 @@ def get_player_detail(player_id: str) -> Optional[dict]:
             """SELECT
                 g.season_id,
                 s.label as season_label,
+                t.id as team_id,
                 t.name as team,
                 COUNT(*) as gp,
                 AVG(pg.minutes) as min,
@@ -371,7 +479,10 @@ def get_player_detail(player_id: str) -> Optional[dict]:
                 SUM(pg.tpm) as total_tpm,
                 SUM(pg.tpa) as total_tpa,
                 SUM(pg.ftm) as total_ftm,
-                SUM(pg.fta) as total_fta
+                SUM(pg.fta) as total_fta,
+                AVG(pg.off_reb) as off_reb,
+                AVG(pg.def_reb) as def_reb,
+                AVG(pg.pf) as pf
             FROM player_games pg
             JOIN games g ON pg.game_id = g.id
             JOIN seasons s ON g.season_id = s.id
@@ -382,12 +493,39 @@ def get_player_detail(player_id: str) -> Optional[dict]:
             (player_id,),
         ).fetchall()
 
+        # Pre-fetch team context per season
+        season_contexts: dict[str, tuple] = {}
+        for row in seasons:
+            sid = dict(row)["season_id"]
+            if sid not in season_contexts:
+                tt = get_team_season_totals(sid)
+                ot = get_opponent_season_totals(sid)
+                lc = _build_league_stats(sid, tt)
+                season_contexts[sid] = (tt, ot, lc)
+
         result["seasons"] = {}
         for row in seasons:
             d = dict(row)
-            for key in ["min", "pts", "reb", "ast", "stl", "blk", "tov"]:
+            for key in [
+                "min",
+                "pts",
+                "reb",
+                "ast",
+                "stl",
+                "blk",
+                "tov",
+                "off_reb",
+                "def_reb",
+                "pf",
+            ]:
                 d[key] = round(d[key], 1) if d[key] else 0.0
-            result["seasons"][d["season_id"]] = compute_advanced_stats(d)
+            sid = d["season_id"]
+            tt, ot, lc = season_contexts.get(sid, ({}, {}, None))
+            player_team = d.get("team_id") or result.get("team_id", "")
+            ts = _build_team_stats(player_team, tt, ot)
+            result["seasons"][sid] = compute_advanced_stats(
+                d, team_stats=ts, league_stats=lc
+            )
 
         # Recent game log (last 10 games)
         games = conn.execute(
@@ -1113,7 +1251,7 @@ def _get_comparison_query(player_count: int) -> str:
     base = """
         SELECT
             p.id, p.name, p.position, p.height,
-            t.name as team,
+            t.id as team_id, t.name as team,
             COUNT(*) as gp,
             AVG(pg.minutes) as min,
             AVG(pg.pts) as pts,
@@ -1127,7 +1265,10 @@ def _get_comparison_query(player_count: int) -> str:
             SUM(pg.tpm) as total_tpm,
             SUM(pg.tpa) as total_tpa,
             SUM(pg.ftm) as total_ftm,
-            SUM(pg.fta) as total_fta
+            SUM(pg.fta) as total_fta,
+            AVG(pg.off_reb) as off_reb,
+            AVG(pg.def_reb) as def_reb,
+            AVG(pg.pf) as pf
         FROM player_games pg
         JOIN games g ON pg.game_id = g.id
         JOIN players p ON pg.player_id = p.id
@@ -1152,15 +1293,32 @@ def get_player_comparison(player_ids: list[str], season_id: str) -> list[dict]:
 
     query = _get_comparison_query(len(player_ids))
 
+    # Pre-fetch team context
+    team_totals = get_team_season_totals(season_id)
+    opp_totals = get_opponent_season_totals(season_id)
+    league_ctx = _build_league_stats(season_id, team_totals)
+
     with get_connection() as conn:
         rows = conn.execute(query, (*player_ids, season_id)).fetchall()
 
         result = []
         for row in rows:
             d = dict(row)
-            for key in ["min", "pts", "reb", "ast", "stl", "blk", "tov"]:
+            for key in [
+                "min",
+                "pts",
+                "reb",
+                "ast",
+                "stl",
+                "blk",
+                "tov",
+                "off_reb",
+                "def_reb",
+                "pf",
+            ]:
                 d[key] = round(d[key], 1) if d[key] else 0
-            d = compute_advanced_stats(d)
+            ts = _build_team_stats(d.get("team_id", ""), team_totals, opp_totals)
+            d = compute_advanced_stats(d, team_stats=ts, league_stats=league_ctx)
 
             # Clean up internal fields
             for key in [

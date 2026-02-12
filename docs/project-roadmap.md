@@ -16,15 +16,16 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 
 ## 현재 상태 (2026-02-04)
 
-| 단계      | 상태    | 설명                                                 |
-| --------- | ------- | ---------------------------------------------------- |
-| Phase 1   | ✅ 완료 | SQLite DB 기반 구축, 증분 업데이트                   |
-| Phase 2   | ✅ 완료 | 팀 순위, 역대 시즌, 플레이오프 분리                  |
-| Phase 3   | ✅ 완료 | REST API 서버 구축                                   |
-| Phase 4   | ✅ 완료 | 선수/팀/경기 상세 페이지, 리더보드                   |
-| Phase 5   | ✅ 완료 | 고급 기능 (선수 비교, 트렌드 차트, 전역 검색)        |
-| Phase 6   | ✅ 완료 | 추가 데이터 수집 (PBP, 샷차트, H2H, MVP, 쿼터점수)   |
-| Phase 6.3 | ✅ 완료 | 데이터 품질 (고아 선수 해결, 이벤트 카테고리 세분화) |
+| 단계      | 상태    | 설명                                                        |
+| --------- | ------- | ----------------------------------------------------------- |
+| Phase 1   | ✅ 완료 | SQLite DB 기반 구축, 증분 업데이트                          |
+| Phase 2   | ✅ 완료 | 팀 순위, 역대 시즌, 플레이오프 분리                         |
+| Phase 3   | ✅ 완료 | REST API 서버 구축                                          |
+| Phase 4   | ✅ 완료 | 선수/팀/경기 상세 페이지, 리더보드                          |
+| Phase 5   | ✅ 완료 | 고급 기능 (선수 비교, 트렌드 차트, 전역 검색)               |
+| Phase 6   | ✅ 완료 | 추가 데이터 수집 (PBP, 샷차트, H2H, MVP, 쿼터점수)          |
+| Phase 6.3 | ✅ 완료 | 데이터 품질 (고아 선수 해결, 이벤트 카테고리 세분화)        |
+| Phase 7   | ✅ 완료 | 고급 지표 Tier 1 (GmSc, USG%, ORtg/DRtg, Pace, PER 등 13개) |
 
 ---
 
@@ -283,6 +284,21 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] 6명 고아 선수 전원 해결 (고아라, 김지영, 김진영, 김아름, 김단비, 김정은)
 - [x] 테스트 7개 추가 (총 102개)
 
+### Phase 7: 고급 지표 Tier 1 ✅ 완료 (2026-02-12)
+
+- [x] Game Score (John Hollinger) — `game_score`
+- [x] TOV% (Turnover Percentage) — `tov_pct`
+- [x] USG% (Usage Rate) — `usg_pct`
+- [x] ORtg / DRtg / Net Rating (팀 공격·수비 효율) — `off_rtg`, `def_rtg`, `net_rtg`
+- [x] Pace (팀 경기 속도) — `pace`
+- [x] OREB% / DREB% (리바운드 비율) — `oreb_pct`, `dreb_pct`
+- [x] AST% / STL% / BLK% (기여도 비율) — `ast_pct`, `stl_pct`, `blk_pct`
+- [x] PER (Player Efficiency Rating, Hollinger) — `per`
+- [x] DB 인프라: `get_team_season_totals()`, `get_opponent_season_totals()`, `get_league_season_totals()`
+- [x] `compute_advanced_stats()` 시그니처 확장 (team_stats, league_stats kwargs)
+- [x] API 통합: `get_players()`, `get_player_detail()`, `get_player_comparison()` 모두 고급 지표 포함
+- [x] 테스트 19개 추가 (총 121개)
+
 ---
 
 ## 4. 기술 스택
@@ -320,11 +336,11 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 
 ## 7. 향후 개선 아이디어
 
-| 기능           | 설명                            | 우선순위 |
-| -------------- | ------------------------------- | -------- |
-| 시즌 비교      | 두 시즌의 팀/선수 스탯 비교     | 낮음     |
-| 고급 지표 추가 | PER, WS, VORP 등 NBA 고급 지표  | 중간     |
-| PWA 지원       | 오프라인 접근, 앱 설치          | 낮음     |
-| 알림 기능      | 경기 결과, 선수 하이라이트 알림 | 낮음     |
-| 다크 모드      | 테마 전환 지원                  | 낮음     |
-| i18n           | 영어 지원                       | 낮음     |
+| 기능           | 설명                                                            | 우선순위 |
+| -------------- | --------------------------------------------------------------- | -------- |
+| 시즌 비교      | 두 시즌의 팀/선수 스탯 비교                                     | 낮음     |
+| 고급 지표 추가 | ~~PER, WS, VORP 등~~ Tier 1 완료 (Phase 7), Tier 2: WS, VORP 등 | 낮음     |
+| PWA 지원       | 오프라인 접근, 앱 설치                                          | 낮음     |
+| 알림 기능      | 경기 결과, 선수 하이라이트 알림                                 | 낮음     |
+| 다크 모드      | 테마 전환 지원                                                  | 낮음     |
+| i18n           | 영어 지원                                                       | 낮음     |

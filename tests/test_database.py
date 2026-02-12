@@ -1508,3 +1508,100 @@ class TestGameMVP:
         )
         assert len(result) == 1
         assert result[0]["pts"] == 25
+
+
+class TestTeamSeasonTotals:
+    """Tests for team/opponent/league season aggregate functions."""
+
+    def _insert_opponent_player_game(self, database, sample_game, sample_player2):
+        """Insert an away-team player game for a complete game context."""
+        database.insert_player_game(
+            game_id=sample_game["game_id"],
+            player_id=sample_player2["player_id"],
+            team_id="kb",
+            stats={
+                "minutes": 28.0,
+                "pts": 15,
+                "reb": 6,
+                "ast": 3,
+                "stl": 1,
+                "blk": 0,
+                "tov": 2,
+                "pf": 3,
+                "off_reb": 2,
+                "def_reb": 4,
+                "fgm": 6,
+                "fga": 13,
+                "tpm": 1,
+                "tpa": 4,
+                "ftm": 2,
+                "fta": 2,
+                "two_pm": 5,
+                "two_pa": 9,
+            },
+        )
+
+    def test_get_team_season_totals(self, populated_db, sample_game, sample_player2):
+        """Team season totals should aggregate player_games per team."""
+        import database
+
+        self._insert_opponent_player_game(database, sample_game, sample_player2)
+
+        result = database.get_team_season_totals("046")
+        assert "samsung" in result
+        assert "kb" in result
+
+        samsung = result["samsung"]
+        assert samsung["fga"] == 14
+        assert samsung["fta"] == 3
+        assert samsung["tov"] == 3
+        assert samsung["oreb"] == 1
+        assert samsung["dreb"] == 4
+        assert samsung["pts"] == 18
+        assert samsung["min"] == 32.5
+        assert samsung["fgm"] == 7
+        assert samsung["ast"] == 4
+        assert samsung["stl"] == 2
+        assert samsung["blk"] == 1
+        assert samsung["pf"] == 2
+        assert samsung["ftm"] == 2
+        assert samsung["tpm"] == 2
+        assert samsung["tpa"] == 5
+        assert samsung["reb"] == 5
+        assert samsung["gp"] == 1
+
+    def test_get_opponent_season_totals(
+        self, populated_db, sample_game, sample_player2
+    ):
+        """Opponent totals should map each team to its opponents' aggregated stats."""
+        import database
+
+        self._insert_opponent_player_game(database, sample_game, sample_player2)
+
+        result = database.get_opponent_season_totals("046")
+        assert "samsung" in result
+        assert "kb" in result
+
+        # Samsung's opponent is KB
+        samsung_opp = result["samsung"]
+        assert samsung_opp["pts"] == 15
+        assert samsung_opp["fga"] == 13
+        assert samsung_opp["oreb"] == 2
+        assert samsung_opp["dreb"] == 4
+
+        # KB's opponent is Samsung
+        kb_opp = result["kb"]
+        assert kb_opp["pts"] == 18
+        assert kb_opp["fga"] == 14
+
+    def test_get_league_season_totals(self, populated_db, sample_game, sample_player2):
+        """League totals should be the sum of all team totals."""
+        import database
+
+        self._insert_opponent_player_game(database, sample_game, sample_player2)
+
+        result = database.get_league_season_totals("046")
+        # League = samsung + kb totals
+        assert result["pts"] == 18 + 15
+        assert result["fga"] == 14 + 13
+        assert result["min"] == 32.5 + 28.0

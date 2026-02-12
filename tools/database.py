@@ -742,6 +742,104 @@ def get_team_season_stats(team_id: str, season_id: str) -> Optional[Dict]:
         return None
 
 
+def get_team_season_totals(season_id: str) -> Dict[str, Dict]:
+    """Get team-level season totals aggregated from player_games.
+
+    Returns {team_id: {fga, fta, tov, oreb, dreb, pts, min, fgm, ast, stl, blk, pf, ftm, tpm, tpa, reb, gp}}.
+    """
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT
+                pg.team_id,
+                SUM(pg.fga) as fga,
+                SUM(pg.fta) as fta,
+                SUM(pg.tov) as tov,
+                SUM(pg.off_reb) as oreb,
+                SUM(pg.def_reb) as dreb,
+                SUM(pg.pts) as pts,
+                SUM(pg.minutes) as min,
+                SUM(pg.fgm) as fgm,
+                SUM(pg.ast) as ast,
+                SUM(pg.stl) as stl,
+                SUM(pg.blk) as blk,
+                SUM(pg.pf) as pf,
+                SUM(pg.ftm) as ftm,
+                SUM(pg.tpm) as tpm,
+                SUM(pg.tpa) as tpa,
+                SUM(pg.reb) as reb,
+                COUNT(DISTINCT pg.game_id) as gp
+            FROM player_games pg
+            JOIN games g ON pg.game_id = g.id
+            WHERE g.season_id = ?
+            GROUP BY pg.team_id""",
+            (season_id,),
+        ).fetchall()
+
+        return {row["team_id"]: dict(row) for row in rows}
+
+
+def get_opponent_season_totals(season_id: str) -> Dict[str, Dict]:
+    """Get opponent season totals for each team.
+
+    For each team, aggregates the stats of all opponent players across the season.
+    Returns {team_id: {pts, fga, oreb, dreb, ...}}.
+    """
+    with get_connection() as conn:
+        # Join player_games with games to find opponents.
+        # A player's team != home_team means they are on the away side, and vice versa.
+        rows = conn.execute(
+            """SELECT
+                CASE
+                    WHEN pg.team_id = g.home_team_id THEN g.away_team_id
+                    ELSE g.home_team_id
+                END as opponent_of,
+                SUM(pg.fga) as fga,
+                SUM(pg.fta) as fta,
+                SUM(pg.tov) as tov,
+                SUM(pg.off_reb) as oreb,
+                SUM(pg.def_reb) as dreb,
+                SUM(pg.pts) as pts,
+                SUM(pg.fgm) as fgm,
+                SUM(pg.tpa) as tpa,
+                SUM(pg.reb) as reb
+            FROM player_games pg
+            JOIN games g ON pg.game_id = g.id
+            WHERE g.season_id = ?
+            GROUP BY opponent_of""",
+            (season_id,),
+        ).fetchall()
+
+        return {row["opponent_of"]: dict(row) for row in rows}
+
+
+def get_league_season_totals(season_id: str) -> Dict:
+    """Get league-wide season totals (sum of all teams).
+
+    Returns {pts, fga, fta, ftm, oreb, reb, ast, fgm, tov, pf, min}.
+    """
+    with get_connection() as conn:
+        row = conn.execute(
+            """SELECT
+                SUM(pg.pts) as pts,
+                SUM(pg.fga) as fga,
+                SUM(pg.fta) as fta,
+                SUM(pg.ftm) as ftm,
+                SUM(pg.off_reb) as oreb,
+                SUM(pg.reb) as reb,
+                SUM(pg.ast) as ast,
+                SUM(pg.fgm) as fgm,
+                SUM(pg.tov) as tov,
+                SUM(pg.pf) as pf,
+                SUM(pg.minutes) as min
+            FROM player_games pg
+            JOIN games g ON pg.game_id = g.id
+            WHERE g.season_id = ?""",
+            (season_id,),
+        ).fetchone()
+
+        return dict(row) if row else {}
+
+
 def get_player_season_stats(player_id: str, season_id: str) -> Optional[Dict]:
     """Get aggregated season stats for a player."""
     with get_connection() as conn:
