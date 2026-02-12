@@ -27,6 +27,7 @@ python3 tools/ingest_wkbl.py \
   --auto \
   --save-db \
   --load-all-players \
+  --fetch-profiles \
   --active-only \
   --output data/wkbl-active.json
 ```
@@ -39,6 +40,7 @@ python3 tools/ingest_wkbl.py \
   --auto \
   --save-db \
   --load-all-players \
+  --fetch-profiles \
   --force-refresh \
   --include-future \
   --active-only \
@@ -52,6 +54,7 @@ python3 tools/ingest_wkbl.py \
   --auto \
   --save-db \
   --load-all-players \
+  --fetch-profiles \
   --all-seasons \
   --game-type all \
   --fetch-team-stats \

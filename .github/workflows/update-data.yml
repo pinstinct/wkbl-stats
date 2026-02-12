@@ -29,6 +29,7 @@ jobs:
             --no-cache \
             --save-db \
             --load-all-players \
+            --fetch-profiles \
             --include-future \
             --fetch-team-stats \
             --fetch-standings \
