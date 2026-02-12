@@ -2030,8 +2030,10 @@ def _fetch_schedule_from_wkbl(
                                 "home_team": home_team,
                                 "away_team": away_team,
                             }
-                        elif away_team and home_team:
-                            # Future game without game_no - collect for later
+                        elif away_team and home_team and game_type_code == "01":
+                            # Future game without game_no - only for regular season
+                            # WKBL site returns same schedule for playoff when
+                            # no actual playoff games exist, causing duplicates
                             future_games_in_month.append(
                                 {
                                     "date": date,
