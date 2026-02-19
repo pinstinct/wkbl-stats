@@ -176,3 +176,19 @@ export function mountGlobalSearchEvents({
     listeners.forEach(([el, type, fn]) => el.removeEventListener(type, fn));
   };
 }
+
+export function mountPlayersTableSortEvents({ tableEl, onSort }) {
+  if (!tableEl || typeof onSort !== "function") return () => {};
+
+  const handleClick = (e) => {
+    const th = e.target?.closest?.("th[data-key]");
+    const key = th?.dataset?.key;
+    if (!key) return;
+    onSort(key);
+  };
+
+  tableEl.addEventListener("click", handleClick);
+  return () => {
+    tableEl.removeEventListener("click", handleClick);
+  };
+}

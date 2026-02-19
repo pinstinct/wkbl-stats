@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   mountCompareEvents,
   mountGlobalSearchEvents,
+  mountPlayersTableSortEvents,
   mountPredictEvents,
 } from "./page-events.js";
 
@@ -183,5 +184,39 @@ describe("page events", () => {
     unmount();
     byId.globalSearchBtn.emit("click");
     expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("delegates players table header click for sorting", () => {
+    const table = emitter();
+    const onSort = vi.fn();
+
+    const unmount = mountPlayersTableSortEvents({
+      tableEl: table,
+      onSort,
+    });
+
+    table.emit("click", {
+      target: {
+        closest: () => ({ dataset: { key: "per" } }),
+      },
+    });
+
+    expect(onSort).toHaveBeenCalledWith("per");
+
+    table.emit("click", {
+      target: {
+        closest: () => null,
+      },
+    });
+
+    expect(onSort).toHaveBeenCalledTimes(1);
+
+    unmount();
+    table.emit("click", {
+      target: {
+        closest: () => ({ dataset: { key: "pts" } }),
+      },
+    });
+    expect(onSort).toHaveBeenCalledTimes(1);
   });
 });

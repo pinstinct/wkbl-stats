@@ -4,6 +4,7 @@ export { mountResponsiveNav } from "./responsive-nav.js";
 export {
   mountCompareEvents,
   mountGlobalSearchEvents,
+  mountPlayersTableSortEvents,
   mountPredictEvents,
 } from "./page-events.js";
 export {

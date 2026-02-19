@@ -663,6 +663,7 @@ const WKBLDatabase = (function () {
         g.season_id,
         s.label as season_label,
         t.name as team,
+        t.id as team_id,
         COUNT(*) as gp,
         AVG(pg.minutes) as min,
         AVG(pg.pts) as pts,
@@ -690,6 +691,18 @@ const WKBLDatabase = (function () {
       [playerId],
     );
 
+    const seasonTeamStats = new Map();
+    const seasonLeagueStats = new Map();
+    for (const seasonRow of seasons) {
+      const sid = seasonRow.season_id;
+      if (!seasonTeamStats.has(sid)) {
+        seasonTeamStats.set(sid, getTeamSeasonStats(sid));
+      }
+      if (!seasonLeagueStats.has(sid)) {
+        seasonLeagueStats.set(sid, getLeagueSeasonStats(sid));
+      }
+    }
+
     player.seasons = {};
     for (const d of seasons) {
       d.fgp = d.total_fga
@@ -703,7 +716,10 @@ const WKBLDatabase = (function () {
         : 0;
 
       roundStats(d);
-      calculateAdvancedStats(d);
+      const teamMap = seasonTeamStats.get(d.season_id);
+      const teamStats = teamMap?.get(d.team_id) || null;
+      const leagueStats = seasonLeagueStats.get(d.season_id) || null;
+      calculateAdvancedStats(d, teamStats, leagueStats);
 
       player.seasons[d.season_id] = d;
     }
@@ -1456,6 +1472,7 @@ const WKBLDatabase = (function () {
       "game_score",
       "ts_pct",
       "pir",
+      "per",
     ];
     const result = {};
 

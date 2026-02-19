@@ -23,4 +23,18 @@ describe("leaders view", () => {
     expect(grid.innerHTML).toContain("득점");
     expect(grid.innerHTML).toContain('href="#/players/p1"');
   });
+
+  it("renders empty-state text when category has no leaders", () => {
+    const grid = { innerHTML: "" };
+    renderLeadersGrid({
+      grid,
+      categories: {
+        per: [],
+      },
+      leaderCategories: [{ key: "per", label: "PER" }],
+    });
+
+    expect(grid.innerHTML).toContain("PER");
+    expect(grid.innerHTML).toContain("데이터가 없습니다");
+  });
 });

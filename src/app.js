@@ -36,6 +36,7 @@ import {
   isNavLinkActive,
   mountCompareEvents,
   mountGlobalSearchEvents,
+  mountPlayersTableSortEvents,
   mountPredictEvents,
   mountResponsiveNav,
   resolveRouteTarget,
@@ -95,6 +96,7 @@ import {
   let unmountCompareEvents = null;
   let unmountPredictEvents = null;
   let unmountGlobalSearchEvents = null;
+  let unmountPlayersSortEvents = null;
 
   // =============================================================================
   // Utility Functions
@@ -2714,22 +2716,22 @@ import {
       );
     }
 
-    // Table sorting
-    const statsTable = $("statsTable");
-    if (statsTable) {
-      statsTable.querySelectorAll("th").forEach((th) => {
-        th.addEventListener("click", () => {
-          const key = th.dataset.key;
-          if (!key) return;
-          const isSame = state.sort.key === key;
-          state.sort = {
-            key,
-            dir: isSame && state.sort.dir === "desc" ? "asc" : "desc",
-          };
-          sortAndRender();
-        });
-      });
+    if (unmountPlayersSortEvents) {
+      unmountPlayersSortEvents();
+      unmountPlayersSortEvents = null;
     }
+    const statsTable = $("statsTable");
+    unmountPlayersSortEvents = mountPlayersTableSortEvents({
+      tableEl: statsTable,
+      onSort: (key) => {
+        const isSame = state.sort.key === key;
+        state.sort = {
+          key,
+          dir: isSame && state.sort.dir === "desc" ? "asc" : "desc",
+        };
+        sortAndRender();
+      },
+    });
 
     // Table row click -> show in card
     const statsBody = $("statsBody");
