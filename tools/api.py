@@ -17,7 +17,9 @@ from config import CURRENT_SEASON, SEASON_CODES, setup_logging
 from database import (
     get_connection,
     get_league_season_totals,
+    get_lineup_stints,
     get_opponent_season_totals,
+    get_player_plus_minus_season,
     get_team_season_totals,
     init_db,
 )
@@ -523,9 +525,10 @@ def get_player_detail(player_id: str) -> Optional[dict]:
             tt, ot, lc = season_contexts.get(sid, ({}, {}, None))
             player_team = d.get("team_id") or result.get("team_id", "")
             ts = _build_team_stats(player_team, tt, ot)
-            result["seasons"][sid] = compute_advanced_stats(
-                d, team_stats=ts, league_stats=lc
-            )
+            season_stats = compute_advanced_stats(d, team_stats=ts, league_stats=lc)
+            # Inject +/- from lineup_stints
+            season_stats["plus_minus"] = get_player_plus_minus_season(player_id, sid)
+            result["seasons"][sid] = season_stats
 
         # Recent game log (last 10 games)
         games = conn.execute(
@@ -855,6 +858,29 @@ def get_game_boxscore(game_id: str) -> Optional[dict]:
                 home_stats.append(stat)
             else:
                 away_stats.append(stat)
+
+        # Inject per-game +/- from lineup_stints
+        game_stints = get_lineup_stints(game_id)
+        if game_stints:
+            pm: dict[str, int] = {}
+            for s in game_stints:
+                diff = ((s["end_score_for"] or 0) - (s["start_score_for"] or 0)) - (
+                    (s["end_score_against"] or 0) - (s["start_score_against"] or 0)
+                )
+                for col in [
+                    "player1_id",
+                    "player2_id",
+                    "player3_id",
+                    "player4_id",
+                    "player5_id",
+                ]:
+                    pid = s[col]
+                    if pid:
+                        pm[pid] = pm.get(pid, 0) + diff
+            for stat in home_stats:
+                stat["plus_minus"] = pm.get(stat["player_id"], 0)
+            for stat in away_stats:
+                stat["plus_minus"] = pm.get(stat["player_id"], 0)
 
         result["home_team_stats"] = home_stats
         result["away_team_stats"] = away_stats

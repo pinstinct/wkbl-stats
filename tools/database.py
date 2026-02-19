@@ -324,6 +324,33 @@ CREATE TABLE IF NOT EXISTS event_types (
     category TEXT                  -- scoring, rebounding, playmaking, defense, other
 );
 
+-- 라인업 구간(stint) 테이블
+CREATE TABLE IF NOT EXISTS lineup_stints (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id TEXT NOT NULL,
+    stint_order INTEGER NOT NULL,
+    quarter TEXT NOT NULL,
+    team_id TEXT NOT NULL,
+    player1_id TEXT,
+    player2_id TEXT,
+    player3_id TEXT,
+    player4_id TEXT,
+    player5_id TEXT,
+    start_event_order INTEGER,
+    end_event_order INTEGER,
+    start_score_for INTEGER,
+    start_score_against INTEGER,
+    end_score_for INTEGER,
+    end_score_against INTEGER,
+    duration_seconds REAL,
+    FOREIGN KEY (game_id) REFERENCES games(id),
+    FOREIGN KEY (team_id) REFERENCES teams(id),
+    UNIQUE (game_id, team_id, stint_order)
+);
+
+CREATE INDEX IF NOT EXISTS idx_lineup_stints_game ON lineup_stints(game_id);
+CREATE INDEX IF NOT EXISTS idx_lineup_stints_team ON lineup_stints(team_id);
+
 -- 메타데이터 테이블 (테이블/컬럼 설명)
 CREATE TABLE IF NOT EXISTS _meta_descriptions (
     table_name TEXT NOT NULL,
@@ -473,6 +500,14 @@ META_DESCRIPTIONS = [
     ("game_mvp", "", "경기 MVP"),
     ("game_mvp", "evaluation_score", "EFF (효율 점수)"),
     ("game_mvp", "rank", "MVP 순위"),
+    # lineup_stints 테이블
+    ("lineup_stints", "", "라인업 구간 (온코트 5인 추적)"),
+    ("lineup_stints", "stint_order", "구간 순서"),
+    ("lineup_stints", "quarter", "쿼터 (Q1-Q4, OT)"),
+    ("lineup_stints", "player1_id", "온코트 선수 1"),
+    ("lineup_stints", "duration_seconds", "구간 시간 (초)"),
+    ("lineup_stints", "start_score_for", "구간 시작 자팀 점수"),
+    ("lineup_stints", "end_score_for", "구간 종료 자팀 점수"),
 ]
 
 # WKBL 팀 마스터 데이터
@@ -1944,6 +1979,113 @@ def get_game_mvp(season_id: str, game_date: Optional[str] = None) -> List[Dict]:
                 (season_id,),
             ).fetchall()
         return [dict(row) for row in rows]
+
+
+def save_lineup_stints(game_id: str, stints: List[Dict[str, Any]]):
+    """Save lineup stints for a game.
+
+    Args:
+        game_id: Game ID
+        stints: List of stint dicts from track_game_lineups().
+            Each must have: team_id, stint_order, quarter, players (list of 5),
+            start/end event_order, start/end score_for/against, duration_seconds.
+    """
+    with get_connection() as conn:
+        # Delete existing stints for this game (idempotent re-compute)
+        conn.execute("DELETE FROM lineup_stints WHERE game_id = ?", (game_id,))
+
+        for s in stints:
+            players = s.get("players", [])
+            # Pad to 5 if needed
+            while len(players) < 5:
+                players.append(None)
+
+            conn.execute(
+                """INSERT INTO lineup_stints
+                   (game_id, stint_order, quarter, team_id,
+                    player1_id, player2_id, player3_id, player4_id, player5_id,
+                    start_event_order, end_event_order,
+                    start_score_for, start_score_against,
+                    end_score_for, end_score_against, duration_seconds)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    game_id,
+                    s["stint_order"],
+                    s["quarter"],
+                    s["team_id"],
+                    players[0],
+                    players[1],
+                    players[2],
+                    players[3],
+                    players[4],
+                    s.get("start_event_order"),
+                    s.get("end_event_order"),
+                    s.get("start_score_for"),
+                    s.get("start_score_against"),
+                    s.get("end_score_for"),
+                    s.get("end_score_against"),
+                    s.get("duration_seconds"),
+                ),
+            )
+        conn.commit()
+        logger.info(f"Saved {len(stints)} lineup stints for game {game_id}")
+
+
+def get_lineup_stints(game_id: str) -> List[Dict]:
+    """Get lineup stints for a game.
+
+    Args:
+        game_id: Game ID
+
+    Returns:
+        List of stint dicts ordered by stint_order
+    """
+    with get_connection() as conn:
+        rows = conn.execute(
+            """SELECT * FROM lineup_stints
+               WHERE game_id = ?
+               ORDER BY stint_order""",
+            (game_id,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_player_plus_minus_season(player_id: str, season_id: str) -> int:
+    """Get cumulative +/- for a player over a season from lineup_stints.
+
+    Returns:
+        Integer plus/minus value.
+    """
+    with get_connection() as conn:
+        # Find which team the player was on
+        team_row = conn.execute(
+            """SELECT DISTINCT pg.team_id FROM player_games pg
+               JOIN games g ON pg.game_id = g.id
+               WHERE pg.player_id = ? AND g.season_id = ?""",
+            (player_id, season_id),
+        ).fetchone()
+
+        if not team_row:
+            return 0
+
+        team_id = team_row["team_id"]
+
+        # Sum +/- across all stints where this player was on court
+        row = conn.execute(
+            """SELECT COALESCE(SUM(
+                   (end_score_for - start_score_for) -
+                   (end_score_against - start_score_against)
+               ), 0) as pm
+               FROM lineup_stints ls
+               JOIN games g ON ls.game_id = g.id
+               WHERE g.season_id = ? AND ls.team_id = ?
+               AND (ls.player1_id = ? OR ls.player2_id = ?
+                    OR ls.player3_id = ? OR ls.player4_id = ?
+                    OR ls.player5_id = ?)""",
+            (season_id, team_id, player_id, player_id, player_id, player_id, player_id),
+        ).fetchone()
+
+        return row["pm"] if row else 0
 
 
 if __name__ == "__main__":

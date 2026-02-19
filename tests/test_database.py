@@ -38,6 +38,7 @@ class TestDatabaseInit:
             "head_to_head",
             "game_mvp",
             "event_types",
+            "lineup_stints",
         }
         assert expected_tables.issubset(tables), (
             f"Missing tables: {expected_tables - tables}"

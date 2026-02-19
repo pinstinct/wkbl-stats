@@ -64,28 +64,29 @@ python3 tools/ingest_wkbl.py \
 
 ### Ingest Options
 
-| Option                              | Description                                                                           |
-| ----------------------------------- | ------------------------------------------------------------------------------------- |
-| `--auto`                            | Auto-discover season start date and game IDs from Data Lab                            |
-| `--end-date YYYYMMDD`               | Aggregate stats up to this date (default: today)                                      |
-| `--active-only`                     | Filter to current active players only                                                 |
-| `--load-all-players`                | Load all players (active + retired + foreign) for correct pno mapping                 |
-| `--save-db`                         | Save game records to SQLite database                                                  |
-| `--force-refresh`                   | Ignore existing data, re-fetch all games                                              |
-| `--fetch-team-stats`                | Also collect team statistics                                                          |
-| `--fetch-standings`                 | Also collect team standings/rankings                                                  |
-| `--game-type {regular,playoff,all}` | Game type to collect (default: regular)                                               |
-| `--all-seasons`                     | Collect all historical seasons (2020-21 ~ current)                                    |
-| `--seasons 044 045`                 | Collect specific seasons by code                                                      |
-| `--include-future`                  | Save future (scheduled) games with NULL scores to database                            |
-| `--fetch-profiles`                  | Fetch individual player profiles for birth_date (slower, use with --load-all-players) |
-| `--backfill-games {id...}`          | Backfill predictions for specific game IDs                                            |
-| `--fetch-play-by-play`              | Fetch play-by-play data for each game (per-game, slower)                              |
-| `--fetch-shot-charts`               | Fetch shot chart data for each game (per-game, slower)                                |
-| `--fetch-team-category-stats`       | Fetch team category rankings (12 categories per season)                               |
-| `--fetch-head-to-head`              | Fetch head-to-head records for all team pairs (15 pairs per season)                   |
-| `--fetch-game-mvp`                  | Fetch game MVP data for the season                                                    |
-| `--fetch-quarter-scores`            | Fetch quarter scores and venue via Team Analysis (15 requests per season)             |
+| Option                              | Description                                                                              |
+| ----------------------------------- | ---------------------------------------------------------------------------------------- |
+| `--auto`                            | Auto-discover season start date and game IDs from Data Lab                               |
+| `--end-date YYYYMMDD`               | Aggregate stats up to this date (default: today)                                         |
+| `--active-only`                     | Filter to current active players only                                                    |
+| `--load-all-players`                | Load all players (active + retired + foreign) for correct pno mapping                    |
+| `--save-db`                         | Save game records to SQLite database                                                     |
+| `--force-refresh`                   | Ignore existing data, re-fetch all games                                                 |
+| `--fetch-team-stats`                | Also collect team statistics                                                             |
+| `--fetch-standings`                 | Also collect team standings/rankings                                                     |
+| `--game-type {regular,playoff,all}` | Game type to collect (default: regular)                                                  |
+| `--all-seasons`                     | Collect all historical seasons (2020-21 ~ current)                                       |
+| `--seasons 044 045`                 | Collect specific seasons by code                                                         |
+| `--include-future`                  | Save future (scheduled) games with NULL scores to database                               |
+| `--fetch-profiles`                  | Fetch individual player profiles for birth_date (slower, use with --load-all-players)    |
+| `--backfill-games {id...}`          | Backfill predictions for specific game IDs                                               |
+| `--fetch-play-by-play`              | Fetch play-by-play data for each game (per-game, slower)                                 |
+| `--fetch-shot-charts`               | Fetch shot chart data for each game (per-game, slower)                                   |
+| `--fetch-team-category-stats`       | Fetch team category rankings (12 categories per season)                                  |
+| `--fetch-head-to-head`              | Fetch head-to-head records for all team pairs (15 pairs per season)                      |
+| `--fetch-game-mvp`                  | Fetch game MVP data for the season                                                       |
+| `--fetch-quarter-scores`            | Fetch quarter scores and venue via Team Analysis (15 requests per season)                |
+| `--compute-lineups`                 | Compute lineup stints from existing PBP data (also runs auto after --fetch-play-by-play) |
 
 ### Testing
 
@@ -101,7 +102,7 @@ uv run pytest tests/test_database.py -v
 uv run pytest tests/test_api.py -v
 ```
 
-**Test coverage (122 tests total):**
+**Test coverage (140 tests total):**
 
 - `test_database.py`: Database operations (49 tests)
   - Database init, CRUD operations, season stats, boxscore, standings, predictions
@@ -120,6 +121,12 @@ uv run pytest tests/test_api.py -v
   - Team-context stats (USG%, ORtg, DRtg, Net Rating, Pace)
   - Rate stats (OREB%, DREB%, AST%, STL%, BLK%)
   - PER (Player Efficiency Rating)
+- `test_lineup.py`: Lineup tracking engine (18 tests)
+  - Starter inference (events, minutes backfill, per-quarter)
+  - Stint tracking (substitutions, quarter transitions, scores)
+  - Plus/minus calculation, On/Off rating
+  - NULL player_id resolution from PBP descriptions
+  - Lineup stints DB CRUD, duration calculation
 
 ## Frontend Pages (SPA)
 
@@ -190,6 +197,7 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.jso
 - `tools/ingest_wkbl.py` - Web scraper and data aggregation pipeline
 - `tools/database.py` - SQLite schema and database operations
 - `tools/stats.py` - Advanced stat calculations (TS%, eFG%, PER, USG%, etc.)
+- `tools/lineup.py` - Lineup tracking engine (stints, +/-, On/Off ratings)
 - `tools/config.py` - Centralized configuration (URLs, paths, settings)
 
 **Data & Config:**
@@ -244,6 +252,7 @@ teams ───┼──→ games ──→ player_games (per-game player stats)
          │        └──→ game_team_predictions (team win predictions)
          │        └──→ play_by_play (play-by-play events)
          │        └──→ shot_charts (shot chart data)
+         │        └──→ lineup_stints (on-court 5-man lineup stints)
          │
          ├──→ team_standings (season standings)
          ├──→ team_category_stats (team category rankings)
@@ -270,6 +279,7 @@ Key tables:
 - `team_category_stats`: Team category rankings (pts, reb, ast, etc. per season)
 - `head_to_head`: Head-to-head records between teams (scores, venue, winner)
 - `game_mvp`: Game MVP records (player stats, evaluation score, rank)
+- `lineup_stints`: On-court 5-man lineup stints (per-game, per-quarter, with scores and duration)
 - `_meta_descriptions`: Table/column descriptions metadata
 
 **Note:** Predictions are generated during ingest (`--include-future`) and stored in DB tables. Browser reads from DB via sql.js.
@@ -330,7 +340,8 @@ External endpoints (documented in `docs/data-sources.md`):
   "ast_pct": 20.8,
   "stl_pct": 3.0,
   "blk_pct": 2.4,
-  "per": 14.2
+  "per": 14.2,
+  "plus_minus": 42
 }
 ```
 

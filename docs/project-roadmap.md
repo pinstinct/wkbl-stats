@@ -26,6 +26,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 | Phase 6   | ✅ 완료 | 추가 데이터 수집 (PBP, 샷차트, H2H, MVP, 쿼터점수)          |
 | Phase 6.3 | ✅ 완료 | 데이터 품질 (고아 선수 해결, 이벤트 카테고리 세분화)        |
 | Phase 7   | ✅ 완료 | 고급 지표 Tier 1 (GmSc, USG%, ORtg/DRtg, Pace, PER 등 14개) |
+| Phase 7.3 | ✅ 완료 | 고급 지표 Tier 2 — On/Off Rating & +/- (라인업 추적 엔진)   |
 
 ---
 
@@ -298,6 +299,19 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] `compute_advanced_stats()` 시그니처 확장 (team_stats, league_stats kwargs)
 - [x] API 통합: `get_players()`, `get_player_detail()`, `get_player_comparison()` 모두 고급 지표 포함
 - [x] 테스트 20개 추가 (총 122개)
+
+### Phase 7.3: 고급 지표 Tier 2 — On/Off Rating & +/- ✅ 완료 (2026-02-19)
+
+- [x] `tools/lineup.py` — 라인업 추적 엔진 (신규)
+  - `infer_starters()` — 쿼터별 선발 5명 추론 (이벤트 + minutes 보충)
+  - `track_game_lineups()` — 경기 전체 라인업 구간(stint) 추적
+  - `compute_player_plus_minus()` — 경기별 +/- 계산
+  - `compute_player_on_off()` — 시즌 On/Off Rating 계산
+  - `resolve_null_player_ids()` — PBP description에서 이름 추출하여 NULL player_id 해결
+- [x] `lineup_stints` DB 테이블 + CRUD (`save_lineup_stints`, `get_lineup_stints`, `get_player_plus_minus_season`)
+- [x] API 통합: 박스스코어에 경기별 `plus_minus`, 선수 상세에 시즌 `plus_minus`
+- [x] 인제스트 통합: `--compute-lineups` CLI 옵션, PBP fetch 후 자동 계산
+- [x] 테스트 18개 추가 (총 140개)
 
 ---
 

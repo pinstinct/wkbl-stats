@@ -3261,6 +3261,38 @@ def _ingest_multiple_seasons(args):
             logger.info(f"Resolved {resolved} orphan player IDs across seasons")
 
 
+def _compute_lineups_for_season(season_code: str):
+    """Compute lineup stints from PBP data for all games in a season.
+
+    Resolves NULL player_ids first, then tracks lineups and saves stints.
+    """
+    from lineup import resolve_null_player_ids, track_game_lineups
+
+    completed_ids = database.get_existing_game_ids(season_code)
+    logger.info(
+        f"Computing lineup stints for {len(completed_ids)} games "
+        f"in season {season_code}"
+    )
+
+    computed = 0
+    for gid in sorted(completed_ids):
+        # Check if PBP data exists for this game
+        pbp = database.get_play_by_play(gid)
+        if not pbp:
+            continue
+
+        # Resolve NULL player_ids from descriptions
+        resolve_null_player_ids(gid)
+
+        # Track lineups and save
+        stints = track_game_lineups(gid)
+        if stints:
+            database.save_lineup_stints(gid, stints)
+            computed += 1
+
+    logger.info(f"Computed lineup stints for {computed} games")
+
+
 def main():
     parser = argparse.ArgumentParser(description="WKBL Data Lab ingest")
     parser.add_argument("--first-game-date", help="e.g. 20241027")
@@ -3360,6 +3392,11 @@ def main():
         "--fetch-quarter-scores",
         action="store_true",
         help="fetch quarter scores and venue info via Team Analysis",
+    )
+    parser.add_argument(
+        "--compute-lineups",
+        action="store_true",
+        help="compute lineup stints from existing PBP data (batch mode)",
     )
 
     args = parser.parse_args()
@@ -3619,6 +3656,13 @@ def main():
                     logger.warning(f"Failed to fetch shot chart for game {gid}: {e}")
 
         logger.info("Per-game data fetch complete")
+
+    # Compute lineup stints from PBP data
+    if (
+        getattr(args, "compute_lineups", False)
+        or getattr(args, "fetch_play_by_play", False)
+    ) and args.save_db:
+        _compute_lineups_for_season(season_code)
 
     logger.info("Ingest complete")
 
