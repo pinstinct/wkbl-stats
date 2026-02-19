@@ -184,6 +184,135 @@ const WKBLDatabase = (function () {
     return fga + 0.44 * fta + tov - oreb;
   }
 
+  function safeDiv(n, d) {
+    return d ? n / d : 0;
+  }
+
+  function clamp(v, lo, hi) {
+    return Math.max(lo, Math.min(hi, v));
+  }
+
+  function totalFromRow(d, totalKey, avgKey) {
+    if (d[totalKey] !== undefined && d[totalKey] !== null) return d[totalKey];
+    return (d[avgKey] || 0) * (d.gp || 0);
+  }
+
+  function computePlayerOffRtg({ totals, ts }) {
+    const { pts, ast, tov, fgm, fga, tpm, ftm, fta, oreb } = totals;
+
+    const teamOrbPct = safeDiv(
+      ts.team_oreb || 0,
+      (ts.team_oreb || 0) + (ts.opp_dreb || 0),
+    );
+    const teamScoringPoss =
+      (ts.team_fgm || 0) +
+      (1 - (1 - safeDiv(ts.team_ftm || 0, ts.team_fta || 0)) ** 2) *
+        0.44 *
+        (ts.team_fta || 0);
+    const teamPlayPct = safeDiv(
+      teamScoringPoss,
+      (ts.team_fga || 0) + 0.44 * (ts.team_fta || 0) + (ts.team_tov || 0),
+    );
+    const orbWeightDenom =
+      (1 - teamOrbPct) * teamPlayPct + teamOrbPct * (1 - teamPlayPct);
+    const teamOrbWeight = safeDiv(
+      (1 - teamOrbPct) * teamPlayPct,
+      orbWeightDenom,
+    );
+    const qAst = clamp(0.5 * safeDiv(ts.team_ast || 0, ts.team_fgm || 0), 0, 1);
+
+    const fgPart =
+      fga > 0 ? fgm * (1 - 0.5 * safeDiv(pts - ftm, 2 * fga) * qAst) : 0;
+    const astPartDenom = 2 * ((ts.team_fga || 0) - fga);
+    const astPart =
+      astPartDenom > 0
+        ? 0.5 *
+          safeDiv(
+            (ts.team_pts || 0) - (ts.team_ftm || 0) - (pts - ftm),
+            astPartDenom,
+          ) *
+          ast
+        : 0;
+    const ftPart =
+      fta > 0 ? (1 - (1 - safeDiv(ftm, fta)) ** 2) * 0.44 * fta : 0;
+
+    const teamScoringShare = safeDiv(ts.team_oreb || 0, teamScoringPoss);
+    const scoringDecay = 1 - teamScoringShare * teamOrbWeight * teamPlayPct;
+    const scPoss =
+      (fgPart + astPart + ftPart) * scoringDecay +
+      oreb * teamOrbWeight * teamPlayPct;
+    const fgxPoss = (fga - fgm) * (1 - 1.07 * teamOrbPct);
+    const ftxPoss = (1 - safeDiv(ftm * ftm, fta * fta)) * 0.44 * fta;
+    const totPoss = scPoss + fgxPoss + ftxPoss + tov;
+    if (totPoss <= 0) return null;
+
+    const pprodFg =
+      fga > 0
+        ? 2 * (fgm + 0.5 * tpm) * (1 - 0.5 * safeDiv(pts - ftm, 2 * fga) * qAst)
+        : 0;
+    let pprodAst = 0;
+    if ((ts.team_fgm || 0) - fgm > 0 && (ts.team_fga || 0) - fga > 0) {
+      pprodAst =
+        2 *
+        safeDiv(
+          (ts.team_fgm || 0) - fgm + 0.5 * ((ts.team_tpm || 0) - tpm),
+          (ts.team_fgm || 0) - fgm,
+        ) *
+        0.5 *
+        safeDiv(
+          (ts.team_pts || 0) - (ts.team_ftm || 0) - (pts - ftm),
+          2 * ((ts.team_fga || 0) - fga),
+        ) *
+        ast;
+    }
+    const pprodOrb =
+      teamScoringPoss > 0
+        ? oreb *
+          teamOrbWeight *
+          teamPlayPct *
+          safeDiv(ts.team_pts || 0, teamScoringPoss)
+        : 0;
+    const pprod = (pprodFg + pprodAst + ftm) * scoringDecay + pprodOrb;
+    if (pprod <= 0) return 0;
+    return Math.round((100 * pprod * 10) / totPoss) / 10;
+  }
+
+  function computePlayerDefRtg({ totals, ts, totalMin }) {
+    const oppPoss = estimatePossessions(
+      ts.opp_fga || 0,
+      ts.opp_fta || 0,
+      ts.opp_tov || 0,
+      ts.opp_oreb || 0,
+    );
+    if (oppPoss <= 0) return null;
+
+    const teamDrtg = safeDiv(ts.opp_pts || 0, oppPoss) * 100;
+    const teamMin5 = safeDiv(ts.team_min || 0, 5);
+    if (totalMin <= 0 || teamMin5 <= 0) return Math.round(teamDrtg * 10) / 10;
+
+    const oppOrbPct = safeDiv(
+      ts.opp_oreb || 0,
+      (ts.opp_oreb || 0) + (ts.team_dreb || 0),
+    );
+    const stops1 =
+      (totals.stl || 0) +
+      0.7 * (totals.blk || 0) +
+      (totals.dreb || 0) * (1 - oppOrbPct);
+    const stopFt =
+      (ts.team_pf || 0) > 0 && (ts.opp_fta || 0) > 0
+        ? safeDiv(totals.pf || 0, ts.team_pf || 0) *
+          0.4 *
+          (ts.opp_fta || 0) *
+          (1 - safeDiv((ts.opp_ftm || 0) ** 2, (ts.opp_fta || 0) ** 2))
+        : 0;
+    const playerOppPoss = oppPoss * safeDiv(totalMin, teamMin5);
+    if (playerOppPoss <= 0) return Math.round(teamDrtg * 10) / 10;
+
+    const stopPct = clamp(safeDiv(stops1 + stopFt, playerOppPoss), 0, 1);
+    const defRtg = teamDrtg * (1 - 0.2 * stopPct);
+    return Math.round(clamp(defRtg, 50, 150) * 10) / 10;
+  }
+
   /**
    * Compute PER using Hollinger formula (normalized to league avg = 15).
    */
@@ -253,6 +382,13 @@ const WKBLDatabase = (function () {
     const fgm = d.total_fgm || 0;
     const tpm = d.total_tpm || 0;
     const ftm = d.total_ftm || 0;
+    const totalAst = totalFromRow(d, "total_ast", "ast");
+    const totalStl = totalFromRow(d, "total_stl", "stl");
+    const totalBlk = totalFromRow(d, "total_blk", "blk");
+    const totalTov = totalFromRow(d, "total_tov", "tov");
+    const totalOreb = totalFromRow(d, "total_off_reb", "avg_off_reb");
+    const totalDreb = totalFromRow(d, "total_def_reb", "avg_def_reb");
+    const totalPf = totalFromRow(d, "total_pf", "avg_pf");
 
     // TS% = PTS / (2 x (FGA + 0.44 x FTA))
     const tsa = 2 * (fga + 0.44 * fta);
@@ -342,15 +478,28 @@ const WKBLDatabase = (function () {
           ) / 10;
       }
 
-      // ORtg = TmPTS / TmPoss * 100
-      if (teamPoss > 0) {
-        d.off_rtg = Math.round((ts.team_pts / teamPoss) * 1000) / 10;
-      }
+      const offRtg = computePlayerOffRtg({
+        totals: {
+          pts,
+          ast: totalAst,
+          tov: totalTov,
+          fgm,
+          fga,
+          tpm,
+          ftm,
+          fta,
+          oreb: totalOreb,
+        },
+        ts,
+      });
+      if (offRtg !== null) d.off_rtg = offRtg;
 
-      // DRtg = OppPTS / OppPoss * 100
-      if (oppPoss > 0) {
-        d.def_rtg = Math.round((ts.opp_pts / oppPoss) * 1000) / 10;
-      }
+      const defRtg = computePlayerDefRtg({
+        totals: { stl: totalStl, blk: totalBlk, dreb: totalDreb, pf: totalPf },
+        ts,
+        totalMin: totalPlayerMin,
+      });
+      if (defRtg !== null) d.def_rtg = defRtg;
 
       // NetRtg = ORtg - DRtg
       if (d.off_rtg != null && d.def_rtg != null) {

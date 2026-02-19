@@ -207,12 +207,18 @@ _TEAM_STATS = {
     "team_reb": 420,
     "opp_fga": 780,
     "opp_fta": 190,
+    "opp_ftm": 130,
     "opp_tov": 140,
     "opp_oreb": 110,
     "opp_dreb": 280,
     "opp_pts": 850,
     "opp_tpa": 230,
+    "opp_tpm": 70,
     "opp_fgm": 330,
+    "opp_ast": 210,
+    "opp_stl": 75,
+    "opp_blk": 28,
+    "opp_pf": 190,
     "opp_reb": 390,
 }
 
@@ -242,21 +248,41 @@ def test_compute_usg_pct():
 
 
 def test_compute_ortg_drtg_net():
-    """ORtg = Team_PTS / Team_Poss * 100
-    DRtg = Opp_PTS / Team_Poss * 100
-    Net = ORtg - DRtg"""
+    """Player ORtg/DRtg should vary by player box-score profile."""
     from stats import compute_advanced_stats
 
-    computed = compute_advanced_stats(dict(_BASE_ROW), team_stats=dict(_TEAM_STATS))
+    player_a = dict(_BASE_ROW)
+    player_b = dict(_BASE_ROW)
+    player_b.update(
+        {
+            "pts": 10.0,
+            "ast": 1.0,
+            "stl": 0.5,
+            "blk": 0.2,
+            "tov": 2.0,
+            "off_reb": 0.4,
+            "def_reb": 2.5,
+            "pf": 2.7,
+            "total_fgm": 45,
+            "total_fga": 120,
+            "total_tpm": 8,
+            "total_tpa": 35,
+            "total_ftm": 12,
+            "total_fta": 16,
+        }
+    )
 
-    # Team_Poss = 800 + 0.44*200 + 150 - 120 = 918
-    # ORtg = 900 / 918 * 100 = 98.0
-    # Opp_Poss = 780 + 0.44*190 + 140 - 110 = 893.6
-    # DRtg = 850 / 893.6 * 100 = 95.1
-    # Net = 98.0 - 95.1 = 2.9
-    assert computed["off_rtg"] == 98.0
-    assert computed["def_rtg"] == 95.1
-    assert computed["net_rtg"] == 2.9
+    computed_a = compute_advanced_stats(player_a, team_stats=dict(_TEAM_STATS))
+    computed_b = compute_advanced_stats(player_b, team_stats=dict(_TEAM_STATS))
+
+    assert computed_a["off_rtg"] != computed_b["off_rtg"]
+    assert computed_a["def_rtg"] != computed_b["def_rtg"]
+    assert computed_a["net_rtg"] == round(
+        computed_a["off_rtg"] - computed_a["def_rtg"], 1
+    )
+    assert computed_b["net_rtg"] == round(
+        computed_b["off_rtg"] - computed_b["def_rtg"], 1
+    )
 
 
 def test_compute_pace():

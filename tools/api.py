@@ -19,6 +19,7 @@ from database import (
     get_league_season_totals,
     get_lineup_stints,
     get_opponent_season_totals,
+    get_position_matchups,
     get_player_plus_minus_season,
     get_team_season_totals,
     init_db,
@@ -186,12 +187,18 @@ def _build_team_stats(
         "team_reb": tt["reb"],
         "opp_fga": ot["fga"],
         "opp_fta": ot["fta"],
+        "opp_ftm": ot["ftm"],
         "opp_tov": ot["tov"],
         "opp_oreb": ot["oreb"],
         "opp_dreb": ot["dreb"],
         "opp_pts": ot["pts"],
         "opp_tpa": ot["tpa"],
+        "opp_tpm": ot["tpm"],
         "opp_fgm": ot["fgm"],
+        "opp_ast": ot["ast"],
+        "opp_stl": ot["stl"],
+        "opp_blk": ot["blk"],
+        "opp_pf": ot["pf"],
         "opp_reb": ot["reb"],
     }
 
@@ -262,6 +269,13 @@ def get_players(
             SUM(pg.tpa) as total_tpa,
             SUM(pg.ftm) as total_ftm,
             SUM(pg.fta) as total_fta,
+            SUM(pg.ast) as total_ast,
+            SUM(pg.stl) as total_stl,
+            SUM(pg.blk) as total_blk,
+            SUM(pg.tov) as total_tov,
+            SUM(pg.off_reb) as total_off_reb,
+            SUM(pg.def_reb) as total_def_reb,
+            SUM(pg.pf) as total_pf,
             AVG(pg.off_reb) as off_reb,
             AVG(pg.def_reb) as def_reb,
             AVG(pg.pf) as pf
@@ -482,6 +496,13 @@ def get_player_detail(player_id: str) -> Optional[dict]:
                 SUM(pg.tpa) as total_tpa,
                 SUM(pg.ftm) as total_ftm,
                 SUM(pg.fta) as total_fta,
+                SUM(pg.ast) as total_ast,
+                SUM(pg.stl) as total_stl,
+                SUM(pg.blk) as total_blk,
+                SUM(pg.tov) as total_tov,
+                SUM(pg.off_reb) as total_off_reb,
+                SUM(pg.def_reb) as total_def_reb,
+                SUM(pg.pf) as total_pf,
                 AVG(pg.off_reb) as off_reb,
                 AVG(pg.def_reb) as def_reb,
                 AVG(pg.pf) as pf
@@ -1287,6 +1308,21 @@ def api_get_game(game_id: str):
     return boxscore
 
 
+@app.get("/games/{game_id}/position-matchups")
+def api_get_game_position_matchups(
+    game_id: str,
+    scope: Optional[str] = Query(default=None, pattern="^(vs|whole)$"),
+):
+    """Get position matchup analysis rows for a game."""
+    with get_connection() as conn:
+        exists = conn.execute("SELECT 1 FROM games WHERE id = ?", (game_id,)).fetchone()
+    if not exists:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    rows = get_position_matchups(game_id, scope=scope)
+    return {"game_id": game_id, "scope": scope, "count": len(rows), "rows": rows}
+
+
 @app.get("/seasons")
 def api_get_seasons():
     """Get all seasons."""
@@ -1393,6 +1429,13 @@ def _get_comparison_query(player_count: int) -> str:
             SUM(pg.tpa) as total_tpa,
             SUM(pg.ftm) as total_ftm,
             SUM(pg.fta) as total_fta,
+            SUM(pg.ast) as total_ast,
+            SUM(pg.stl) as total_stl,
+            SUM(pg.blk) as total_blk,
+            SUM(pg.tov) as total_tov,
+            SUM(pg.off_reb) as total_off_reb,
+            SUM(pg.def_reb) as total_def_reb,
+            SUM(pg.pf) as total_pf,
             AVG(pg.off_reb) as off_reb,
             AVG(pg.def_reb) as def_reb,
             AVG(pg.pf) as pf

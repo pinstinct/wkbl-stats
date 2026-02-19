@@ -309,12 +309,39 @@ CREATE TABLE IF NOT EXISTS game_mvp (
     UNIQUE (season_id, game_date, rank)
 );
 
+-- 포지션 매치업 분석
+CREATE TABLE IF NOT EXISTS position_matchups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id TEXT NOT NULL,
+    position TEXT NOT NULL,            -- G/F/C
+    scope TEXT NOT NULL DEFAULT 'vs',  -- vs(매치업), whole(시즌 평균)
+    home_pts REAL,
+    away_pts REAL,
+    home_tpm REAL,
+    away_tpm REAL,
+    home_reb REAL,
+    away_reb REAL,
+    home_ast REAL,
+    away_ast REAL,
+    home_stl REAL,
+    away_stl REAL,
+    home_blk REAL,
+    away_blk REAL,
+    home_eff REAL,
+    away_eff REAL,
+    home_norm_values TEXT,             -- JSON array
+    away_norm_values TEXT,             -- JSON array
+    FOREIGN KEY (game_id) REFERENCES games(id),
+    UNIQUE (game_id, position, scope)
+);
+
 CREATE INDEX IF NOT EXISTS idx_play_by_play_game ON play_by_play(game_id);
 CREATE INDEX IF NOT EXISTS idx_shot_charts_game ON shot_charts(game_id);
 CREATE INDEX IF NOT EXISTS idx_shot_charts_player ON shot_charts(player_id);
 CREATE INDEX IF NOT EXISTS idx_team_category_stats_season ON team_category_stats(season_id);
 CREATE INDEX IF NOT EXISTS idx_head_to_head_season ON head_to_head(season_id);
 CREATE INDEX IF NOT EXISTS idx_game_mvp_season ON game_mvp(season_id);
+CREATE INDEX IF NOT EXISTS idx_position_matchups_game ON position_matchups(game_id);
 
 -- 이벤트 유형 마스터 테이블
 CREATE TABLE IF NOT EXISTS event_types (
@@ -500,6 +527,12 @@ META_DESCRIPTIONS = [
     ("game_mvp", "", "경기 MVP"),
     ("game_mvp", "evaluation_score", "EFF (효율 점수)"),
     ("game_mvp", "rank", "MVP 순위"),
+    # position_matchups 테이블
+    ("position_matchups", "", "포지션 매치업 분석"),
+    ("position_matchups", "position", "포지션 (G/F/C)"),
+    ("position_matchups", "scope", "데이터 범위 (vs/whole)"),
+    ("position_matchups", "home_pts", "홈팀 포지션 평균 득점"),
+    ("position_matchups", "away_pts", "원정팀 포지션 평균 득점"),
     # lineup_stints 테이블
     ("lineup_stints", "", "라인업 구간 (온코트 5인 추적)"),
     ("lineup_stints", "stint_order", "구간 순서"),
@@ -830,12 +863,18 @@ def get_opponent_season_totals(season_id: str) -> Dict[str, Dict]:
                 END as opponent_of,
                 SUM(pg.fga) as fga,
                 SUM(pg.fta) as fta,
+                SUM(pg.ftm) as ftm,
                 SUM(pg.tov) as tov,
                 SUM(pg.off_reb) as oreb,
                 SUM(pg.def_reb) as dreb,
                 SUM(pg.pts) as pts,
                 SUM(pg.fgm) as fgm,
+                SUM(pg.ast) as ast,
+                SUM(pg.stl) as stl,
+                SUM(pg.blk) as blk,
+                SUM(pg.pf) as pf,
                 SUM(pg.tpa) as tpa,
+                SUM(pg.tpm) as tpm,
                 SUM(pg.reb) as reb
             FROM player_games pg
             JOIN games g ON pg.game_id = g.id
@@ -1977,6 +2016,64 @@ def get_game_mvp(season_id: str, game_date: Optional[str] = None) -> List[Dict]:
                    WHERE gm.season_id = ?
                    ORDER BY gm.game_date DESC, gm.rank""",
                 (season_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def bulk_insert_position_matchups(game_id: str, records: List[Dict[str, Any]]):
+    """Bulk insert position matchup records for a game."""
+    with get_connection() as conn:
+        for rec in records:
+            conn.execute(
+                """INSERT OR REPLACE INTO position_matchups
+                   (game_id, position, scope, home_pts, away_pts,
+                    home_tpm, away_tpm, home_reb, away_reb,
+                    home_ast, away_ast, home_stl, away_stl,
+                    home_blk, away_blk, home_eff, away_eff,
+                    home_norm_values, away_norm_values)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    game_id,
+                    rec.get("position"),
+                    rec.get("scope", "vs"),
+                    rec.get("home_pts"),
+                    rec.get("away_pts"),
+                    rec.get("home_tpm"),
+                    rec.get("away_tpm"),
+                    rec.get("home_reb"),
+                    rec.get("away_reb"),
+                    rec.get("home_ast"),
+                    rec.get("away_ast"),
+                    rec.get("home_stl"),
+                    rec.get("away_stl"),
+                    rec.get("home_blk"),
+                    rec.get("away_blk"),
+                    rec.get("home_eff"),
+                    rec.get("away_eff"),
+                    rec.get("home_norm_values"),
+                    rec.get("away_norm_values"),
+                ),
+            )
+        conn.commit()
+        logger.info(f"Inserted {len(records)} position matchup rows for game {game_id}")
+
+
+def get_position_matchups(game_id: str, scope: Optional[str] = None) -> List[Dict]:
+    """Get position matchup rows for a game."""
+    with get_connection() as conn:
+        if scope:
+            rows = conn.execute(
+                """SELECT * FROM position_matchups
+                   WHERE game_id = ? AND scope = ?
+                   ORDER BY position""",
+                (game_id, scope),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT * FROM position_matchups
+                   WHERE game_id = ?
+                   ORDER BY scope, position""",
+                (game_id,),
             ).fetchall()
         return [dict(row) for row in rows]
 
