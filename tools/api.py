@@ -24,7 +24,7 @@ from database import (
     init_db,
 )
 from season_utils import resolve_season
-from stats import compute_advanced_stats
+from stats import compute_advanced_stats, estimate_possessions
 
 logger = setup_logging("api")
 
@@ -757,6 +757,39 @@ def get_team_detail(team_id: str, season_id: str) -> Optional[dict]:
                 }
             )
 
+        # Compute team advanced stats (ORtg, DRtg, NetRtg, Pace)
+        team_totals_all = get_team_season_totals(season_id)
+        opp_totals_all = get_opponent_season_totals(season_id)
+        ts = _build_team_stats(team_id, team_totals_all, opp_totals_all)
+        if ts:
+            team_poss = estimate_possessions(
+                ts["team_fga"], ts["team_fta"], ts["team_tov"], ts["team_oreb"]
+            )
+            opp_poss = estimate_possessions(
+                ts["opp_fga"], ts["opp_fta"], ts["opp_tov"], ts["opp_oreb"]
+            )
+            team_min_5 = ts["team_min"] / 5 if ts["team_min"] else 0
+            off_rtg = (
+                round(ts["team_pts"] / team_poss * 100, 1) if team_poss > 0 else None
+            )
+            def_rtg = (
+                round(ts["opp_pts"] / team_poss * 100, 1) if team_poss > 0 else None
+            )
+            net_rtg = (
+                round(off_rtg - def_rtg, 1)
+                if off_rtg is not None and def_rtg is not None
+                else None
+            )
+            avg_poss = (team_poss + opp_poss) / 2
+            pace = round(40 * avg_poss / team_min_5, 1) if team_min_5 > 0 else None
+            result["team_stats"] = {
+                "off_rtg": off_rtg,
+                "def_rtg": def_rtg,
+                "net_rtg": net_rtg,
+                "pace": pace,
+                "gp": ts.get("team_gp", 0),
+            }
+
         return result
 
 
@@ -991,17 +1024,75 @@ def _get_leaders_query(category: str) -> tuple[str, int]:
             + joins,
             10,
         ),
+        "game_score": (
+            base
+            + "AVG(pg.pts + 0.4*pg.fgm - 0.7*pg.fga - 0.4*(pg.fta-pg.ftm)"
+            + " + 0.7*pg.off_reb + 0.3*pg.def_reb + pg.stl + 0.7*pg.ast"
+            + " + 0.7*pg.blk - 0.4*pg.pf - pg.tov) as value"
+            + joins,
+            1,
+        ),
+        "ts_pct": (
+            base
+            + "CASE WHEN SUM(pg.fga + 0.44*pg.fta) > 0"
+            + " THEN SUM(pg.pts)*0.5/(SUM(pg.fga)+0.44*SUM(pg.fta)) ELSE 0 END as value"
+            + joins,
+            10,
+        ),
+        "pir": (
+            base
+            + "AVG(pg.pts+pg.reb+pg.ast+pg.stl+pg.blk-pg.tov"
+            + "-(pg.fga-pg.fgm)-(pg.fta-pg.ftm)) as value"
+            + joins,
+            1,
+        ),
     }
 
     return queries.get(category, queries["pts"])
 
 
+def _get_per_leaders(season_id: str, limit: int = 10) -> list[dict]:
+    """Get PER leaders by computing advanced stats for all players."""
+    players = get_players(season_id, active_only=True)
+    valid = [p for p in players if p.get("per") is not None and p.get("gp", 0) >= 1]
+    sorted_players = sorted(valid, key=lambda p: p.get("per") or 0, reverse=True)
+    return [
+        {
+            "rank": i,
+            "player_id": p["id"],
+            "player_name": p["name"],
+            "team_name": p.get("team", ""),
+            "team_id": p.get("team_id", ""),
+            "gp": p.get("gp", 0),
+            "value": round(p.get("per") or 0, 1),
+        }
+        for i, p in enumerate(sorted_players[:limit], 1)
+    ]
+
+
 def get_leaders(season_id: str, category: str = "pts", limit: int = 10) -> list[dict]:
     """Get statistical leaders for a category."""
-    valid_categories = {"pts", "reb", "ast", "stl", "blk", "min", "fgp", "tpp", "ftp"}
+    valid_categories = {
+        "pts",
+        "reb",
+        "ast",
+        "stl",
+        "blk",
+        "min",
+        "fgp",
+        "tpp",
+        "ftp",
+        "game_score",
+        "ts_pct",
+        "pir",
+        "per",
+    }
 
     if category not in valid_categories:
         category = "pts"
+
+    if category == "per":
+        return _get_per_leaders(season_id, limit)
 
     query, min_games = _get_leaders_query(category)
 
@@ -1019,7 +1110,7 @@ def get_leaders(season_id: str, category: str = "pts", limit: int = 10) -> list[
                     "team_id": d["team_id"],
                     "gp": d["gp"],
                     "value": round(d["value"], 3)
-                    if category in ["fgp", "tpp", "ftp"]
+                    if category in ["fgp", "tpp", "ftp", "ts_pct"]
                     else round(d["value"], 1),
                 }
             )
@@ -1254,7 +1345,17 @@ def api_get_all_leaders(
         raise HTTPException(
             status_code=400, detail="Leaders does not support season=all"
         )
-    categories = ["pts", "reb", "ast", "stl", "blk"]
+    categories = [
+        "pts",
+        "reb",
+        "ast",
+        "stl",
+        "blk",
+        "game_score",
+        "ts_pct",
+        "pir",
+        "per",
+    ]
 
     categories_data: dict[str, list[dict]] = {}
     for cat in categories:

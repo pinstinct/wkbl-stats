@@ -351,6 +351,22 @@ class TestTeamDetailEndpoint:
         recent_ids = {g["game_id"] for g in response.json().get("recent_games", [])}
         assert "04601999" not in recent_ids
 
+    def test_get_team_detail_includes_team_stats(
+        self, client, sample_team, sample_season
+    ):
+        """Team detail should include team_stats field when data is available."""
+        response = client.get(
+            f"/teams/{sample_team['id']}?season={sample_season['season_id']}"
+        )
+        assert response.status_code == 200
+        data = response.json()
+        # team_stats may or may not be present (requires team totals data),
+        # but if present it must have the expected shape
+        if "team_stats" in data and data["team_stats"] is not None:
+            ts = data["team_stats"]
+            for key in ["off_rtg", "def_rtg", "net_rtg", "pace", "gp"]:
+                assert key in ts, f"team_stats missing key: {key}"
+
     def test_get_team_detail_contract_fixture(self, client, sample_team, sample_season):
         """team detail response should follow stable shape/value contract."""
         fixture = load_contract_fixture("api_contracts.json")
@@ -486,6 +502,26 @@ class TestLeadersEndpoint:
         expected_keys = ["pts", "reb", "ast", "stl", "blk"]
         for key in expected_keys:
             assert key in categories, f"Missing category: {key}"
+            assert isinstance(categories[key], list)
+
+    def test_get_leaders_advanced_categories(self, client, sample_season):
+        """Test getting leaders for new advanced stat categories."""
+        for category in ["game_score", "ts_pct", "pir", "per"]:
+            response = client.get(
+                f"/leaders?season={sample_season['season_id']}&category={category}"
+            )
+            assert response.status_code == 200, f"Failed for category: {category}"
+            data = response.json()
+            assert "leaders" in data, f"Missing 'leaders' key for category: {category}"
+            assert isinstance(data["leaders"], list)
+
+    def test_get_leaders_all_includes_advanced_categories(self, client, sample_season):
+        """leaders/all should include game_score, ts_pct, pir, per."""
+        response = client.get(f"/leaders/all?season={sample_season['season_id']}")
+        assert response.status_code == 200
+        categories = response.json()["categories"]
+        for key in ["game_score", "ts_pct", "pir", "per"]:
+            assert key in categories, f"Missing advanced category: {key}"
             assert isinstance(categories[key], list)
 
 

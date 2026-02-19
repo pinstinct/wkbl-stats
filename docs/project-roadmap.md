@@ -300,6 +300,24 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] API 통합: `get_players()`, `get_player_detail()`, `get_player_comparison()` 모두 고급 지표 포함
 - [x] 테스트 20개 추가 (총 122개)
 
+### Phase 8: 프론트엔드 고급 지표 표시 ✅ 완료 (2026-02-19)
+
+- [x] 선수 목록 (`#/players`) — Basic/Advanced 탭 토글
+  - Advanced 탭: PER, GmSc, USG%, TOV%, ORtg, DRtg, NetRtg, REB%, AST%, STL%, BLK%, +/-
+  - 선수 카드 사이드바에 "고급 지표" 3번째 섹션 추가
+- [x] 선수 상세 (`#/players/{id}`) — 고급 지표 섹션 추가
+  - 최신 시즌 PER, GmSc, USG%, TOV%, ORtg, DRtg, NetRtg, OREB%~BLK%, +/-
+  - null 값은 "-" 표시 (정적 호스팅에서 팀 컨텍스트 필요 지표)
+- [x] 리더보드 (`#/leaders`) — 카테고리 확장
+  - 추가: GmSc, TS%, PIR, PER (API 서버 모드)
+  - `api.py`: `game_score`, `ts_pct`, `pir` SQL 쿼리 + `_get_per_leaders()` 헬퍼
+  - `db.js`: `game_score`, `ts_pct`, `pir` SQL 쿼리 (정적 호스팅)
+- [x] 팀 상세 (`#/teams/{id}`) — 팀 고급 지표 섹션
+  - ORtg, DRtg, NetRtg, Pace (API 서버 모드에서 계산)
+- **주의**: 정적 호스팅(db.js/sql.js)은 팀 컨텍스트 없이 일부 지표만 계산 가능
+  - 가능: ts_pct, efg_pct, pir, ast_to, pts36, reb36, ast36, game_score
+  - 불가(null 표시): per, usg_pct, off_rtg, def_rtg, net_rtg, pace, rate stats
+
 ### Phase 7.3: 고급 지표 Tier 2 — On/Off Rating & +/- ✅ 완료 (2026-02-19)
 
 - [x] `tools/lineup.py` — 라인업 추적 엔진 (신규)

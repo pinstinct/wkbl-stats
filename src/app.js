@@ -12,6 +12,7 @@ import {
   renderLeadersGrid,
   renderLineupPlayers,
   renderNextGameHighlight,
+  renderPlayerAdvancedStats,
   renderPlayerGameLogTable,
   renderPlayerSeasonTable,
   renderPlayerSummaryCard,
@@ -24,6 +25,7 @@ import {
   renderStandingsTable,
   renderTeamRecentGames,
   renderTeamRoster,
+  renderTeamStats,
   renderTotalStats,
   renderUpcomingGames,
   sortPlayers,
@@ -65,6 +67,10 @@ import {
     { key: "ast", label: "어시스트", unit: "APG" },
     { key: "stl", label: "스틸", unit: "SPG" },
     { key: "blk", label: "블록", unit: "BPG" },
+    { key: "game_score", label: "GmSc", unit: "per game" },
+    { key: "ts_pct", label: "TS%", unit: "" },
+    { key: "pir", label: "PIR", unit: "per game" },
+    { key: "per", label: "PER", unit: "" },
   ];
 
   // =============================================================================
@@ -78,6 +84,8 @@ import {
     filtered: [],
     sort: { key: "pts", dir: "desc" },
     dbInitialized: false,
+    playersTab: "basic",
+    currentSortedPlayers: [],
     // Compare page state
     compareSelectedPlayers: [],
     compareSearchResults: [],
@@ -737,8 +745,59 @@ import {
     },
   ];
 
+  const tier2Stats = [
+    {
+      key: "per",
+      label: "PER",
+      format: "number",
+      desc: "Player Efficiency Rating",
+    },
+    {
+      key: "game_score",
+      label: "GmSc",
+      format: "number",
+      desc: "Game Score (Hollinger)",
+    },
+    { key: "usg_pct", label: "USG%", format: "number", desc: "Usage Rate" },
+    { key: "tov_pct", label: "TOV%", format: "number", desc: "Turnover %" },
+    {
+      key: "off_rtg",
+      label: "ORtg",
+      format: "number",
+      desc: "Offensive Rating",
+    },
+    {
+      key: "def_rtg",
+      label: "DRtg",
+      format: "number",
+      desc: "Defensive Rating",
+    },
+    { key: "net_rtg", label: "NetRtg", format: "signed", desc: "Net Rating" },
+    { key: "reb_pct", label: "REB%", format: "number", desc: "Rebound %" },
+    { key: "ast_pct", label: "AST%", format: "number", desc: "Assist %" },
+    { key: "stl_pct", label: "STL%", format: "number", desc: "Steal %" },
+    { key: "blk_pct", label: "BLK%", format: "number", desc: "Block %" },
+    { key: "plus_minus", label: "+/-", format: "signed", desc: "Plus/Minus" },
+  ];
+
   async function loadPlayersPage() {
     populateSeasonSelect($("seasonSelect"), true);
+
+    // Set up tab click handlers
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", function () {
+        document
+          .querySelectorAll(".tab-btn")
+          .forEach((b) => b.classList.remove("active"));
+        this.classList.add("active");
+        state.playersTab = this.dataset.tab;
+        renderTable(
+          state.currentSortedPlayers.length > 0
+            ? state.currentSortedPlayers
+            : state.filtered,
+        );
+      });
+    });
 
     try {
       state.players = await fetchPlayers(state.currentSeason);
@@ -817,12 +876,15 @@ import {
 
   function renderTable(players) {
     const tbody = $("statsBody");
+    const thead = $("statsTable")?.querySelector("thead");
     renderPlayersTable({
       tbody,
+      thead,
       players,
       formatNumber,
       formatPct,
       formatSigned,
+      activeTab: state.playersTab || "basic",
     });
 
     state.currentSortedPlayers = players;
@@ -834,6 +896,7 @@ import {
       getById: $,
       primaryStats,
       advancedStats,
+      tier2Stats,
       formatNumber,
       formatPct,
       formatSigned,
@@ -899,6 +962,27 @@ import {
         } catch (e) {
           console.warn("Failed to load players for radar chart:", e);
         }
+      }
+
+      // Advanced stats section (latest season)
+      const latestSeason = sortedSeasons[sortedSeasons.length - 1];
+      const advSection = $("playerAdvancedSection");
+      const advGrid = $("playerAdvancedGrid");
+      const advLabel = $("advancedSeasonLabel");
+      if (latestSeason && advGrid) {
+        if (advLabel) {
+          advLabel.textContent =
+            latestSeason.season_label || latestSeason.season_id || "";
+        }
+        renderPlayerAdvancedStats({
+          container: advGrid,
+          season: latestSeason,
+          formatNumber,
+          formatSigned,
+        });
+        if (advSection) advSection.style.display = "block";
+      } else if (advSection) {
+        advSection.style.display = "none";
       }
 
       // Recent game log chart
@@ -1430,6 +1514,16 @@ import {
         games: team.recent_games,
         formatDate,
       });
+
+      // Team advanced stats section
+      const teamStatSection = $("teamStatsSection");
+      const teamStatGrid = $("teamStatGrid");
+      if (team.team_stats && teamStatGrid) {
+        renderTeamStats({ container: teamStatGrid, stats: team.team_stats });
+        if (teamStatSection) teamStatSection.style.display = "block";
+      } else if (teamStatSection) {
+        teamStatSection.style.display = "none";
+      }
     } catch (error) {
       console.error("Failed to load team:", error);
       $("teamDetailName").textContent = "팀을 찾을 수 없습니다";

@@ -235,6 +235,10 @@
         <section class="table-section">
           <div class="table-head">
             <h3>선수 스탯</h3>
+            <div class="tab-buttons">
+              <button class="tab-btn active" data-tab="basic">기본</button>
+              <button class="tab-btn" data-tab="advanced">고급</button>
+            </div>
             <div class="legend">정렬: 스탯 헤더 클릭</div>
           </div>
           <div class="table-wrap">
@@ -449,6 +453,18 @@
             </div>
           </div>
 
+          <div
+            class="detail-section"
+            id="playerAdvancedSection"
+            style="display: none"
+          >
+            <h3>
+              고급 지표
+              <span class="season-badge" id="advancedSeasonLabel"></span>
+            </h3>
+            <div class="stat-grid" id="playerAdvancedGrid"></div>
+          </div>
+
           <div class="detail-section chart-section">
             <h3>최근 경기 성적</h3>
             <div class="chart-container game-log-chart-container">
@@ -530,6 +546,15 @@
           <div class="team-info-card">
             <h2 id="teamDetailName">-</h2>
             <div id="teamDetailStanding" class="team-standing-badge"></div>
+          </div>
+
+          <div
+            class="detail-section"
+            id="teamStatsSection"
+            style="display: none"
+          >
+            <h3>팀 고급 지표</h3>
+            <div class="stat-grid" id="teamStatGrid"></div>
           </div>
 
           <div class="detail-section">

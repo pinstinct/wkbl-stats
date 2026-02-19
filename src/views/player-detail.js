@@ -60,6 +60,65 @@ export function renderPlayerSeasonTable({
     .join("");
 }
 
+export function renderPlayerAdvancedStats({
+  container,
+  season,
+  formatNumber,
+  formatSigned,
+}) {
+  if (!container || !season) return;
+
+  const stats = [
+    {
+      key: "per",
+      label: "PER",
+      desc: "Player Efficiency Rating",
+      signed: false,
+    },
+    {
+      key: "game_score",
+      label: "GmSc",
+      desc: "Game Score (Hollinger)",
+      signed: false,
+    },
+    { key: "usg_pct", label: "USG%", desc: "Usage Rate", signed: false },
+    { key: "tov_pct", label: "TOV%", desc: "Turnover %", signed: false },
+    { key: "off_rtg", label: "ORtg", desc: "Offensive Rating", signed: false },
+    { key: "def_rtg", label: "DRtg", desc: "Defensive Rating", signed: false },
+    { key: "net_rtg", label: "NetRtg", desc: "Net Rating", signed: true },
+    {
+      key: "oreb_pct",
+      label: "OREB%",
+      desc: "Offensive Rebound %",
+      signed: false,
+    },
+    {
+      key: "dreb_pct",
+      label: "DREB%",
+      desc: "Defensive Rebound %",
+      signed: false,
+    },
+    { key: "reb_pct", label: "REB%", desc: "Rebound %", signed: false },
+    { key: "ast_pct", label: "AST%", desc: "Assist %", signed: false },
+    { key: "stl_pct", label: "STL%", desc: "Steal %", signed: false },
+    { key: "blk_pct", label: "BLK%", desc: "Block %", signed: false },
+    { key: "plus_minus", label: "+/-", desc: "Plus/Minus", signed: true },
+  ];
+
+  container.innerHTML = stats
+    .map((stat) => {
+      const raw = season[stat.key];
+      const value =
+        raw === null || raw === undefined
+          ? "-"
+          : stat.signed
+            ? formatSigned(raw)
+            : formatNumber(raw);
+      return `<div class="stat-card stat-card--advanced" data-tooltip="${stat.desc}"><span>${stat.label}</span><strong>${value}</strong></div>`;
+    })
+    .join("");
+}
+
 export function renderPlayerGameLogTable({
   tbody,
   games,

@@ -950,13 +950,18 @@ const WKBLDatabase = (function () {
       "fgp",
       "tpp",
       "ftp",
+      "game_score",
+      "ts_pct",
+      "pir",
     ];
     if (!validCategories.includes(category)) {
       category = "pts";
     }
 
     // Minimum games threshold for percentage categories
-    const minGames = ["fgp", "tpp", "ftp"].includes(category) ? 10 : 1;
+    const minGames = ["fgp", "tpp", "ftp", "ts_pct"].includes(category)
+      ? 10
+      : 1;
 
     let valueExpr;
     switch (category) {
@@ -974,6 +979,22 @@ const WKBLDatabase = (function () {
         break;
       case "min":
         valueExpr = "AVG(pg.minutes)";
+        break;
+      case "game_score":
+        valueExpr =
+          "AVG(pg.pts + 0.4*pg.fgm - 0.7*pg.fga - 0.4*(pg.fta-pg.ftm)" +
+          " + 0.7*pg.off_reb + 0.3*pg.def_reb + pg.stl + 0.7*pg.ast" +
+          " + 0.7*pg.blk - 0.4*pg.pf - pg.tov)";
+        break;
+      case "ts_pct":
+        valueExpr =
+          "CASE WHEN SUM(pg.fga + 0.44*pg.fta) > 0" +
+          " THEN SUM(pg.pts)*0.5/(SUM(pg.fga)+0.44*SUM(pg.fta)) ELSE 0 END";
+        break;
+      case "pir":
+        valueExpr =
+          "AVG(pg.pts+pg.reb+pg.ast+pg.stl+pg.blk-pg.tov" +
+          "-(pg.fga-pg.fgm)-(pg.fta-pg.ftm))";
         break;
       default:
         valueExpr = `AVG(pg.${category})`;
@@ -997,7 +1018,7 @@ const WKBLDatabase = (function () {
     `;
 
     const rows = query(sql, [seasonId, minGames, limit]);
-    const isPct = ["fgp", "tpp", "ftp"].includes(category);
+    const isPct = ["fgp", "tpp", "ftp", "ts_pct"].includes(category);
 
     return rows.map((d, i) => ({
       rank: i + 1,
@@ -1017,7 +1038,16 @@ const WKBLDatabase = (function () {
    * Replaces: GET /api/leaders/all
    */
   function getLeadersAll(seasonId, limit = 5) {
-    const categories = ["pts", "reb", "ast", "stl", "blk"];
+    const categories = [
+      "pts",
+      "reb",
+      "ast",
+      "stl",
+      "blk",
+      "game_score",
+      "ts_pct",
+      "pir",
+    ];
     const result = {};
 
     for (const cat of categories) {

@@ -5,6 +5,7 @@ export { renderPlayersTable, renderPlayerSummaryCard } from "./players.js";
 export { filterPlayers, sortPlayers } from "./players-logic.js";
 export {
   renderCareerSummary,
+  renderPlayerAdvancedStats,
   renderPlayerGameLogTable,
   renderPlayerSeasonTable,
 } from "./player-detail.js";
@@ -12,6 +13,7 @@ export {
   renderStandingsTable,
   renderTeamRecentGames,
   renderTeamRoster,
+  renderTeamStats,
 } from "./teams.js";
 export { buildStandingsChartSeries } from "./teams-chart-logic.js";
 export { renderGamesList } from "./games.js";
