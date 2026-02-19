@@ -8,13 +8,19 @@
 - 브랜치: `feat/p0-tdd-players-leaders-sorting`
 - P0 상태: 완료
   - `#/players/:id` 고급 지표 계산에 시즌별 팀/리그 컨텍스트 연결 완료 (`src/db.js`)
+  - `#/players/:id` 시즌 집계에 `plus_minus` 합산 컬럼 추가 (`src/db.js`)
   - leaders `PER` 섹션 데이터 공급 경로 복구 (`src/db.js`)
   - players 테이블 헤더 정렬을 이벤트 위임 방식으로 전환 (`src/ui/page-events.js`, `src/app.js`)
+  - players `%` 지표 정렬을 표시 스케일 기준으로 보정 (`src/views/players-logic.js`)
+  - players 기본 탭 `±` 헤더를 `코트마진`으로 표기 통일 (`src/views/players.js`)
+  - `#statsTable th[title]` 커서를 `pointer`로 통일 (`src/styles/core/base.css`)
   - leaders 빈 섹션에 안내 문구 표시 추가 (`src/views/leaders.js`)
   - 회귀 테스트 추가 및 통과:
     - `src/ui/page-events.test.js`
     - `src/views/leaders.test.js`
-    - `npm run test:front` 전체 통과 (40 tests)
+    - `src/views/players-logic.test.js`
+    - `src/views/players.test.js`
+    - `npm run test:front` 전체 통과 (41 tests)
 
 ## 목적
 
