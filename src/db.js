@@ -127,6 +127,34 @@ const WKBLDatabase = (function () {
     // AST/TO ratio
     d.ast_to = d.tov > 0 ? Math.round((d.ast / d.tov) * 100) / 100 : 0;
 
+    // TOV% = TOV / (FGA + 0.44*FTA + TOV) * 100
+    const fgaAvg = d.gp > 0 ? fga / d.gp : 0;
+    const ftaAvg = d.gp > 0 ? fta / d.gp : 0;
+    const tovDenom = fgaAvg + 0.44 * ftaAvg + d.tov;
+    d.tov_pct = tovDenom > 0 ? Math.round((d.tov / tovDenom) * 1000) / 10 : 0;
+
+    // Game Score (Hollinger) — requires avg off_reb, def_reb, pf from SQL
+    const orebAvg = d.avg_off_reb || 0;
+    const drebAvg = d.avg_def_reb || 0;
+    const pfAvg = d.avg_pf || 0;
+    const fgmAvg = d.gp > 0 ? fgm / d.gp : 0;
+    const ftmAvg = d.gp > 0 ? ftm / d.gp : 0;
+    d.game_score =
+      Math.round(
+        (d.pts +
+          0.4 * fgmAvg -
+          0.7 * fgaAvg -
+          0.4 * (ftaAvg - ftmAvg) +
+          0.7 * orebAvg +
+          0.3 * drebAvg +
+          d.stl +
+          0.7 * d.ast +
+          0.7 * d.blk -
+          0.4 * pfAvg -
+          d.tov) *
+          10,
+      ) / 10;
+
     // Per 36 minutes stats
     const minAvg = d.min > 0 ? d.min : 1;
     d.pts36 = Math.round(((d.pts * 36) / minAvg) * 10) / 10;
@@ -185,7 +213,10 @@ const WKBLDatabase = (function () {
         SUM(pg.tpm) as total_tpm,
         SUM(pg.tpa) as total_tpa,
         SUM(pg.ftm) as total_ftm,
-        SUM(pg.fta) as total_fta
+        SUM(pg.fta) as total_fta,
+        AVG(pg.off_reb) as avg_off_reb,
+        AVG(pg.def_reb) as avg_def_reb,
+        AVG(pg.pf) as avg_pf
       FROM player_games pg
       JOIN games g ON pg.game_id = g.id
       JOIN players p ON pg.player_id = p.id
@@ -386,7 +417,10 @@ const WKBLDatabase = (function () {
         SUM(pg.tpm) as total_tpm,
         SUM(pg.tpa) as total_tpa,
         SUM(pg.ftm) as total_ftm,
-        SUM(pg.fta) as total_fta
+        SUM(pg.fta) as total_fta,
+        AVG(pg.off_reb) as avg_off_reb,
+        AVG(pg.def_reb) as avg_def_reb,
+        AVG(pg.pf) as avg_pf
       FROM player_games pg
       JOIN games g ON pg.game_id = g.id
       JOIN seasons s ON g.season_id = s.id
@@ -681,6 +715,55 @@ const WKBLDatabase = (function () {
         score: teamScore && oppScore ? `${teamScore}-${oppScore}` : "-",
       };
     });
+
+    // Compute team advanced stats (ORtg, DRtg, NetRtg, Pace)
+    const teamTotals = queryOne(
+      `SELECT COUNT(DISTINCT pg.game_id) as gp,
+        SUM(pg.pts) as pts, SUM(pg.fga) as fga, SUM(pg.fta) as fta,
+        SUM(pg.off_reb) as off_reb, SUM(pg.tov) as tov
+       FROM player_games pg
+       JOIN games g ON pg.game_id = g.id
+       WHERE pg.team_id = ? AND g.season_id = ? AND g.home_score IS NOT NULL`,
+      [teamId, seasonId],
+    );
+    const oppTotals = queryOne(
+      `SELECT SUM(pg.pts) as opp_pts, SUM(pg.fga) as opp_fga,
+        SUM(pg.fta) as opp_fta, SUM(pg.off_reb) as opp_off_reb,
+        SUM(pg.tov) as opp_tov
+       FROM player_games pg
+       JOIN games g ON pg.game_id = g.id
+       WHERE (g.home_team_id = ? OR g.away_team_id = ?)
+         AND g.season_id = ? AND pg.team_id != ? AND g.home_score IS NOT NULL`,
+      [teamId, teamId, seasonId, teamId],
+    );
+    if (teamTotals && teamTotals.gp > 0) {
+      const tp =
+        (teamTotals.fga || 0) -
+        (teamTotals.off_reb || 0) +
+        (teamTotals.tov || 0) +
+        0.44 * (teamTotals.fta || 0);
+      const op =
+        (oppTotals?.opp_fga || 0) -
+        (oppTotals?.opp_off_reb || 0) +
+        (oppTotals?.opp_tov || 0) +
+        0.44 * (oppTotals?.opp_fta || 0);
+      const off_rtg =
+        tp > 0 ? Math.round((teamTotals.pts / tp) * 1000) / 10 : null;
+      const def_rtg =
+        op > 0 ? Math.round((oppTotals.opp_pts / op) * 1000) / 10 : null;
+      const net_rtg =
+        off_rtg !== null && def_rtg !== null
+          ? Math.round((off_rtg - def_rtg) * 10) / 10
+          : null;
+      const pace = Math.round((tp / teamTotals.gp) * 10) / 10;
+      team.team_stats = {
+        off_rtg,
+        def_rtg,
+        net_rtg,
+        pace,
+        gp: teamTotals.gp,
+      };
+    }
 
     return team;
   }
