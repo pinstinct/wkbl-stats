@@ -14,6 +14,191 @@ def estimate_possessions(fga: float, fta: float, tov: float, oreb: float) -> flo
     return _r(fga + 0.44 * fta + tov - oreb, 1)
 
 
+def _safe_div(n: float, d: float) -> float:
+    return n / d if d else 0.0
+
+
+def _clamp(v: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, v))
+
+
+def _total_from_row(d: Dict[str, Any], total_key: str, avg_key: str, gp: int) -> float:
+    total = d.get(total_key)
+    if total is not None:
+        return float(total)
+    return float((d.get(avg_key) or 0) * gp)
+
+
+def _compute_player_off_rtg(
+    *,
+    total_pts: float,
+    total_ast: float,
+    total_tov: float,
+    total_fgm: float,
+    total_fga: float,
+    total_tpm: float,
+    total_ftm: float,
+    total_fta: float,
+    total_oreb: float,
+    ts: Dict[str, Any],
+) -> Optional[float]:
+    """Estimate player ORtg from box score (Dean Oliver / BBR style approximation)."""
+    team_fga = ts.get("team_fga", 0) or 0
+    team_fta = ts.get("team_fta", 0) or 0
+    team_tov = ts.get("team_tov", 0) or 0
+    team_oreb = ts.get("team_oreb", 0) or 0
+    team_fgm = ts.get("team_fgm", 0) or 0
+    team_ast = ts.get("team_ast", 0) or 0
+    team_pts = ts.get("team_pts", 0) or 0
+    team_ftm = ts.get("team_ftm", 0) or 0
+    team_tpm = ts.get("team_tpm", 0) or 0
+    opp_dreb = ts.get("opp_dreb", 0) or 0
+
+    team_orb_pct = _safe_div(team_oreb, team_oreb + opp_dreb)
+    team_scoring_poss = team_fgm + (
+        (1 - (1 - _safe_div(team_ftm, team_fta)) ** 2) * 0.44 * team_fta
+    )
+    team_play_pct = _safe_div(
+        team_scoring_poss,
+        team_fga + 0.44 * team_fta + team_tov,
+    )
+
+    orb_weight_denom = (1 - team_orb_pct) * team_play_pct + team_orb_pct * (
+        1 - team_play_pct
+    )
+    team_orb_weight = _safe_div((1 - team_orb_pct) * team_play_pct, orb_weight_denom)
+
+    q_ast = _clamp(0.5 * _safe_div(team_ast, team_fgm), 0.0, 1.0)
+
+    fg_part = 0.0
+    if total_fga > 0:
+        fg_part = total_fgm * (
+            1 - 0.5 * _safe_div(total_pts - total_ftm, 2 * total_fga) * q_ast
+        )
+
+    ast_part = 0.0
+    ast_denom = 2 * (team_fga - total_fga)
+    if ast_denom > 0:
+        ast_part = (
+            0.5
+            * _safe_div(
+                (team_pts - team_ftm) - (total_pts - total_ftm),
+                ast_denom,
+            )
+            * total_ast
+        )
+
+    ft_part = 0.0
+    if total_fta > 0:
+        ft_part = (1 - (1 - _safe_div(total_ftm, total_fta)) ** 2) * 0.44 * total_fta
+
+    team_scoring_share = _safe_div(team_oreb, team_scoring_poss)
+    scoring_decay = 1 - team_scoring_share * team_orb_weight * team_play_pct
+    sc_poss = (
+        fg_part + ast_part + ft_part
+    ) * scoring_decay + total_oreb * team_orb_weight * team_play_pct
+
+    fgx_poss = (total_fga - total_fgm) * (1 - 1.07 * team_orb_pct)
+    ftx_poss = (
+        (1 - _safe_div(total_ftm * total_ftm, total_fta * total_fta))
+        * 0.44
+        * (total_fta)
+    )
+    tot_poss = sc_poss + fgx_poss + ftx_poss + total_tov
+    if tot_poss <= 0:
+        return None
+
+    pprod_fg = 0.0
+    if total_fga > 0:
+        pprod_fg = (
+            2
+            * (total_fgm + 0.5 * total_tpm)
+            * (1 - 0.5 * _safe_div(total_pts - total_ftm, 2 * total_fga) * q_ast)
+        )
+
+    pprod_ast = 0.0
+    if (team_fgm - total_fgm) > 0 and (team_fga - total_fga) > 0:
+        pprod_ast = (
+            2
+            * _safe_div(
+                (team_fgm - total_fgm) + 0.5 * (team_tpm - total_tpm),
+                (team_fgm - total_fgm),
+            )
+            * 0.5
+            * _safe_div(
+                (team_pts - team_ftm) - (total_pts - total_ftm),
+                2 * (team_fga - total_fga),
+            )
+            * total_ast
+        )
+
+    pprod_orb = 0.0
+    if team_scoring_poss > 0:
+        pprod_orb = (
+            total_oreb
+            * team_orb_weight
+            * team_play_pct
+            * _safe_div(team_pts, team_scoring_poss)
+        )
+
+    pprod = (pprod_fg + pprod_ast + total_ftm) * scoring_decay + pprod_orb
+    if pprod <= 0:
+        return 0.0
+    return _r(100 * pprod / tot_poss, 1)
+
+
+def _compute_player_def_rtg(
+    *,
+    total_stl: float,
+    total_blk: float,
+    total_dreb: float,
+    total_pf: float,
+    total_min: float,
+    ts: Dict[str, Any],
+) -> Optional[float]:
+    """Estimate player DRtg from box score stops (BBR-inspired approximation)."""
+    opp_poss = estimate_possessions(
+        ts.get("opp_fga", 0) or 0,
+        ts.get("opp_fta", 0) or 0,
+        ts.get("opp_tov", 0) or 0,
+        ts.get("opp_oreb", 0) or 0,
+    )
+    if opp_poss <= 0:
+        return None
+
+    team_drtg = _safe_div(ts.get("opp_pts", 0) or 0, opp_poss) * 100
+    team_min_5 = _safe_div(ts.get("team_min", 0) or 0, 5)
+    if total_min <= 0 or team_min_5 <= 0:
+        return _r(team_drtg, 1)
+
+    opp_orb_pct = _safe_div(
+        ts.get("opp_oreb", 0) or 0,
+        (ts.get("opp_oreb", 0) or 0) + (ts.get("team_dreb", 0) or 0),
+    )
+    stops1 = total_stl + (0.7 * total_blk) + total_dreb * (1 - opp_orb_pct)
+
+    team_pf = ts.get("team_pf", 0) or 0
+    opp_fta = ts.get("opp_fta", 0) or 0
+    opp_ftm = ts.get("opp_ftm", 0) or 0
+    stop_ft = 0.0
+    if team_pf > 0 and opp_fta > 0:
+        stop_ft = (
+            _safe_div(total_pf, team_pf)
+            * 0.4
+            * opp_fta
+            * (1 - _safe_div(opp_ftm * opp_ftm, opp_fta * opp_fta))
+        )
+
+    player_opp_poss = opp_poss * _safe_div(total_min, team_min_5)
+    if player_opp_poss <= 0:
+        return _r(team_drtg, 1)
+
+    stop_pct = _clamp(_safe_div(stops1 + stop_ft, player_opp_poss), 0.0, 1.0)
+    # Keep DRtg anchored to team defense while reflecting player stop activity.
+    def_rtg = team_drtg * (1 - 0.2 * stop_pct)
+    return _r(_clamp(def_rtg, 50.0, 150.0), 1)
+
+
 def compute_advanced_stats(
     row: Dict[str, Any],
     *,
@@ -57,10 +242,14 @@ def compute_advanced_stats(
 
     total_pts = pts_avg * gp
     total_reb = reb_avg * gp
-    total_ast = ast_avg * gp
-    total_stl = stl_avg * gp
-    total_blk = blk_avg * gp
-    total_tov = tov_avg * gp
+    total_ast = _total_from_row(d, "total_ast", "ast", gp)
+    total_stl = _total_from_row(d, "total_stl", "stl", gp)
+    total_blk = _total_from_row(d, "total_blk", "blk", gp)
+    total_tov = _total_from_row(d, "total_tov", "tov", gp)
+    total_off_reb = _total_from_row(d, "total_off_reb", "off_reb", gp)
+    total_def_reb = _total_from_row(d, "total_def_reb", "def_reb", gp)
+    total_pf = _total_from_row(d, "total_pf", "pf", gp)
+    total_min = min_avg * gp
 
     tsa = 2 * (total_fga + 0.44 * total_fta)
     d["ts_pct"] = _r(total_pts / tsa, 3) if tsa > 0 else 0.0
@@ -144,13 +333,32 @@ def compute_advanced_stats(
                 100 * player_usage * team_min_5 / (total_player_min * team_usage), 1
             )
 
-        # ORtg = Team_PTS / Team_Poss * 100
-        if team_poss > 0:
-            d["off_rtg"] = _r(ts["team_pts"] / team_poss * 100, 1)
+        # Player ORtg/DRtg: box-score estimate (Dean Oliver / BBR style).
+        off_rtg = _compute_player_off_rtg(
+            total_pts=total_pts,
+            total_ast=total_ast,
+            total_tov=total_tov,
+            total_fgm=total_fgm,
+            total_fga=total_fga,
+            total_tpm=total_tpm,
+            total_ftm=total_ftm,
+            total_fta=total_fta,
+            total_oreb=total_off_reb,
+            ts=ts,
+        )
+        if off_rtg is not None:
+            d["off_rtg"] = off_rtg
 
-        # DRtg = Opp_PTS / Opp_Poss * 100
-        if opp_poss > 0:
-            d["def_rtg"] = _r(ts["opp_pts"] / opp_poss * 100, 1)
+        def_rtg = _compute_player_def_rtg(
+            total_stl=total_stl,
+            total_blk=total_blk,
+            total_dreb=total_def_reb,
+            total_pf=total_pf,
+            total_min=total_min,
+            ts=ts,
+        )
+        if def_rtg is not None:
+            d["def_rtg"] = def_rtg
 
         # Net Rating
         if "off_rtg" in d and "def_rtg" in d:
