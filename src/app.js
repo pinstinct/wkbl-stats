@@ -683,70 +683,104 @@ import {
   // =============================================================================
 
   const primaryStats = [
-    { key: "pts", label: "PTS", desc: "Points - 경기당 평균 득점" },
-    { key: "reb", label: "REB", desc: "Rebounds - 경기당 평균 리바운드" },
-    { key: "ast", label: "AST", desc: "Assists - 경기당 평균 어시스트" },
-    { key: "stl", label: "STL", desc: "Steals - 경기당 평균 스틸" },
-    { key: "blk", label: "BLK", desc: "Blocks - 경기당 평균 블록" },
-    { key: "tov", label: "TOV", desc: "Turnovers - 경기당 평균 턴오버" },
+    {
+      key: "pts",
+      label: "PTS",
+      desc: "경기당 평균 득점. 높을수록 공격 생산성이 높습니다.",
+    },
+    {
+      key: "reb",
+      label: "REB",
+      desc: "경기당 평균 리바운드. 높을수록 볼 점유 기여가 큽니다.",
+    },
+    {
+      key: "ast",
+      label: "AST",
+      desc: "경기당 평균 어시스트. 높을수록 동료 득점 기여가 큽니다.",
+    },
+    {
+      key: "stl",
+      label: "STL",
+      desc: "경기당 평균 스틸. 높을수록 수비 압박/턴오버 유도가 좋습니다.",
+    },
+    {
+      key: "blk",
+      label: "BLK",
+      desc: "경기당 평균 블록. 높을수록 림 보호 기여가 큽니다.",
+    },
+    {
+      key: "tov",
+      label: "TOV",
+      desc: "경기당 평균 턴오버. 낮을수록 안정적인 공격 운영입니다.",
+    },
     {
       key: "fgp",
       label: "FG%",
       format: "pct",
-      desc: "Field Goal % - 야투 성공률",
+      desc: "야투 성공률(2+3점). 높을수록 슛 효율이 좋습니다.",
     },
     {
       key: "tpp",
       label: "3P%",
       format: "pct",
-      desc: "3-Point % - 3점슛 성공률",
+      desc: "3점슛 성공률. 높을수록 외곽 효율이 좋습니다.",
     },
     {
       key: "ftp",
       label: "FT%",
       format: "pct",
-      desc: "Free Throw % - 자유투 성공률",
+      desc: "자유투 성공률. 높을수록 확실한 마무리 능력을 의미합니다.",
     },
   ];
 
   const advancedStats = [
-    { key: "ts_pct", label: "TS%", format: "pct", desc: "True Shooting %" },
-    { key: "efg_pct", label: "eFG%", format: "pct", desc: "Effective FG%" },
+    {
+      key: "ts_pct",
+      label: "TS%",
+      format: "pct",
+      desc: "2점·3점·자유투를 모두 반영한 종합 슈팅 효율. 높을수록 좋습니다.",
+    },
+    {
+      key: "efg_pct",
+      label: "eFG%",
+      format: "pct",
+      desc: "3점 가치를 반영한 야투 효율. 높을수록 좋습니다.",
+    },
     {
       key: "ast_to",
       label: "AST/TO",
       format: "ratio",
-      desc: "Assist to Turnover Ratio",
+      desc: "어시스트/턴오버 비율. 높을수록 실수 대비 플레이메이킹이 좋습니다.",
     },
     {
       key: "pir",
       label: "PIR",
       format: "number",
-      desc: "Performance Index Rating",
+      desc: "득점·리바운드·어시스트·수비 기여를 합산한 종합 기여도. 높을수록 좋습니다.",
     },
     {
       key: "pts36",
       label: "PTS/36",
       format: "number",
-      desc: "Points per 36 min",
+      desc: "36분 기준 득점 환산값. 높을수록 득점 생산성이 높습니다.",
     },
     {
       key: "reb36",
       label: "REB/36",
       format: "number",
-      desc: "Rebounds per 36 min",
+      desc: "36분 기준 리바운드 환산값. 높을수록 리바운드 기여가 큽니다.",
     },
     {
       key: "ast36",
       label: "AST/36",
       format: "number",
-      desc: "Assists per 36 min",
+      desc: "36분 기준 어시스트 환산값. 높을수록 플레이메이킹 기여가 큽니다.",
     },
     {
       key: "court_margin",
       label: "코트마진",
       format: "signed",
-      desc: "Court Margin - 출전 시간 가중 득실차",
+      desc: "코트마진(출전 시간 가중 득실차). +는 팀이 이긴 시간, -는 밀린 시간을 의미합니다.",
     },
   ];
 
@@ -755,34 +789,74 @@ import {
       key: "per",
       label: "PER",
       format: "number",
-      desc: "Player Efficiency Rating",
+      desc: "공격·수비를 종합한 효율 지표(리그 평균 약 15). 높을수록 종합 퍼포먼스가 좋습니다.",
     },
     {
       key: "game_score",
       label: "GmSc",
       format: "number",
-      desc: "Game Score (Hollinger)",
+      desc: "한 경기 영향력을 한 수치로 요약한 값. 높을수록 경기 기여가 컸습니다.",
     },
-    { key: "usg_pct", label: "USG%", format: "number", desc: "Usage Rate" },
-    { key: "tov_pct", label: "TOV%", format: "number", desc: "Turnover %" },
+    {
+      key: "usg_pct",
+      label: "USG%",
+      format: "number",
+      desc: "공격 마무리 점유율(FGA/FTA/TOV 관여). 높을수록 공격 역할 비중이 큽니다.",
+    },
+    {
+      key: "tov_pct",
+      label: "TOV%",
+      format: "number",
+      desc: "공격 점유 대비 턴오버 비율. 낮을수록 좋습니다.",
+    },
     {
       key: "off_rtg",
       label: "ORtg",
       format: "number",
-      desc: "Offensive Rating",
+      desc: "100포제션당 팀 득점 기여 지표. 높을수록 공격 효율이 좋습니다.",
     },
     {
       key: "def_rtg",
       label: "DRtg",
       format: "number",
-      desc: "Defensive Rating",
+      desc: "100포제션당 실점 지표. 낮을수록 수비 효율이 좋습니다.",
     },
-    { key: "net_rtg", label: "NetRtg", format: "signed", desc: "Net Rating" },
-    { key: "reb_pct", label: "REB%", format: "number", desc: "Rebound %" },
-    { key: "ast_pct", label: "AST%", format: "number", desc: "Assist %" },
-    { key: "stl_pct", label: "STL%", format: "number", desc: "Steal %" },
-    { key: "blk_pct", label: "BLK%", format: "number", desc: "Block %" },
-    { key: "plus_minus", label: "+/-", format: "signed", desc: "Plus/Minus" },
+    {
+      key: "net_rtg",
+      label: "NetRtg",
+      format: "signed",
+      desc: "공격효율-수비효율 차이. +가 클수록 팀에 유리한 영향입니다.",
+    },
+    {
+      key: "reb_pct",
+      label: "REB%",
+      format: "number",
+      desc: "코트 위 리바운드 점유율. 높을수록 리바운드 장악력이 좋습니다.",
+    },
+    {
+      key: "ast_pct",
+      label: "AST%",
+      format: "number",
+      desc: "팀 득점 슛 중 어시스트 관여 비율. 높을수록 연계 기여가 큽니다.",
+    },
+    {
+      key: "stl_pct",
+      label: "STL%",
+      format: "number",
+      desc: "상대 포제션에서 스틸을 만들어내는 비율. 높을수록 좋습니다.",
+    },
+    {
+      key: "blk_pct",
+      label: "BLK%",
+      format: "number",
+      desc: "상대 2점 시도 대비 블록 비율. 높을수록 림 보호가 좋습니다.",
+    },
+    {
+      key: "plus_minus",
+      label: "+/-",
+      format: "signed",
+      desc: "출전 시간 동안 팀 득실점 차. +일수록 팀에 유리한 결과입니다.",
+    },
   ];
 
   async function loadPlayersPage() {

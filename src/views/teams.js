@@ -68,23 +68,33 @@ export function renderTeamStats({ container, stats }) {
     {
       key: "off_rtg",
       label: "ORtg",
-      desc: "Offensive Rating (100 포제션당 득점)",
+      desc: "100포제션당 득점 지표입니다. 높을수록 팀 공격 효율이 좋습니다.",
       signed: false,
     },
     {
       key: "def_rtg",
       label: "DRtg",
-      desc: "Defensive Rating (100 포제션당 실점)",
+      desc: "100포제션당 실점 지표입니다. 낮을수록 팀 수비 효율이 좋습니다.",
       signed: false,
     },
     {
       key: "net_rtg",
       label: "NetRtg",
-      desc: "Net Rating (ORtg - DRtg)",
+      desc: "공격효율-수비효율 차이입니다. +가 클수록 팀 전력 우위가 큽니다.",
       signed: true,
     },
-    { key: "pace", label: "Pace", desc: "40분당 포제션 수", signed: false },
-    { key: "gp", label: "GP", desc: "경기 수", signed: false },
+    {
+      key: "pace",
+      label: "Pace",
+      desc: "40분 기준 포제션 수입니다. 높을수록 경기 템포가 빠릅니다.",
+      signed: false,
+    },
+    {
+      key: "gp",
+      label: "GP",
+      desc: "시즌 누적 경기 수입니다. 표본 크기 확인용입니다.",
+      signed: false,
+    },
   ];
 
   container.innerHTML = items
