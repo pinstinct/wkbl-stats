@@ -14,6 +14,7 @@ export {
   renderTeamRecentGames,
   renderTeamRoster,
   renderTeamStats,
+  sortStandings,
 } from "./teams.js";
 export { buildStandingsChartSeries } from "./teams-chart-logic.js";
 export { renderGamesList } from "./games.js";

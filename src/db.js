@@ -1097,6 +1097,80 @@ const WKBLDatabase = (function () {
     });
   }
 
+  function getSeasonTeamAdvancedMap(seasonId) {
+    const rows = query(
+      `
+      WITH team_game AS (
+        SELECT
+          pg.game_id,
+          pg.team_id,
+          SUM(pg.pts) as pts,
+          SUM(pg.fga) as fga,
+          SUM(pg.fta) as fta,
+          SUM(pg.off_reb) as oreb,
+          SUM(pg.tov) as tov
+        FROM player_games pg
+        JOIN games g ON pg.game_id = g.id
+        WHERE g.season_id = ?
+          AND g.home_score IS NOT NULL
+          AND g.away_score IS NOT NULL
+        GROUP BY pg.game_id, pg.team_id
+      )
+      SELECT
+        t.team_id,
+        COUNT(*) as gp,
+        SUM(t.pts) as team_pts,
+        SUM(t.fga) as team_fga,
+        SUM(t.fta) as team_fta,
+        SUM(t.oreb) as team_oreb,
+        SUM(t.tov) as team_tov,
+        SUM(o.pts) as opp_pts,
+        SUM(o.fga) as opp_fga,
+        SUM(o.fta) as opp_fta,
+        SUM(o.oreb) as opp_oreb,
+        SUM(o.tov) as opp_tov
+      FROM team_game t
+      JOIN team_game o ON o.game_id = t.game_id AND o.team_id != t.team_id
+      GROUP BY t.team_id
+      `,
+      [seasonId],
+    );
+
+    const map = new Map();
+    for (const row of rows) {
+      const gp = row.gp || 0;
+      const teamPoss = estimatePossessions(
+        row.team_fga || 0,
+        row.team_fta || 0,
+        row.team_tov || 0,
+        row.team_oreb || 0,
+      );
+      const oppPoss = estimatePossessions(
+        row.opp_fga || 0,
+        row.opp_fta || 0,
+        row.opp_tov || 0,
+        row.opp_oreb || 0,
+      );
+
+      const off_rtg =
+        teamPoss > 0
+          ? Math.round(((row.team_pts || 0) / teamPoss) * 1000) / 10
+          : null;
+      const def_rtg =
+        oppPoss > 0
+          ? Math.round(((row.opp_pts || 0) / oppPoss) * 1000) / 10
+          : null;
+      const net_rtg =
+        off_rtg !== null && def_rtg !== null
+          ? Math.round((off_rtg - def_rtg) * 10) / 10
+          : null;
+      const pace = gp > 0 ? Math.round((teamPoss / gp) * 10) / 10 : null;
+
+      map.set(row.team_id, { off_rtg, def_rtg, net_rtg, pace });
+    }
+    return map;
+  }
+
   /**
    * Get team standings for a season
    * Replaces: GET /api/seasons/{id}/standings
@@ -1111,6 +1185,8 @@ const WKBLDatabase = (function () {
       [seasonId],
     );
 
+    const advancedMap = getSeasonTeamAdvancedMap(seasonId);
+
     return rows.map((d) => ({
       rank: d.rank,
       team_id: d.team_id,
@@ -1118,7 +1194,12 @@ const WKBLDatabase = (function () {
       short_name: d.short_name,
       wins: d.wins,
       losses: d.losses,
+      games_played: (d.wins || 0) + (d.losses || 0),
       win_pct: d.win_pct,
+      off_rtg: advancedMap.get(d.team_id)?.off_rtg ?? null,
+      def_rtg: advancedMap.get(d.team_id)?.def_rtg ?? null,
+      net_rtg: advancedMap.get(d.team_id)?.net_rtg ?? null,
+      pace: advancedMap.get(d.team_id)?.pace ?? null,
       games_behind: d.games_behind,
       home_record: `${d.home_wins}-${d.home_losses}`,
       away_record: `${d.away_wins}-${d.away_losses}`,

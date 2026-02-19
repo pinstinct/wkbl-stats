@@ -114,7 +114,7 @@ export function renderPlayerAdvancedStats({
           : stat.signed
             ? formatSigned(raw)
             : formatNumber(raw);
-      return `<div class="stat-card stat-card--advanced" data-tooltip="${stat.desc}"><span>${stat.label}</span><strong>${value}</strong></div>`;
+      return `<div class="stat-card stat-card--advanced" title="${stat.desc}" data-tooltip="${stat.desc}"><span>${stat.label}</span><strong>${value}</strong></div>`;
     })
     .join("");
 }

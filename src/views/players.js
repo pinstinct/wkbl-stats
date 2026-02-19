@@ -159,7 +159,7 @@ export function renderPlayerSummaryCard({
       stat.format === "pct"
         ? formatPct(player[stat.key])
         : formatNumber(player[stat.key]);
-    primaryGrid.innerHTML += `<div class="stat-card" title="${stat.desc}"><span>${stat.label}</span><strong>${value}</strong></div>`;
+    primaryGrid.innerHTML += `<div class="stat-card" title="${stat.desc}" data-tooltip="${stat.desc}"><span>${stat.label}</span><strong>${value}</strong></div>`;
   });
 
   const advancedSection = document.createElement("div");
@@ -177,7 +177,7 @@ export function renderPlayerSummaryCard({
     } else {
       value = formatNumber(rawValue);
     }
-    advancedGrid.innerHTML += `<div class="stat-card stat-card--advanced" data-tooltip="${stat.desc}"><span>${stat.label}</span><strong>${value}</strong></div>`;
+    advancedGrid.innerHTML += `<div class="stat-card stat-card--advanced" title="${stat.desc}" data-tooltip="${stat.desc}"><span>${stat.label}</span><strong>${value}</strong></div>`;
   });
 
   if (tier2Stats && tier2Stats.length > 0) {
@@ -196,7 +196,7 @@ export function renderPlayerSummaryCard({
       } else {
         value = formatNumber(rawValue);
       }
-      tier2Grid.innerHTML += `<div class="stat-card stat-card--advanced" data-tooltip="${stat.desc}"><span>${stat.label}</span><strong>${value}</strong></div>`;
+      tier2Grid.innerHTML += `<div class="stat-card stat-card--advanced" title="${stat.desc}" data-tooltip="${stat.desc}"><span>${stat.label}</span><strong>${value}</strong></div>`;
     });
     grid.append(primarySection, advancedSection, tier2Section);
   } else {

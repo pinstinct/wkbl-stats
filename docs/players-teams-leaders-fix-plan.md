@@ -5,7 +5,9 @@
 ## 진행 현황
 
 - 업데이트일: 2026-02-19
-- 브랜치: `feat/p0-tdd-players-leaders-sorting`
+- 브랜치:
+  - `feat/p0-tdd-players-leaders-sorting` (완료/머지)
+  - `feat/p1-tdd-tooltips-standings-tabs` (완료)
 - P0 상태: 완료
   - `#/players/:id` 고급 지표 계산에 시즌별 팀/리그 컨텍스트 연결 완료 (`src/db.js`)
   - `#/players/:id` 시즌 집계에 `plus_minus` 합산 컬럼 추가 (`src/db.js`)
@@ -21,6 +23,16 @@
     - `src/views/players-logic.test.js`
     - `src/views/players.test.js`
     - `npm run test:front` 전체 통과 (41 tests)
+- P1 상태: 완료
+  - players/players-detail/team-detail 통계 카드 툴팁 속성을 `title + data-tooltip`로 통일 (`src/views/players.js`, `src/views/player-detail.js`, `src/views/teams.js`)
+  - standings 테이블에 `ORtg/DRtg/NetRtg/Pace` 컬럼 추가 및 렌더링 반영 (`index.html`, `src/views/teams.js`)
+  - standings 헤더 클릭 정렬(위임) 및 상태 반영 (`src/app.js`, `src/views/teams.js`)
+  - standings 데이터에 고급 지표 계산값 추가 (`src/db.js`)
+  - `기본/고급` 탭 버튼 디자인 개선 (`src/styles/core/base.css`)
+  - 상세 테이블 정렬 가능 헤더 커서 개선 (`src/styles/core/layout.css`)
+  - 회귀 테스트 추가/통과:
+    - `src/views/teams.test.js`
+    - `npm run test:front` 전체 통과 (43 tests)
 
 ## 목적
 

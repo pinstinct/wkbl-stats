@@ -29,6 +29,7 @@ import {
   renderTotalStats,
   renderUpcomingGames,
   sortPlayers,
+  sortStandings,
 } from "./views/index.js";
 import { createDataClient } from "./data/client.js";
 import {
@@ -90,6 +91,8 @@ import {
     // Compare page state
     compareSelectedPlayers: [],
     compareSearchResults: [],
+    standings: [],
+    standingsSort: { key: "rank", dir: "asc" },
   };
 
   let unmountResponsiveNav = null;
@@ -1483,12 +1486,14 @@ import {
 
     try {
       const data = await fetchStandings(state.currentSeason);
-      const standings = data.standings;
+      const standings = data.standings || [];
+      state.standings = standings;
 
       // Render standings chart
       renderStandingsChart(standings);
 
-      renderStandingsTable({ tbody: $("standingsBody"), standings });
+      const sorted = sortStandings(standings, state.standingsSort);
+      renderStandingsTable({ tbody: $("standingsBody"), standings: sorted });
     } catch (error) {
       console.error("Failed to load standings:", error);
     }
@@ -2706,6 +2711,23 @@ import {
       const el = $(id);
       if (el) el.addEventListener("change", applyFilters);
     });
+
+    const standingsTable = $("standingsTable");
+    if (standingsTable) {
+      standingsTable.addEventListener("click", (e) => {
+        const th = e.target.closest("th[data-key]");
+        const key = th?.dataset?.key;
+        if (!key) return;
+
+        const isSame = state.standingsSort.key === key;
+        state.standingsSort = {
+          key,
+          dir: isSame && state.standingsSort.dir === "desc" ? "asc" : "desc",
+        };
+        const sorted = sortStandings(state.standings, state.standingsSort);
+        renderStandingsTable({ tbody: $("standingsBody"), standings: sorted });
+      });
+    }
 
     // Search
     const searchInput = $("searchInput");

@@ -1,4 +1,24 @@
 /** Render helpers for teams listing and team detail tables. */
+export function sortStandings(standings, { key = "rank", dir = "asc" } = {}) {
+  const rows = [...(standings || [])];
+  return rows.sort((a, b) => {
+    const aVal = a?.[key];
+    const bVal = b?.[key];
+
+    if (aVal == null && bVal == null) return 0;
+    if (aVal == null) return 1;
+    if (bVal == null) return -1;
+
+    if (typeof aVal === "string" || typeof bVal === "string") {
+      const comp = String(aVal).localeCompare(String(bVal), "ko");
+      return dir === "asc" ? comp : -comp;
+    }
+
+    const comp = Number(aVal) - Number(bVal);
+    return dir === "asc" ? comp : -comp;
+  });
+}
+
 export function renderStandingsTable({ tbody, standings }) {
   if (!tbody) return;
   tbody.innerHTML = standings
@@ -11,6 +31,10 @@ export function renderStandingsTable({ tbody, standings }) {
           <td>${t.wins}</td>
           <td>${t.losses}</td>
           <td>${(t.win_pct * 100).toFixed(1)}%</td>
+          <td>${t.off_rtg !== null && t.off_rtg !== undefined ? Number(t.off_rtg).toFixed(1) : "-"}</td>
+          <td>${t.def_rtg !== null && t.def_rtg !== undefined ? Number(t.def_rtg).toFixed(1) : "-"}</td>
+          <td>${t.net_rtg !== null && t.net_rtg !== undefined ? `${t.net_rtg >= 0 ? "+" : ""}${Number(t.net_rtg).toFixed(1)}` : "-"}</td>
+          <td>${t.pace !== null && t.pace !== undefined ? Number(t.pace).toFixed(1) : "-"}</td>
           <td>${t.games_behind || "-"}</td>
           <td class="hide-mobile">${t.home_record}</td>
           <td class="hide-mobile">${t.away_record}</td>
@@ -74,7 +98,7 @@ export function renderTeamStats({ container, stats }) {
             : item.key === "gp"
               ? String(raw)
               : Number(raw).toFixed(1);
-      return `<div class="stat-card" title="${item.desc}"><span>${item.label}</span><strong>${value}</strong></div>`;
+      return `<div class="stat-card" title="${item.desc}" data-tooltip="${item.desc}"><span>${item.label}</span><strong>${value}</strong></div>`;
     })
     .join("");
 }

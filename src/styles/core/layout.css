@@ -178,6 +178,10 @@
   background: var(--surface-2);
 }
 
+.detail-table th[data-key] {
+  cursor: pointer;
+}
+
 .detail-table tbody tr:hover {
   background: rgba(217, 79, 49, 0.04);
 }
