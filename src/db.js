@@ -680,7 +680,10 @@ const WKBLDatabase = (function () {
         SUM(pg.fta) as total_fta,
         AVG(pg.off_reb) as avg_off_reb,
         AVG(pg.def_reb) as avg_def_reb,
-        AVG(pg.pf) as avg_pf
+        AVG(pg.pf) as avg_pf,
+        SUM(CASE WHEN g.home_team_id = pg.team_id
+              THEN g.home_score - g.away_score
+              ELSE g.away_score - g.home_score END) as plus_minus
       FROM player_games pg
       JOIN games g ON pg.game_id = g.id
       JOIN seasons s ON g.season_id = s.id

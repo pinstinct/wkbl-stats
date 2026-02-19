@@ -34,4 +34,15 @@ describe("players logic", () => {
 
     expect(players.map((p) => p.id)).toEqual(["p1", "p2", "p3"]);
   });
+
+  it("sorts percent keys by displayed percentage scale", () => {
+    const pctPlayers = [
+      { id: "p1", ts_pct: 0.61 },
+      { id: "p2", ts_pct: 1.0 },
+      { id: "p3", ts_pct: 0.08 },
+    ];
+
+    const sorted = sortPlayers(pctPlayers, { key: "ts_pct", dir: "desc" });
+    expect(sorted.map((p) => p.id)).toEqual(["p1", "p3", "p2"]);
+  });
 });

@@ -363,7 +363,7 @@ body {
 }
 
 #statsTable th[title] {
-  cursor: help;
+  cursor: pointer;
 }
 
 /* Sticky first column (player name) */

@@ -13,9 +13,17 @@ export function filterPlayers(
 }
 
 export function sortPlayers(players, { key, dir = "desc" }) {
+  const isPctKey =
+    String(key || "").includes("pct") || ["fgp", "tpp", "ftp"].includes(key);
+  const normalize = (value) => {
+    const numeric = Number(value ?? 0);
+    if (!isPctKey) return numeric;
+    return numeric > 0 && numeric < 1 ? numeric * 100 : numeric;
+  };
+
   return [...players].sort((a, b) => {
-    const aVal = a[key] ?? 0;
-    const bVal = b[key] ?? 0;
+    const aVal = normalize(a[key]);
+    const bVal = normalize(b[key]);
     return dir === "asc" ? aVal - bVal : bVal - aVal;
   });
 }

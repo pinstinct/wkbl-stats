@@ -5,8 +5,10 @@ import { renderPlayersTable } from "./players.js";
 describe("players view", () => {
   it("renders player table rows", () => {
     const tbody = { innerHTML: "" };
+    const thead = { innerHTML: "" };
     renderPlayersTable({
       tbody,
+      thead,
       players: [
         {
           id: "p1",
@@ -39,5 +41,6 @@ describe("players view", () => {
 
     expect(tbody.innerHTML).toContain('href="#/players/p1"');
     expect(tbody.innerHTML).toContain("선수1");
+    expect(thead.innerHTML).toContain(">코트마진<");
   });
 });
