@@ -96,9 +96,157 @@ const WKBLDatabase = (function () {
   }
 
   /**
-   * Calculate advanced stats for a player row
+   * Get team season totals + opponent totals for all teams in a season.
+   * Used for computing team-context stats (USG%, ORtg, DRtg, rate stats, PER).
+   * Returns a Map: team_id → { team_min, team_pts, team_fgm, team_fga, ... }
    */
-  function calculateAdvancedStats(d) {
+  function getTeamSeasonStats(seasonId) {
+    const params = seasonId && seasonId !== "all" ? [seasonId] : [];
+    const seasonFilter =
+      seasonId && seasonId !== "all" ? "WHERE g.season_id = ?" : "";
+
+    const sql = `
+      WITH tgt AS (
+        SELECT pg.game_id, pg.team_id,
+          SUM(pg.fgm) as fgm, SUM(pg.fga) as fga,
+          SUM(pg.tpm) as tpm, SUM(pg.tpa) as tpa,
+          SUM(pg.ftm) as ftm, SUM(pg.fta) as fta,
+          SUM(pg.off_reb) as oreb, SUM(pg.def_reb) as dreb, SUM(pg.reb) as reb,
+          SUM(pg.tov) as tov,
+          SUM(pg.minutes) as total_min,
+          SUM(pg.pts) as pts
+        FROM player_games pg
+        JOIN games g ON pg.game_id = g.id
+        ${seasonFilter}
+        GROUP BY pg.game_id, pg.team_id
+      )
+      SELECT
+        t.team_id,
+        SUM(t.fgm) as team_fgm, SUM(t.fga) as team_fga,
+        SUM(t.tpm) as team_tpm, SUM(t.tpa) as team_tpa,
+        SUM(t.ftm) as team_ftm, SUM(t.fta) as team_fta,
+        SUM(t.oreb) as team_oreb, SUM(t.dreb) as team_dreb, SUM(t.reb) as team_reb,
+        SUM(t.tov) as team_tov,
+        SUM(t.total_min) as team_min,
+        SUM(t.pts) as team_pts,
+        SUM(o.fgm) as opp_fgm, SUM(o.fga) as opp_fga,
+        SUM(o.tpm) as opp_tpm, SUM(o.tpa) as opp_tpa,
+        SUM(o.ftm) as opp_ftm, SUM(o.fta) as opp_fta,
+        SUM(o.oreb) as opp_oreb, SUM(o.dreb) as opp_dreb, SUM(o.reb) as opp_reb,
+        SUM(o.tov) as opp_tov,
+        SUM(o.pts) as opp_pts
+      FROM tgt t
+      JOIN tgt o ON o.game_id = t.game_id AND o.team_id != t.team_id
+      GROUP BY t.team_id
+    `;
+
+    const rows = query(sql, params);
+    const map = new Map();
+    for (const r of rows) {
+      map.set(r.team_id, r);
+    }
+    return map;
+  }
+
+  /**
+   * Get league season totals for PER normalization.
+   * Returns a single object with aggregated league stats.
+   */
+  function getLeagueSeasonStats(seasonId) {
+    const params = seasonId && seasonId !== "all" ? [seasonId] : [];
+    const seasonFilter =
+      seasonId && seasonId !== "all" ? "AND g.season_id = ?" : "";
+
+    const sql = `
+      SELECT
+        SUM(pg.minutes) as lg_min,
+        SUM(pg.pts) as lg_pts,
+        SUM(pg.fgm) as lg_fgm, SUM(pg.fga) as lg_fga,
+        SUM(pg.tpm) as lg_tpm,
+        SUM(pg.ftm) as lg_ftm, SUM(pg.fta) as lg_fta,
+        SUM(pg.off_reb) as lg_oreb, SUM(pg.def_reb) as lg_dreb, SUM(pg.reb) as lg_reb,
+        SUM(pg.ast) as lg_ast,
+        SUM(pg.tov) as lg_tov,
+        SUM(pg.pf) as lg_pf,
+        SUM(pg.stl) as lg_stl,
+        SUM(pg.blk) as lg_blk
+      FROM player_games pg
+      JOIN games g ON pg.game_id = g.id
+      WHERE 1=1 ${seasonFilter}
+    `;
+    return queryOne(sql, params) || {};
+  }
+
+  /**
+   * Estimate possessions: FGA + 0.44*FTA + TOV - OREB
+   */
+  function estimatePossessions(fga, fta, tov, oreb) {
+    return fga + 0.44 * fta + tov - oreb;
+  }
+
+  /**
+   * Compute PER using Hollinger formula (normalized to league avg = 15).
+   */
+  function computePER(d, gp, minAvg, ts, lg) {
+    const totalMin = minAvg * gp;
+    if (totalMin <= 0) return 0;
+
+    const totalFgm = d.total_fgm || 0;
+    const totalFga = d.total_fga || 0;
+    const totalTpm = d.total_tpm || 0;
+    const totalFtm = d.total_ftm || 0;
+    const totalFta = d.total_fta || 0;
+
+    const astTotal = (d.ast || 0) * gp;
+    const stlTotal = (d.stl || 0) * gp;
+    const blkTotal = (d.blk || 0) * gp;
+    const tovTotal = (d.tov || 0) * gp;
+    const pfTotal = (d.avg_pf || 0) * gp;
+    const orebTotal = (d.avg_off_reb || 0) * gp;
+    const drebTotal = (d.avg_def_reb || 0) * gp;
+
+    const lgMin = lg.lg_min || 1;
+    const lgPts = lg.lg_pts || 1;
+    const lgFga = lg.lg_fga || 1;
+    const lgFta = lg.lg_fta || 1;
+    const lgFtm = lg.lg_ftm || 0;
+    const lgOreb = lg.lg_oreb || 0;
+    const lgReb = lg.lg_reb || 1;
+    const lgAst = lg.lg_ast || 0;
+    const lgFgm = lg.lg_fgm || 0;
+    const lgTov = lg.lg_tov || 0;
+    const lgPf = lg.lg_pf || 1;
+
+    const factor = 2 / 3 - (0.5 * (lgAst / lgFgm)) / (2 * (lgFgm / lgFtm));
+    const vop = lgPts / (lgFga - lgOreb + lgTov + 0.44 * lgFta);
+    const drbPct = (lgReb - lgOreb) / lgReb;
+
+    const uPer =
+      (1 / totalMin) *
+      (totalFgm * (2 - factor * (ts.team_fgm / ts.team_pts || 0)) +
+        (2 / 3) * astTotal +
+        0.5 * totalFtm * (2 - (1 / 3) * (ts.team_ast / ts.team_fgm || 0)) -
+        vop * tovTotal -
+        vop * drbPct * (totalFga - totalFgm) -
+        vop * 0.44 * (0.44 + 0.56 * drbPct) * (totalFta - totalFtm) +
+        vop * (1 - drbPct) * (drebTotal || 0) +
+        vop * drbPct * (orebTotal || 0) +
+        vop * stlTotal +
+        vop * drbPct * blkTotal -
+        pfTotal * (lgPts / lgPf - 0.44 * (lgFta / lgPf) * vop));
+
+    const lgPER = 15;
+    const pace_adj = ts.team_min > 0 ? lgMin / 5 / (ts.team_min / 5) : 1;
+    const per = Math.round(uPer * pace_adj * lgPER * 10) / 10;
+    return isFinite(per) ? per : 0;
+  }
+
+  /**
+   * Calculate advanced stats for a player row.
+   * teamStats: entry from getTeamSeasonStats() for the player's team.
+   * leagueStats: result from getLeagueSeasonStats().
+   */
+  function calculateAdvancedStats(d, teamStats = null, leagueStats = null) {
     const pts = d.pts * d.gp;
     const fga = d.total_fga || 0;
     const fta = d.total_fta || 0;
@@ -161,6 +309,109 @@ const WKBLDatabase = (function () {
     d.reb36 = Math.round(((d.reb * 36) / minAvg) * 10) / 10;
     d.ast36 = Math.round(((d.ast * 36) / minAvg) * 10) / 10;
 
+    // --- Team-context stats (require teamStats) ---
+    if (teamStats && d.min > 0 && d.gp > 0) {
+      const ts = teamStats;
+      const teamMin5 = ts.team_min / 5; // team minutes per "slot"
+
+      const fgaAvg2 = d.gp > 0 ? fga / d.gp : 0;
+      const ftaAvg2 = d.gp > 0 ? fta / d.gp : 0;
+
+      const teamPoss = estimatePossessions(
+        ts.team_fga,
+        ts.team_fta,
+        ts.team_tov,
+        ts.team_oreb,
+      );
+      const oppPoss = estimatePossessions(
+        ts.opp_fga,
+        ts.opp_fta,
+        ts.opp_tov,
+        ts.opp_oreb,
+      );
+
+      // USG% = 100 * (FGA + 0.44*FTA + TOV) * (TmMIN/5) / (MIN * (TmFGA + 0.44*TmFTA + TmTOV))
+      const playerUsage = (fgaAvg2 + 0.44 * ftaAvg2 + d.tov) * d.gp;
+      const teamUsage = ts.team_fga + 0.44 * ts.team_fta + ts.team_tov;
+      const totalPlayerMin = d.min * d.gp;
+      if (teamUsage > 0 && totalPlayerMin > 0) {
+        d.usg_pct =
+          Math.round(
+            ((100 * playerUsage * teamMin5) / (totalPlayerMin * teamUsage)) *
+              10,
+          ) / 10;
+      }
+
+      // ORtg = TmPTS / TmPoss * 100
+      if (teamPoss > 0) {
+        d.off_rtg = Math.round((ts.team_pts / teamPoss) * 1000) / 10;
+      }
+
+      // DRtg = OppPTS / OppPoss * 100
+      if (oppPoss > 0) {
+        d.def_rtg = Math.round((ts.opp_pts / oppPoss) * 1000) / 10;
+      }
+
+      // NetRtg = ORtg - DRtg
+      if (d.off_rtg != null && d.def_rtg != null) {
+        d.net_rtg = Math.round((d.off_rtg - d.def_rtg) * 10) / 10;
+      }
+
+      // Rate stats
+      const orebAvg2 = d.avg_off_reb || 0;
+      const drebAvg2 = d.avg_def_reb || 0;
+      const rebAvg2 = d.reb || 0;
+      const fgmAvg2 = d.gp > 0 ? fgm / d.gp : 0;
+
+      // OREB% = 100 * OREB * (TmMIN/5) / (MIN * (TmOREB + OppDREB))
+      const orebDenom = d.min * (ts.team_oreb + ts.opp_dreb);
+      if (orebDenom > 0) {
+        d.oreb_pct =
+          Math.round(((100 * orebAvg2 * teamMin5) / orebDenom) * 10) / 10;
+      }
+
+      // DREB% = 100 * DREB * (TmMIN/5) / (MIN * (TmDREB + OppOREB))
+      const drebDenom = d.min * (ts.team_dreb + ts.opp_oreb);
+      if (drebDenom > 0) {
+        d.dreb_pct =
+          Math.round(((100 * drebAvg2 * teamMin5) / drebDenom) * 10) / 10;
+      }
+
+      // REB% = 100 * REB * (TmMIN/5) / (MIN * (TmREB + OppREB))
+      const rebDenom = d.min * (ts.team_reb + ts.opp_reb);
+      if (rebDenom > 0) {
+        d.reb_pct =
+          Math.round(((100 * rebAvg2 * teamMin5) / rebDenom) * 10) / 10;
+      }
+
+      // AST% = 100 * AST / ((MIN/(TmMIN/5)) * TmFGM - FGM)
+      if (teamMin5 > 0) {
+        const minFrac = d.min / teamMin5;
+        const astDenom = minFrac * ts.team_fgm - fgmAvg2;
+        if (astDenom > 0) {
+          d.ast_pct = Math.round(((100 * d.ast) / astDenom) * 10) / 10;
+        }
+      }
+
+      // STL% = 100 * STL * (TmMIN/5) / (MIN * OppPoss)
+      const stlDenom = d.min * oppPoss;
+      if (stlDenom > 0) {
+        d.stl_pct = Math.round(((100 * d.stl * teamMin5) / stlDenom) * 10) / 10;
+      }
+
+      // BLK% = 100 * BLK * (TmMIN/5) / (MIN * (OppFGA - Opp3PA))
+      const opp2pa = ts.opp_fga - ts.opp_tpa;
+      const blkDenom = d.min * opp2pa;
+      if (blkDenom > 0) {
+        d.blk_pct = Math.round(((100 * d.blk * teamMin5) / blkDenom) * 10) / 10;
+      }
+    }
+
+    // --- PER (require teamStats + leagueStats) ---
+    if (teamStats && leagueStats && d.min > 0 && d.gp > 0) {
+      d.per = computePER(d, d.gp, d.min, teamStats, leagueStats);
+    }
+
     return d;
   }
 
@@ -216,12 +467,15 @@ const WKBLDatabase = (function () {
         SUM(pg.fta) as total_fta,
         AVG(pg.off_reb) as avg_off_reb,
         AVG(pg.def_reb) as avg_def_reb,
-        AVG(pg.pf) as avg_pf
+        AVG(pg.pf) as avg_pf,
+        SUM(CASE WHEN g.home_team_id = pg.team_id
+              THEN g.home_score - g.away_score
+              ELSE g.away_score - g.home_score END) as plus_minus
       FROM player_games pg
       JOIN games g ON pg.game_id = g.id
       JOIN players p ON pg.player_id = p.id
       JOIN teams t ON pg.team_id = t.id
-      WHERE 1=1
+      WHERE g.home_score IS NOT NULL
     `;
     const params = [];
 
@@ -243,6 +497,10 @@ const WKBLDatabase = (function () {
 
     const rows = query(sql, params);
 
+    // Pre-fetch team and league stats for advanced stat computation
+    const teamSeasonStats = getTeamSeasonStats(seasonId);
+    const leagueStats = getLeagueSeasonStats(seasonId);
+
     const players = rows.map((d) => {
       // Calculate percentages
       d.fgp = d.total_fga
@@ -256,7 +514,8 @@ const WKBLDatabase = (function () {
         : 0;
 
       roundStats(d);
-      calculateAdvancedStats(d);
+      const teamStats = teamSeasonStats.get(d.team_id) || null;
+      calculateAdvancedStats(d, teamStats, leagueStats);
 
       return d;
     });
@@ -1019,6 +1278,67 @@ const WKBLDatabase = (function () {
   }
 
   /**
+   * Get PER leaders — requires team/league aggregation + JS computation.
+   */
+  function getLeadersByPER(seasonId, limit = 10) {
+    const minGames = 5;
+    const sql = `
+      SELECT
+        p.id as player_id, p.name as player_name,
+        t.name as team_name, t.id as team_id,
+        COUNT(*) as gp,
+        AVG(pg.minutes) as min,
+        AVG(pg.pts) as pts,
+        AVG(pg.reb) as reb,
+        AVG(pg.ast) as ast,
+        AVG(pg.stl) as stl,
+        AVG(pg.blk) as blk,
+        AVG(pg.tov) as tov,
+        SUM(pg.fgm) as total_fgm, SUM(pg.fga) as total_fga,
+        SUM(pg.tpm) as total_tpm, SUM(pg.tpa) as total_tpa,
+        SUM(pg.ftm) as total_ftm, SUM(pg.fta) as total_fta,
+        AVG(pg.off_reb) as avg_off_reb,
+        AVG(pg.def_reb) as avg_def_reb,
+        AVG(pg.pf) as avg_pf
+      FROM player_games pg
+      JOIN games g ON pg.game_id = g.id
+      JOIN players p ON pg.player_id = p.id
+      JOIN teams t ON pg.team_id = t.id
+      WHERE g.season_id = ? AND p.is_active = 1
+      GROUP BY pg.player_id
+      HAVING COUNT(*) >= ?
+    `;
+
+    const rows = query(sql, [seasonId, minGames]);
+    const teamSeasonStats = getTeamSeasonStats(seasonId);
+    const leagueStats = getLeagueSeasonStats(seasonId);
+
+    const results = rows
+      .map((d, i) => {
+        const teamStats = teamSeasonStats.get(d.team_id) || null;
+        const per =
+          teamStats && leagueStats
+            ? computePER(d, d.gp, d.min, teamStats, leagueStats)
+            : 0;
+        return {
+          rank: 0,
+          player_id: d.player_id,
+          player_name: d.player_name,
+          team_name: d.team_name,
+          team_id: d.team_id,
+          gp: d.gp,
+          value: per,
+        };
+      })
+      .filter((d) => d.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, limit)
+      .map((d, i) => ({ ...d, rank: i + 1 }));
+
+    return results;
+  }
+
+  /**
    * Get statistical leaders for a category
    * Replaces: GET /api/leaders
    */
@@ -1036,9 +1356,15 @@ const WKBLDatabase = (function () {
       "game_score",
       "ts_pct",
       "pir",
+      "per",
     ];
     if (!validCategories.includes(category)) {
       category = "pts";
+    }
+
+    // PER requires team/league context — handled separately
+    if (category === "per") {
+      return getLeadersByPER(seasonId, limit);
     }
 
     // Minimum games threshold for percentage categories
