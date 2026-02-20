@@ -56,14 +56,15 @@ WKBL(한국여자농구연맹) 통계를 Basketball Reference 스타일로 보�
 
 ### 2차 지표
 
-| 지표   | 설명                     | 계산식                           |
-| ------ | ------------------------ | -------------------------------- |
-| TS%    | True Shooting %          | `PTS / (2 × (FGA + 0.44 × FTA))` |
-| eFG%   | Effective FG%            | `(FGM + 0.5 × 3PM) / FGA`        |
-| AST/TO | 어시스트/턴오버 비율     | `AST / TO`                       |
-| PIR    | Performance Index Rating | 유럽식 종합 효율 지표            |
-| PTS/36 | 36분당 환산 득점         | `PTS × (36 / MIN)`               |
-| GmSc   | Game Score (Hollinger)   | 경기별 성과 단일 점수            |
+| 지표     | 설명                      | 계산식                                         |
+| -------- | ------------------------- | ---------------------------------------------- |
+| TS%      | True Shooting %           | `PTS / (2 × (FGA + 0.44 × FTA))`               |
+| eFG%     | Effective FG%             | `(FGM + 0.5 × 3PM) / FGA`                      |
+| AST/TO   | 어시스트/턴오버 비율      | `AST / TO`                                     |
+| PIR      | Performance Index Rating  | 유럽식 종합 효율 지표                          |
+| PTS/36   | 36분당 환산 득점          | `PTS × (36 / MIN)`                             |
+| GmSc     | Game Score (Hollinger)    | 경기별 성과 단일 점수                          |
+| 코트마진 | 출전시간 가중 득실차 평균 | 경기별 `(팀 득실차 × 출전시간/40)`의 시즌 평균 |
 
 ### 고급 지표
 
