@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  parseQuarterCode,
   buildShotChartExportName,
   buildQuarterSeries,
   buildQuarterSelectOptions,
@@ -11,11 +12,24 @@ import {
 } from "./game-shot-logic.js";
 
 describe("game shot logic", () => {
+  it("parses quarter codes", () => {
+    expect(parseQuarterCode("Q1")).toEqual({
+      code: "Q1",
+      period: 1,
+      label: "Q1",
+    });
+    expect(parseQuarterCode("OT1")).toEqual({
+      code: "OT1",
+      period: 5,
+      label: "OT1",
+    });
+  });
+
   const rawShots = [
     {
       player_id: "p1",
       team_id: "away",
-      quarter: 1,
+      quarter: "Q1",
       made: 1,
       shot_zone: "paint",
       x: 20,
@@ -24,7 +38,7 @@ describe("game shot logic", () => {
     {
       player_id: "p1",
       team_id: "away",
-      quarter: 2,
+      quarter: "Q2",
       made: 0,
       shot_zone: "three_pt",
       x: 60,
@@ -33,7 +47,7 @@ describe("game shot logic", () => {
     {
       player_id: "p2",
       team_id: "home",
-      quarter: 1,
+      quarter: "Q1",
       made: 1,
       shot_zone: "mid_range",
       x: 45,
@@ -42,7 +56,7 @@ describe("game shot logic", () => {
     {
       player_id: "p2",
       team_id: "home",
-      quarter: 5,
+      quarter: "OT1",
       made: 0,
       shot_zone: "paint",
       x: 22,
@@ -61,6 +75,7 @@ describe("game shot logic", () => {
       playerName: "선수1",
       teamId: "away",
       quarter: 1,
+      quarterCode: "Q1",
       made: true,
       shotZone: "paint",
     });

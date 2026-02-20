@@ -1,25 +1,61 @@
 /**
  * Normalize raw shot rows into frontend-friendly records.
  */
+export function parseQuarterCode(rawQuarter) {
+  if (rawQuarter === null || rawQuarter === undefined) {
+    return { code: "Q0", period: 0, label: "Q0" };
+  }
+
+  if (typeof rawQuarter === "number" && Number.isFinite(rawQuarter)) {
+    const period = Math.max(0, Math.trunc(rawQuarter));
+    if (period <= 4) return { code: `Q${period}`, period, label: `Q${period}` };
+    return { code: `OT${period - 4}`, period, label: `OT${period - 4}` };
+  }
+
+  const quarter = String(rawQuarter).trim().toUpperCase();
+  const qMatch = quarter.match(/^Q(\d+)$/);
+  if (qMatch) {
+    const period = Number(qMatch[1]);
+    return { code: `Q${period}`, period, label: `Q${period}` };
+  }
+  const otMatch = quarter.match(/^OT(\d*)$/);
+  if (otMatch) {
+    const otIndex = otMatch[1] ? Number(otMatch[1]) : 1;
+    const period = 4 + otIndex;
+    return { code: `OT${otIndex}`, period, label: `OT${otIndex}` };
+  }
+
+  const num = Number(quarter);
+  if (Number.isFinite(num)) {
+    return parseQuarterCode(num);
+  }
+  return { code: "Q0", period: 0, label: "Q0" };
+}
+
 export function normalizeGameShots(shots, playerNameMap = {}) {
-  return (shots || []).map((shot) => ({
-    playerId: shot.player_id,
-    playerName: playerNameMap[shot.player_id] || shot.player_id || "Unknown",
-    teamId: shot.team_id || "",
-    quarter: Number(shot.quarter) || 0,
-    made: Number(shot.made) === 1,
-    shotZone: shot.shot_zone || "unknown",
-    x: Number(shot.x) || 0,
-    y: Number(shot.y) || 0,
-    gameMinute:
-      shot.game_minute === null || shot.game_minute === undefined
-        ? null
-        : Number(shot.game_minute),
-    gameSecond:
-      shot.game_second === null || shot.game_second === undefined
-        ? null
-        : Number(shot.game_second),
-  }));
+  return (shots || []).map((shot) => {
+    const q = parseQuarterCode(shot.quarter);
+    return {
+      playerId: shot.player_id,
+      playerName: playerNameMap[shot.player_id] || shot.player_id || "Unknown",
+      teamId: shot.team_id || "",
+      quarter: q.period,
+      quarterCode: q.code,
+      quarterLabel: q.label,
+      made: Number(shot.made) === 1,
+      shotZone: shot.shot_zone || "unknown",
+      x: Number(shot.x) || 0,
+      y: Number(shot.y) || 0,
+      gameMinute:
+        shot.game_minute === null || shot.game_minute === undefined
+          ? null
+          : Number(shot.game_minute),
+      gameSecond:
+        shot.game_second === null || shot.game_second === undefined
+          ? null
+          : Number(shot.game_second),
+    };
+  });
 }
 
 /**

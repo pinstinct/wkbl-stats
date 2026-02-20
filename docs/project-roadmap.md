@@ -270,6 +270,8 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] OT 쿼터 라벨(OT1, OT2...) 동적 지원
 - [x] 메인 슛 분포 코트 라인 오버레이(Chart.js plugin) 적용
 - [x] 현재 필터 상태 기반 슛차트 PNG export
+- [x] 문자열 쿼터(`Q1`, `OT1`) 파싱/필터 정합성 수정
+- [x] WKBL 좌표계 축 스케일(0~291, 18~176)로 슛 점/코트 오버레이 정렬
 - [x] TDD: `src/views/game-shot-logic.test.js` + `src/data/client.test.js` 확장
 - [ ] 코트 SVG 정밀화(선/호 치수 미세조정)
 - [x] EVENT_TYPE_MAP 추가 (한국어→영어 이벤트 코드 24종)

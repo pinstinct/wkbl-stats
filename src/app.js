@@ -1900,43 +1900,49 @@ import {
 
         const x = (v) => xScale.getPixelForValue(v);
         const y = (v) => yScale.getPixelForValue(v);
-        const r = (v) => Math.abs(x(v) - x(0));
+        const xr = (delta) =>
+          Math.abs(xScale.getPixelForValue(145.5 + delta) - x(145.5));
+        const yr = (delta) =>
+          Math.abs(yScale.getPixelForValue(18 + delta) - y(18));
+        const rr = (delta) => (xr(delta) + yr(delta)) / 2;
 
         ctx.save();
         ctx.strokeStyle = options.lineColor || "rgba(27, 28, 31, 0.25)";
         ctx.lineWidth = options.lineWidth || 1.2;
 
-        // Paint area rectangle.
-        ctx.strokeRect(x(40), y(19), x(60) - x(40), y(0) - y(19));
+        // WKBL half-court guide based on shot chart px coordinates.
+        // Court extents: x≈0~291, y≈18~176. Rim center around (145.5, 18).
+        ctx.strokeRect(x(98), y(18), x(193) - x(98), y(90) - y(18)); // paint
+        ctx.strokeRect(x(117), y(18), x(174) - x(117), y(56) - y(18)); // key
 
-        // Free throw circle.
+        // Free-throw circle.
         ctx.beginPath();
-        ctx.arc(x(50), y(19), r(6), 0, Math.PI * 2);
+        ctx.arc(x(145.5), y(90), rr(20), 0, Math.PI * 2);
         ctx.stroke();
 
         // Backboard and rim.
         ctx.beginPath();
-        ctx.moveTo(x(47), y(8));
-        ctx.lineTo(x(53), y(8));
+        ctx.moveTo(x(131), y(25));
+        ctx.lineTo(x(160), y(25));
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(x(50), y(6), r(1.5), 0, Math.PI * 2);
+        ctx.arc(x(145.5), y(18), rr(7), 0, Math.PI * 2);
         ctx.stroke();
 
         // Restricted area arc.
         ctx.beginPath();
-        ctx.arc(x(50), y(6), r(4), Math.PI * 0.1, Math.PI * 0.9);
+        ctx.arc(x(145.5), y(18), rr(22), Math.PI * 0.12, Math.PI * 0.88);
         ctx.stroke();
 
-        // Three-point boundary.
+        // Three-point lines + arc.
         ctx.beginPath();
-        ctx.moveTo(x(22), y(0));
-        ctx.lineTo(x(22), y(28));
-        ctx.moveTo(x(78), y(0));
-        ctx.lineTo(x(78), y(28));
+        ctx.moveTo(x(33), y(18));
+        ctx.lineTo(x(33), y(122));
+        ctx.moveTo(x(258), y(18));
+        ctx.lineTo(x(258), y(122));
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(x(50), y(6), r(28), Math.PI * 0.18, Math.PI * 0.82);
+        ctx.arc(x(145.5), y(18), rr(120), Math.PI * 0.19, Math.PI * 0.81);
         ctx.stroke();
 
         ctx.restore();
@@ -1977,8 +1983,21 @@ import {
         responsive: true,
         maintainAspectRatio: false,
         scales: {
-          x: { min: 0, max: 100, title: { display: true, text: "X" } },
-          y: { min: 0, max: 100, title: { display: true, text: "Y" } },
+          x: {
+            min: 0,
+            max: 291,
+            grid: { display: false },
+            ticks: { display: false },
+            border: { display: false },
+          },
+          y: {
+            min: 18,
+            max: 176,
+            reverse: true,
+            grid: { display: false },
+            ticks: { display: false },
+            border: { display: false },
+          },
         },
         plugins: {
           shotCourtOverlay: {
