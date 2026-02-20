@@ -40,6 +40,7 @@ const ADVANCED_THEAD_HTML = `<tr>
   <th data-key="ast_pct" title="Assist %">AST%</th>
   <th data-key="stl_pct" class="hide-mobile" title="Steal %">STL%</th>
   <th data-key="blk_pct" class="hide-mobile" title="Block %">BLK%</th>
+  <th data-key="ws" title="Win Shares">WS</th>
   <th data-key="plus_minus" title="Plus/Minus">+/-</th>
 </tr>`;
 
@@ -77,6 +78,7 @@ export function renderPlayersTable({
           <td>${formatNumber(player.ast_pct)}</td>
           <td class="hide-mobile">${formatNumber(player.stl_pct)}</td>
           <td class="hide-mobile">${formatNumber(player.blk_pct)}</td>
+          <td>${formatNumber(player.ws)}</td>
           <td>${formatSigned(player.plus_minus)}</td>
         </tr>
       `,

@@ -153,6 +153,12 @@ export function renderPlayerAdvancedStats({
       desc: "출전 시간 동안 팀 득실점 차. +일수록 팀에 유리한 결과입니다.",
       signed: true,
     },
+    {
+      key: "ws",
+      label: "WS",
+      desc: "팀 승리에 대한 선수 기여도를 승수 단위로 환산한 지표입니다.",
+      signed: false,
+    },
   ];
 
   container.innerHTML = stats

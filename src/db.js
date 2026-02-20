@@ -145,6 +145,21 @@ const WKBLDatabase = (function () {
     for (const r of rows) {
       map.set(r.team_id, r);
     }
+
+    if (seasonId && seasonId !== "all") {
+      const standings = query(
+        "SELECT team_id, wins, losses FROM team_standings WHERE season_id = ?",
+        [seasonId],
+      );
+      for (const s of standings) {
+        const teamStats = map.get(s.team_id);
+        if (teamStats) {
+          teamStats.team_wins = s.wins;
+          teamStats.team_losses = s.losses;
+        }
+      }
+    }
+
     return map;
   }
 
@@ -174,7 +189,17 @@ const WKBLDatabase = (function () {
       JOIN games g ON pg.game_id = g.id
       WHERE 1=1 ${seasonFilter}
     `;
-    return queryOne(sql, params) || {};
+    const lg = queryOne(sql, params) || {};
+    const lgPoss = estimatePossessions(
+      lg.lg_fga || 0,
+      lg.lg_fta || 0,
+      lg.lg_tov || 0,
+      lg.lg_oreb || 0,
+    );
+    const lgMin5 = safeDiv(lg.lg_min || 0, 5);
+    lg.lg_poss = lgPoss;
+    lg.lg_pace = lgMin5 > 0 ? (40 * lgPoss) / lgMin5 : 0;
+    return lg;
   }
 
   /**
@@ -273,8 +298,14 @@ const WKBLDatabase = (function () {
           safeDiv(ts.team_pts || 0, teamScoringPoss)
         : 0;
     const pprod = (pprodFg + pprodAst + ftm) * scoringDecay + pprodOrb;
-    if (pprod <= 0) return 0;
-    return Math.round((100 * pprod * 10) / totPoss) / 10;
+    if (pprod <= 0) {
+      return { offRtg: 0, pprod: 0, totPoss };
+    }
+    return {
+      offRtg: Math.round((100 * pprod * 10) / totPoss) / 10,
+      pprod,
+      totPoss,
+    };
   }
 
   function computePlayerDefRtg({ totals, ts, totalMin }) {
@@ -311,6 +342,65 @@ const WKBLDatabase = (function () {
     const stopPct = clamp(safeDiv(stops1 + stopFt, playerOppPoss), 0, 1);
     const defRtg = teamDrtg * (1 - 0.2 * stopPct);
     return Math.round(clamp(defRtg, 50, 150) * 10) / 10;
+  }
+
+  function computeWinShares({
+    pprod,
+    totPoss,
+    defRtg,
+    totalMin,
+    teamPoss,
+    oppPoss,
+    ts,
+    lg,
+  }) {
+    const lgPts = lg.lg_pts || 0;
+    const lgPoss = lg.lg_poss || 0;
+    const lgPace = lg.lg_pace || 0;
+    const lgMin = lg.lg_min || 0;
+    const teamMin5 = safeDiv(ts.team_min || 0, 5);
+
+    if (
+      pprod == null ||
+      totPoss == null ||
+      defRtg == null ||
+      totalMin <= 0 ||
+      teamPoss <= 0 ||
+      oppPoss <= 0 ||
+      lgPts <= 0 ||
+      lgPoss <= 0 ||
+      lgPace <= 0 ||
+      lgMin <= 0 ||
+      teamMin5 <= 0
+    ) {
+      return null;
+    }
+
+    const lgGp = safeDiv(lgMin, 400);
+    const lgPpg = safeDiv(lgPts, lgGp);
+    if (lgPpg <= 0) return null;
+
+    const teamPace = (40 * teamPoss) / teamMin5;
+    const marginalPpw = 2 * lgPpg * safeDiv(teamPace, lgPace);
+    if (marginalPpw <= 0) return null;
+
+    const lgPtsPerPoss = safeDiv(lgPts, lgPoss);
+    const marginalOffense = pprod - 0.92 * lgPtsPerPoss * totPoss;
+    const ows = Math.max(0, marginalOffense / marginalPpw);
+
+    const lgDrtg = 100 * lgPtsPerPoss;
+    const playerDefPoss = oppPoss * safeDiv(totalMin, teamMin5);
+    const playerDefPtsSaved = ((lgDrtg - defRtg) / 100) * playerDefPoss;
+    const replacementDef = 0.08 * lgPpg * safeDiv(totalMin, teamMin5);
+    const dws = (playerDefPtsSaved + replacementDef) / marginalPpw;
+
+    const ws = ows + dws;
+    return {
+      ows: Math.round(ows * 100) / 100,
+      dws: Math.round(dws * 100) / 100,
+      ws: Math.round(ws * 100) / 100,
+      ws_40: Math.round(safeDiv(ws, totalMin) * 40 * 1000) / 1000,
+    };
   }
 
   /**
@@ -478,7 +568,7 @@ const WKBLDatabase = (function () {
           ) / 10;
       }
 
-      const offRtg = computePlayerOffRtg({
+      const offRtgData = computePlayerOffRtg({
         totals: {
           pts,
           ast: totalAst,
@@ -492,7 +582,7 @@ const WKBLDatabase = (function () {
         },
         ts,
       });
-      if (offRtg !== null) d.off_rtg = offRtg;
+      if (offRtgData !== null) d.off_rtg = offRtgData.offRtg;
 
       const defRtg = computePlayerDefRtg({
         totals: { stl: totalStl, blk: totalBlk, dreb: totalDreb, pf: totalPf },
@@ -504,6 +594,31 @@ const WKBLDatabase = (function () {
       // NetRtg = ORtg - DRtg
       if (d.off_rtg != null && d.def_rtg != null) {
         d.net_rtg = Math.round((d.off_rtg - d.def_rtg) * 10) / 10;
+      }
+
+      if (
+        leagueStats &&
+        offRtgData &&
+        d.def_rtg != null &&
+        ts.team_wins !== undefined &&
+        ts.team_losses !== undefined
+      ) {
+        const ws = computeWinShares({
+          pprod: offRtgData.pprod,
+          totPoss: offRtgData.totPoss,
+          defRtg: d.def_rtg,
+          totalMin: totalPlayerMin,
+          teamPoss,
+          oppPoss,
+          ts,
+          lg: leagueStats,
+        });
+        if (ws) {
+          d.ows = ws.ows;
+          d.dws = ws.dws;
+          d.ws = ws.ws;
+          d.ws_40 = ws.ws_40;
+        }
       }
 
       // Rate stats
@@ -1587,6 +1702,23 @@ const WKBLDatabase = (function () {
     return results;
   }
 
+  function getLeadersByWS(seasonId, limit = 10) {
+    const rows = getPlayers(seasonId, null, true, false);
+    return rows
+      .filter((p) => p.gp >= 1 && p.ws != null)
+      .sort((a, b) => (b.ws || 0) - (a.ws || 0))
+      .slice(0, limit)
+      .map((p, i) => ({
+        rank: i + 1,
+        player_id: p.id,
+        player_name: p.name,
+        team_name: p.team,
+        team_id: p.team_id,
+        gp: p.gp,
+        value: Math.round((p.ws || 0) * 100) / 100,
+      }));
+  }
+
   /**
    * Get statistical leaders for a category
    * Replaces: GET /api/leaders
@@ -1606,6 +1738,7 @@ const WKBLDatabase = (function () {
       "ts_pct",
       "pir",
       "per",
+      "ws",
     ];
     if (!validCategories.includes(category)) {
       category = "pts";
@@ -1614,6 +1747,9 @@ const WKBLDatabase = (function () {
     // PER requires team/league context — handled separately
     if (category === "per") {
       return getLeadersByPER(seasonId, limit);
+    }
+    if (category === "ws") {
+      return getLeadersByWS(seasonId, limit);
     }
 
     // Minimum games threshold for percentage categories
@@ -1706,6 +1842,7 @@ const WKBLDatabase = (function () {
       "ts_pct",
       "pir",
       "per",
+      "ws",
     ];
     const result = {};
 

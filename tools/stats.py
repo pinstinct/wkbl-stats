@@ -41,7 +41,7 @@ def _compute_player_off_rtg(
     total_fta: float,
     total_oreb: float,
     ts: Dict[str, Any],
-) -> Optional[float]:
+) -> Optional[tuple[float, float, float]]:
     """Estimate player ORtg from box score (Dean Oliver / BBR style approximation)."""
     team_fga = ts.get("team_fga", 0) or 0
     team_fta = ts.get("team_fta", 0) or 0
@@ -143,8 +143,8 @@ def _compute_player_off_rtg(
 
     pprod = (pprod_fg + pprod_ast + total_ftm) * scoring_decay + pprod_orb
     if pprod <= 0:
-        return 0.0
-    return _r(100 * pprod / tot_poss, 1)
+        return (0.0, 0.0, tot_poss)
+    return (_r(100 * pprod / tot_poss, 1), pprod, tot_poss)
 
 
 def _compute_player_def_rtg(
@@ -197,6 +197,64 @@ def _compute_player_def_rtg(
     # Keep DRtg anchored to team defense while reflecting player stop activity.
     def_rtg = team_drtg * (1 - 0.2 * stop_pct)
     return _r(_clamp(def_rtg, 50.0, 150.0), 1)
+
+
+def _compute_ws_components(
+    *,
+    pprod: float,
+    tot_poss: float,
+    player_def_rtg: float,
+    total_min: float,
+    team_poss: float,
+    opp_poss: float,
+    team_stats: Dict[str, Any],
+    league_stats: Dict[str, Any],
+) -> Optional[tuple[float, float, float, float]]:
+    """Compute OWS/DWS/WS/WS40 using BBR-style simplified formulas."""
+    lg_pts = league_stats.get("lg_pts", 0) or 0
+    lg_poss = league_stats.get("lg_poss", 0) or 0
+    lg_pace = league_stats.get("lg_pace", 0) or 0
+    lg_min = league_stats.get("lg_min", 0) or 0
+
+    team_min_5 = _safe_div(team_stats.get("team_min", 0) or 0, 5)
+    if (
+        pprod < 0
+        or tot_poss <= 0
+        or total_min <= 0
+        or lg_pts <= 0
+        or lg_poss <= 0
+        or lg_pace <= 0
+        or lg_min <= 0
+        or team_min_5 <= 0
+        or team_poss <= 0
+        or opp_poss <= 0
+    ):
+        return None
+
+    lg_gp = _safe_div(lg_min, 400)  # 40min * 5 players * 2 teams
+    lg_ppg = _safe_div(lg_pts, lg_gp)
+    if lg_ppg <= 0:
+        return None
+
+    team_pace = _safe_div(40 * team_poss, team_min_5)
+    marginal_ppw = 2 * lg_ppg * _safe_div(team_pace, lg_pace)
+    if marginal_ppw <= 0:
+        return None
+
+    lg_pts_per_poss = _safe_div(lg_pts, lg_poss)
+    marginal_offense = pprod - 0.92 * lg_pts_per_poss * tot_poss
+    ows = max(0.0, marginal_offense / marginal_ppw)
+
+    lg_drtg = 100 * lg_pts_per_poss
+    player_def_poss = opp_poss * _safe_div(total_min, team_min_5)
+    player_def_pts_saved = _safe_div(lg_drtg - player_def_rtg, 100) * player_def_poss
+    replacement_def = 0.08 * lg_ppg * _safe_div(total_min, team_min_5)
+    marginal_defense = player_def_pts_saved + replacement_def
+    dws = marginal_defense / marginal_ppw
+
+    ws = ows + dws
+    ws_40 = _safe_div(ws, total_min) * 40
+    return (_r(ows, 2), _r(dws, 2), _r(ws, 2), _r(ws_40, 3))
 
 
 def compute_advanced_stats(
@@ -334,7 +392,7 @@ def compute_advanced_stats(
             )
 
         # Player ORtg/DRtg: box-score estimate (Dean Oliver / BBR style).
-        off_rtg = _compute_player_off_rtg(
+        off_rtg_data = _compute_player_off_rtg(
             total_pts=total_pts,
             total_ast=total_ast,
             total_tov=total_tov,
@@ -346,7 +404,10 @@ def compute_advanced_stats(
             total_oreb=total_off_reb,
             ts=ts,
         )
-        if off_rtg is not None:
+        pprod = None
+        tot_poss = None
+        if off_rtg_data is not None:
+            off_rtg, pprod, tot_poss = off_rtg_data
             d["off_rtg"] = off_rtg
 
         def_rtg = _compute_player_def_rtg(
@@ -404,6 +465,31 @@ def compute_advanced_stats(
         blk_denom = min_avg * opp_2pa
         if blk_denom > 0:
             d["blk_pct"] = _r(100 * blk_avg * team_min_5 / blk_denom, 1)
+
+        if (
+            league_stats
+            and pprod is not None
+            and tot_poss is not None
+            and d.get("def_rtg") is not None
+            and "team_wins" in ts
+            and "team_losses" in ts
+        ):
+            ws = _compute_ws_components(
+                pprod=pprod,
+                tot_poss=tot_poss,
+                player_def_rtg=d["def_rtg"],
+                total_min=total_min,
+                team_poss=team_poss,
+                opp_poss=opp_poss,
+                team_stats=ts,
+                league_stats=league_stats,
+            )
+            if ws is not None:
+                ows, dws, total_ws, ws_40 = ws
+                d["ows"] = ows
+                d["dws"] = dws
+                d["ws"] = total_ws
+                d["ws_40"] = ws_40
 
     # --- PER (require team_stats + league_stats) ---
     if team_stats and league_stats and min_avg > 0 and gp > 0:

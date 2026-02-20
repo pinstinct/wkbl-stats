@@ -73,6 +73,7 @@ import {
     { key: "ts_pct", label: "TS%", unit: "" },
     { key: "pir", label: "PIR", unit: "per game" },
     { key: "per", label: "PER", unit: "" },
+    { key: "ws", label: "WS", unit: "" },
   ];
 
   // =============================================================================
@@ -856,6 +857,12 @@ import {
       label: "+/-",
       format: "signed",
       desc: "출전 시간 동안 팀 득실점 차. +일수록 팀에 유리한 결과입니다.",
+    },
+    {
+      key: "ws",
+      label: "WS",
+      format: "number",
+      desc: "팀 승리에 대한 선수 기여도를 승수 단위로 환산한 지표입니다.",
     },
   ];
 

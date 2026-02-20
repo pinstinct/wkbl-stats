@@ -241,7 +241,7 @@ Query parameters:
 
 - `season`: Season code (e.g., `046` for 2025-26) or `all` for all seasons
 - `team`: Team ID filter (e.g., `kb`, `samsung`)
-- `category`: Leader category (`pts`, `reb`, `ast`, `stl`, `blk`, `fgp`, `tpp`, `ftp`, `game_score`, `ts_pct`, `pir`, `per`)
+- `category`: Leader category (`pts`, `reb`, `ast`, `stl`, `blk`, `fgp`, `tpp`, `ftp`, `game_score`, `ts_pct`, `pir`, `per`, `ws`)
 - `ids`: Comma-separated player IDs (for compare)
 - `q`: Search query (for search)
 - `limit`, `offset`: Pagination
@@ -346,9 +346,15 @@ External endpoints (documented in `docs/data-sources.md`):
   "stl_pct": 3.0,
   "blk_pct": 2.4,
   "per": 14.2,
+  "ows": 1.2,
+  "dws": 0.9,
+  "ws": 2.1,
+  "ws_40": 0.112,
   "plus_minus": 42
 }
 ```
+
+Note: `ws_40` is currently computed and returned in data, but hidden in player UI cards/tables.
 
 ## Season Codes
 

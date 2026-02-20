@@ -19,6 +19,7 @@ from database import (
     get_league_season_totals,
     get_lineup_stints,
     get_opponent_season_totals,
+    get_team_wins_by_season,
     get_position_matchups,
     get_player_plus_minus_season,
     get_team_season_totals,
@@ -161,13 +162,14 @@ def _build_team_stats(
     team_id: str,
     team_totals: dict[str, dict],
     opp_totals: dict[str, dict],
+    standings: Optional[dict[str, dict[str, int]]] = None,
 ) -> Optional[dict]:
     """Build the team_stats dict for compute_advanced_stats from DB aggregates."""
     tt = team_totals.get(team_id)
     ot = opp_totals.get(team_id)
     if not tt or not ot:
         return None
-    return {
+    result = {
         "team_fga": tt["fga"],
         "team_fta": tt["fta"],
         "team_tov": tt["tov"],
@@ -201,6 +203,11 @@ def _build_team_stats(
         "opp_pf": ot["pf"],
         "opp_reb": ot["reb"],
     }
+    team_record = (standings or {}).get(team_id)
+    if team_record is not None:
+        result["team_wins"] = team_record.get("wins", 0)
+        result["team_losses"] = team_record.get("losses", 0)
+    return result
 
 
 def _build_league_stats(season_id: str, team_totals: dict[str, dict]) -> Optional[dict]:
@@ -308,6 +315,9 @@ def get_players(
         team_totals = get_team_season_totals(season_id)
         opp_totals = get_opponent_season_totals(season_id)
         league_ctx = _build_league_stats(season_id, team_totals)
+        standings_ctx = get_team_wins_by_season(season_id)
+    else:
+        standings_ctx = {}
 
     with get_connection() as conn:
         rows = conn.execute(query, params).fetchall()
@@ -328,7 +338,12 @@ def get_players(
                 "pf",
             ]:
                 d[key] = round(d[key], 1) if d[key] else 0.0
-            ts = _build_team_stats(d.get("team_id", ""), team_totals, opp_totals)
+            ts = _build_team_stats(
+                d.get("team_id", ""),
+                team_totals,
+                opp_totals,
+                standings_ctx,
+            )
             result.append(
                 compute_advanced_stats(d, team_stats=ts, league_stats=league_ctx)
             )
@@ -524,7 +539,8 @@ def get_player_detail(player_id: str) -> Optional[dict]:
                 tt = get_team_season_totals(sid)
                 ot = get_opponent_season_totals(sid)
                 lc = _build_league_stats(sid, tt)
-                season_contexts[sid] = (tt, ot, lc)
+                sw = get_team_wins_by_season(sid)
+                season_contexts[sid] = (tt, ot, lc, sw)
 
         result["seasons"] = {}
         for row in seasons:
@@ -543,9 +559,9 @@ def get_player_detail(player_id: str) -> Optional[dict]:
             ]:
                 d[key] = round(d[key], 1) if d[key] else 0.0
             sid = d["season_id"]
-            tt, ot, lc = season_contexts.get(sid, ({}, {}, None))
+            tt, ot, lc, sw = season_contexts.get(sid, ({}, {}, None, {}))
             player_team = d.get("team_id") or result.get("team_id", "")
-            ts = _build_team_stats(player_team, tt, ot)
+            ts = _build_team_stats(player_team, tt, ot, sw)
             season_stats = compute_advanced_stats(d, team_stats=ts, league_stats=lc)
             # Inject +/- from lineup_stints
             season_stats["plus_minus"] = get_player_plus_minus_season(player_id, sid)
@@ -781,7 +797,8 @@ def get_team_detail(team_id: str, season_id: str) -> Optional[dict]:
         # Compute team advanced stats (ORtg, DRtg, NetRtg, Pace)
         team_totals_all = get_team_season_totals(season_id)
         opp_totals_all = get_opponent_season_totals(season_id)
-        ts = _build_team_stats(team_id, team_totals_all, opp_totals_all)
+        standings_all = get_team_wins_by_season(season_id)
+        ts = _build_team_stats(team_id, team_totals_all, opp_totals_all, standings_all)
         if ts:
             team_poss = estimate_possessions(
                 ts["team_fga"], ts["team_fta"], ts["team_tov"], ts["team_oreb"]
@@ -1091,6 +1108,25 @@ def _get_per_leaders(season_id: str, limit: int = 10) -> list[dict]:
     ]
 
 
+def _get_ws_leaders(season_id: str, limit: int = 10) -> list[dict]:
+    """Get WS leaders by computing advanced stats for all players."""
+    players = get_players(season_id, active_only=True)
+    valid = [p for p in players if p.get("ws") is not None and p.get("gp", 0) >= 1]
+    sorted_players = sorted(valid, key=lambda p: p.get("ws") or 0, reverse=True)
+    return [
+        {
+            "rank": i,
+            "player_id": p["id"],
+            "player_name": p["name"],
+            "team_name": p.get("team", ""),
+            "team_id": p.get("team_id", ""),
+            "gp": p.get("gp", 0),
+            "value": round(p.get("ws") or 0, 2),
+        }
+        for i, p in enumerate(sorted_players[:limit], 1)
+    ]
+
+
 def get_leaders(season_id: str, category: str = "pts", limit: int = 10) -> list[dict]:
     """Get statistical leaders for a category."""
     valid_categories = {
@@ -1107,6 +1143,7 @@ def get_leaders(season_id: str, category: str = "pts", limit: int = 10) -> list[
         "ts_pct",
         "pir",
         "per",
+        "ws",
     }
 
     if category not in valid_categories:
@@ -1114,6 +1151,8 @@ def get_leaders(season_id: str, category: str = "pts", limit: int = 10) -> list[
 
     if category == "per":
         return _get_per_leaders(season_id, limit)
+    if category == "ws":
+        return _get_ws_leaders(season_id, limit)
 
     query, min_games = _get_leaders_query(category)
 
@@ -1352,7 +1391,7 @@ def api_get_leaders(
     season: str = Query(default=None, description="Season code"),
     category: str = Query(
         default="pts",
-        description="Category: pts, reb, ast, stl, blk, min, fgp, tpp, ftp",
+        description="Category: pts, reb, ast, stl, blk, min, fgp, tpp, ftp, ws",
     ),
     limit: int = Query(default=10, le=50, description="Number of leaders"),
 ):
@@ -1391,6 +1430,7 @@ def api_get_all_leaders(
         "ts_pct",
         "pir",
         "per",
+        "ws",
     ]
 
     categories_data: dict[str, list[dict]] = {}
@@ -1467,6 +1507,7 @@ def get_player_comparison(player_ids: list[str], season_id: str) -> list[dict]:
     team_totals = get_team_season_totals(season_id)
     opp_totals = get_opponent_season_totals(season_id)
     league_ctx = _build_league_stats(season_id, team_totals)
+    standings_ctx = get_team_wins_by_season(season_id)
 
     with get_connection() as conn:
         rows = conn.execute(query, (*player_ids, season_id)).fetchall()
@@ -1487,7 +1528,12 @@ def get_player_comparison(player_ids: list[str], season_id: str) -> list[dict]:
                 "pf",
             ]:
                 d[key] = round(d[key], 1) if d[key] else 0
-            ts = _build_team_stats(d.get("team_id", ""), team_totals, opp_totals)
+            ts = _build_team_stats(
+                d.get("team_id", ""),
+                team_totals,
+                opp_totals,
+                standings_ctx,
+            )
             d = compute_advanced_stats(d, team_stats=ts, league_stats=league_ctx)
 
             # Clean up internal fields
