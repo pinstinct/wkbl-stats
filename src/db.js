@@ -786,12 +786,13 @@ const WKBLDatabase = (function () {
       const pm = playerPlusMinusMap.get(d.id);
       if (pm) {
         d.plus_minus_total = pm.total_pm;
-        d.plus_minus = pm.pm_per_game;
+        d.plus_minus_per_game = pm.pm_per_game;
       } else {
         // Fallback for missing lineup data: normalize team margin by games played.
         const totalPm = d.plus_minus_total || 0;
         d.plus_minus_total = totalPm;
-        d.plus_minus = d.gp > 0 ? Math.round((totalPm / d.gp) * 10) / 10 : 0;
+        d.plus_minus_per_game =
+          d.gp > 0 ? Math.round((totalPm / d.gp) * 10) / 10 : 0;
       }
 
       return d;
@@ -1008,11 +1009,12 @@ const WKBLDatabase = (function () {
       const pm = seasonPlusMinusMaps.get(d.season_id)?.get(playerId);
       if (pm) {
         d.plus_minus_total = pm.total_pm;
-        d.plus_minus = pm.pm_per_game;
+        d.plus_minus_per_game = pm.pm_per_game;
       } else {
         const totalPm = d.plus_minus_total || 0;
         d.plus_minus_total = totalPm;
-        d.plus_minus = d.gp > 0 ? Math.round((totalPm / d.gp) * 10) / 10 : 0;
+        d.plus_minus_per_game =
+          d.gp > 0 ? Math.round((totalPm / d.gp) * 10) / 10 : 0;
       }
 
       player.seasons[d.season_id] = d;

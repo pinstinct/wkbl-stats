@@ -148,7 +148,7 @@ export function renderPlayerAdvancedStats({
       signed: false,
     },
     {
-      key: "plus_minus",
+      key: "plus_minus_per_game",
       label: "+/-/G",
       desc: "출전 시간 기준 경기당 평균 득실점 차. +일수록 팀에 유리한 결과입니다.",
       signed: true,

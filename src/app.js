@@ -853,7 +853,7 @@ import {
       desc: "상대 2점 시도 대비 블록 비율. 높을수록 림 보호가 좋습니다.",
     },
     {
-      key: "plus_minus",
+      key: "plus_minus_per_game",
       label: "+/-/G",
       format: "signed",
       desc: "출전 시간 기준 경기당 평균 득실점 차. +일수록 팀에 유리한 결과입니다.",

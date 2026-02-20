@@ -568,7 +568,9 @@ def get_player_detail(player_id: str) -> Optional[dict]:
             pm_total = get_player_plus_minus_season(player_id, sid)
             season_stats["plus_minus_total"] = pm_total
             gp = season_stats.get("gp", 0) or 0
-            season_stats["plus_minus"] = round(pm_total / gp, 1) if gp > 0 else 0.0
+            season_stats["plus_minus_per_game"] = (
+                round(pm_total / gp, 1) if gp > 0 else 0.0
+            )
             result["seasons"][sid] = season_stats
 
         # Recent game log (last 10 games)
@@ -953,9 +955,9 @@ def get_game_boxscore(game_id: str) -> Optional[dict]:
                     if pid:
                         pm[pid] = pm.get(pid, 0) + diff
             for stat in home_stats:
-                stat["plus_minus"] = pm.get(stat["player_id"], 0)
+                stat["plus_minus_game"] = pm.get(stat["player_id"], 0)
             for stat in away_stats:
-                stat["plus_minus"] = pm.get(stat["player_id"], 0)
+                stat["plus_minus_game"] = pm.get(stat["player_id"], 0)
 
         result["home_team_stats"] = home_stats
         result["away_team_stats"] = away_stats
