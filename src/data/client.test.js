@@ -73,4 +73,17 @@ describe("data client", () => {
       "Player not found",
     );
   });
+
+  it("returns game shot chart rows via db", async () => {
+    const getShotChart = vi.fn(() => [{ id: 1 }]);
+    const client = createDataClient({
+      initDb: async () => true,
+      getDb: () => ({ getShotChart }),
+      getSeasonLabel: () => "시즌",
+    });
+
+    const rows = await client.getGameShotChart("g1", "p1");
+    expect(getShotChart).toHaveBeenCalledWith("g1", "p1");
+    expect(rows).toEqual([{ id: 1 }]);
+  });
 });

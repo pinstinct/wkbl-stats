@@ -258,6 +258,117 @@
   background: rgba(59, 130, 246, 0.2) !important;
 }
 
+.game-shot-section {
+  margin: 20px 0 24px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.game-shot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.game-shot-header h3 {
+  margin: 0;
+}
+
+.game-shot-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.game-shot-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: rgba(var(--ink-rgb), 0.7);
+}
+
+.game-shot-filters select {
+  min-width: 96px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.game-shot-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(90px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.shot-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.shot-label {
+  font-size: 11px;
+  color: rgba(var(--ink-rgb), 0.65);
+}
+
+.chart-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+}
+
+.game-shot-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+#gameShotScatterChart {
+  width: 100%;
+  max-height: 320px;
+}
+
+#gameShotZoneChart,
+#gameShotQuarterChart {
+  width: 100%;
+  max-height: 220px;
+}
+
+.game-shot-empty {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: rgba(var(--ink-rgb), 0.6);
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .game-shot-header {
+    flex-direction: column;
+  }
+
+  .game-shot-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game-shot-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .pred-under {
   background: rgba(239, 68, 68, 0.2) !important;
 }

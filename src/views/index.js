@@ -19,6 +19,13 @@ export {
 export { buildStandingsChartSeries } from "./teams-chart-logic.js";
 export { renderGamesList } from "./games.js";
 export { renderBoxscoreRows } from "./game-detail.js";
+export {
+  buildQuarterSeries,
+  buildZoneSeries,
+  filterGameShots,
+  normalizeGameShots,
+  summarizeGameShots,
+} from "./game-shot-logic.js";
 export { renderLeadersGrid } from "./leaders.js";
 export {
   renderCompareCards,

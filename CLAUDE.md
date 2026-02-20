@@ -144,19 +144,19 @@ uv run pytest tests/test_api.py -v
 
 Hash-based routing system for single-page application.
 
-| URL              | Page          | Description                                                  |
-| ---------------- | ------------- | ------------------------------------------------------------ |
-| `#/`             | Home          | Game prediction with optimal starting lineup recommendations |
-| `#/players`      | Players       | Player list with filters, sorting, search                    |
-| `#/players/{id}` | Player Detail | Career summary, season stats, trend chart, game log          |
-| `#/teams`        | Teams         | Standings table (rank, W-L, home/away)                       |
-| `#/teams/{id}`   | Team Detail   | Roster, recent games                                         |
-| `#/games`        | Games         | Game cards with scores                                       |
-| `#/games/{id}`   | Boxscore      | Full box score (home/away player stats, TS%, PIR, +/-)       |
-| `#/leaders`      | Leaders       | Top 5 in PTS/REB/AST/STL/BLK                                 |
-| `#/compare`      | Compare       | Player comparison tool (up to 4 players)                     |
-| `#/schedule`     | Schedule      | Upcoming and recent games with D-day countdown               |
-| `#/predict`      | Predict       | Individual player performance prediction                     |
+| URL              | Page          | Description                                                             |
+| ---------------- | ------------- | ----------------------------------------------------------------------- |
+| `#/`             | Home          | Game prediction with optimal starting lineup recommendations            |
+| `#/players`      | Players       | Player list with filters, sorting, search                               |
+| `#/players/{id}` | Player Detail | Career summary, season stats, trend chart, game log                     |
+| `#/teams`        | Teams         | Standings table (rank, W-L, home/away)                                  |
+| `#/teams/{id}`   | Team Detail   | Roster, recent games                                                    |
+| `#/games`        | Games         | Game cards with scores                                                  |
+| `#/games/{id}`   | Boxscore      | Full box score + interactive shot chart filters (player/result/quarter) |
+| `#/leaders`      | Leaders       | Top 5 in PTS/REB/AST/STL/BLK                                            |
+| `#/compare`      | Compare       | Player comparison tool (up to 4 players)                                |
+| `#/schedule`     | Schedule      | Upcoming and recent games with D-day countdown                          |
+| `#/predict`      | Predict       | Individual player performance prediction                                |
 
 **Global Search**: Press `Ctrl+K` (or `Cmd+K` on Mac) to open global search modal.
 
@@ -199,6 +199,7 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.jso
 - `src/app.js` - Frontend entry: routing, page orchestration
 - `src/db.js` - Browser SQLite module (sql.js wrapper, team/league aggregation, advanced stats)
 - `src/views/` - Page rendering and per-page pure logic (players, teams, games, etc.)
+- `src/views/game-shot-logic.js` - Shot chart filter/aggregation pure logic (TDD covered)
 - `src/ui/` - DOM event binding, navigation, router logic
 - `src/data/` - Data access layer (API/local DB abstraction)
 - `src/styles/` - CSS split: core/components/pages/responsive

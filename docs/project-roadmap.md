@@ -24,6 +24,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 | Phase 7.3 | ✅ 완료 | 고급 지표 Tier 2 — On/Off Rating & +/- (라인업 추적 엔진)     |
 | Phase 7.4 | ✅ 완료 | 개인 ORtg/DRtg (팀 수준 → 개인 수준 전환)                     |
 | Phase 8   | ✅ 완료 | 프론트엔드 고급 지표 표시 (정적 호스팅 팀 컨텍스트 계산 포함) |
+| Phase 8.5 | 🚧 진행 | 게임 상세 인터랙티브 슛차트 대시보드 (선수/결과/쿼터 필터)    |
 | 리팩토링  | ✅ 완료 | P0~P4 전체 (구조 분리, CSS 정리, 데이터 정확도, 테스트 보강)  |
 
 ---
@@ -258,6 +259,15 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] 쿼터 점수 시즌 필터 수정 (API가 전 시즌 데이터 반환하는 문제)
 - [x] H2H 파서 재작성 (paired row 파싱, team1/2_scores 쿼터점수 추출)
 - [x] PBP 파서 재작성 (li 태그 전체 캡처, quarter/clock/score/team_id 추출)
+
+### Phase 8.5: 게임 상세 인터랙티브 슛차트 🚧 진행중 (2026-02-20)
+
+- [x] `#/games/{id}` 슛차트 필터 패널 (선수/성공실패/쿼터)
+- [x] 메인 슛 분포 Scatter 차트 (성공/실패 분리)
+- [x] 존별 시도 + FG% 복합 차트
+- [x] 쿼터별 성공/실패 누적 차트
+- [x] TDD: `src/views/game-shot-logic.test.js` + `src/data/client.test.js` 확장
+- [ ] OT 라벨/팀 필터/코트 SVG 오버레이 고도화
 - [x] EVENT_TYPE_MAP 추가 (한국어→영어 이벤트 코드 24종)
 - [x] event_types 마스터 테이블 추가 (코드, 한국어명, 카테고리)
 - [x] shot_charts 스키마 개선 (is_home 제거, shot_zone 좌표 기반 자동 분류)

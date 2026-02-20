@@ -1,8 +1,12 @@
 import {
   buildPredictionCompareState,
+  buildQuarterSeries,
   buildStandingsChartSeries,
+  buildZoneSeries,
   calculatePrediction,
   filterPlayers,
+  filterGameShots,
+  normalizeGameShots,
   renderBoxscoreRows,
   renderCareerSummary,
   renderCompareCards,
@@ -28,6 +32,7 @@ import {
   renderTeamStats,
   renderTotalStats,
   renderUpcomingGames,
+  summarizeGameShots,
   sortPlayers,
   sortStandings,
 } from "./views/index.js";
@@ -228,6 +233,10 @@ import {
 
   async function fetchGameBoxscore(gameId) {
     return dataClient.getGameBoxscore(gameId);
+  }
+
+  async function fetchGameShotChart(gameId, playerId = null) {
+    return dataClient.getGameShotChart(gameId, playerId);
   }
 
   async function fetchLeaders(season, category, limit = 10) {
@@ -1853,10 +1862,249 @@ import {
   // Game Detail Page (Boxscore)
   // =============================================================================
 
+  let gameShotScatterChart = null;
+  let gameShotZoneChart = null;
+  let gameShotQuarterChart = null;
+  let unmountGameShotFilters = null;
+
+  function destroyGameShotCharts() {
+    if (gameShotScatterChart) gameShotScatterChart.destroy();
+    if (gameShotZoneChart) gameShotZoneChart.destroy();
+    if (gameShotQuarterChart) gameShotQuarterChart.destroy();
+    gameShotScatterChart = null;
+    gameShotZoneChart = null;
+    gameShotQuarterChart = null;
+  }
+
+  function updateGameShotSummary(summary) {
+    $("gameShotAttempts").textContent = String(summary.attempts);
+    $("gameShotMade").textContent = String(summary.made);
+    $("gameShotMissed").textContent = String(summary.missed);
+    $("gameShotFgPct").textContent = `${summary.fgPct.toFixed(1)}%`;
+  }
+
+  function renderGameShotScatterChart(shots) {
+    const canvas = $("gameShotScatterChart");
+    if (!canvas || !window.Chart) return;
+    if (gameShotScatterChart) gameShotScatterChart.destroy();
+
+    const made = shots.filter((shot) => shot.made);
+    const missed = shots.filter((shot) => !shot.made);
+
+    gameShotScatterChart = new Chart(canvas.getContext("2d"), {
+      type: "scatter",
+      data: {
+        datasets: [
+          {
+            label: "성공",
+            data: made.map((shot) => ({ x: shot.x, y: shot.y, shot })),
+            pointRadius: 4,
+            pointBackgroundColor: "rgba(16, 185, 129, 0.85)",
+          },
+          {
+            label: "실패",
+            data: missed.map((shot) => ({ x: shot.x, y: shot.y, shot })),
+            pointRadius: 4,
+            pointStyle: "crossRot",
+            pointBackgroundColor: "rgba(239, 68, 68, 0.85)",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { min: 0, max: 100, title: { display: true, text: "X" } },
+          y: { min: 0, max: 100, title: { display: true, text: "Y" } },
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label(context) {
+                const shot = context.raw.shot;
+                return `${shot.playerName} Q${shot.quarter} ${shot.made ? "성공" : "실패"}`;
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  function renderGameShotZoneChart(shots) {
+    const canvas = $("gameShotZoneChart");
+    if (!canvas || !window.Chart) return;
+    if (gameShotZoneChart) gameShotZoneChart.destroy();
+    const zone = buildZoneSeries(shots);
+
+    gameShotZoneChart = new Chart(canvas.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: zone.labels,
+        datasets: [
+          {
+            label: "시도",
+            data: zone.attempts,
+            backgroundColor: "rgba(59, 130, 246, 0.5)",
+            yAxisID: "y",
+          },
+          {
+            label: "FG%",
+            data: zone.fgPct,
+            type: "line",
+            borderColor: "rgba(16, 185, 129, 0.9)",
+            backgroundColor: "rgba(16, 185, 129, 0.9)",
+            yAxisID: "y1",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: "Attempts" } },
+          y1: {
+            beginAtZero: true,
+            max: 100,
+            position: "right",
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: "FG%" },
+          },
+        },
+      },
+    });
+  }
+
+  function renderGameShotQuarterChart(shots) {
+    const canvas = $("gameShotQuarterChart");
+    if (!canvas || !window.Chart) return;
+    if (gameShotQuarterChart) gameShotQuarterChart.destroy();
+    const quarter = buildQuarterSeries(shots);
+
+    gameShotQuarterChart = new Chart(canvas.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: quarter.labels,
+        datasets: [
+          {
+            label: "성공",
+            data: quarter.made,
+            backgroundColor: "rgba(16, 185, 129, 0.7)",
+            stack: "shots",
+          },
+          {
+            label: "실패",
+            data: quarter.missed,
+            backgroundColor: "rgba(239, 68, 68, 0.7)",
+            stack: "shots",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true },
+        },
+      },
+    });
+  }
+
+  function renderGameShotSection(game, rawShots) {
+    const section = $("gameShotSection");
+    if (!section) return;
+
+    if (unmountGameShotFilters) {
+      unmountGameShotFilters();
+      unmountGameShotFilters = null;
+    }
+    destroyGameShotCharts();
+
+    const playerNameMap = {};
+    [...(game.away_team_stats || []), ...(game.home_team_stats || [])].forEach(
+      (player) => {
+        playerNameMap[player.player_id] = player.player_name;
+      },
+    );
+    const normalized = normalizeGameShots(rawShots, playerNameMap);
+    if (!window.Chart || normalized.length === 0) {
+      section.style.display = "none";
+      return;
+    }
+
+    section.style.display = "block";
+
+    const playerSelect = $("gameShotPlayerSelect");
+    const resultSelect = $("gameShotResultSelect");
+    const quarterSelect = $("gameShotQuarterSelect");
+    const emptyMsg = $("gameShotEmptyMsg");
+
+    const players = [
+      ...new Map(
+        normalized.map((shot) => [
+          shot.playerId,
+          shot.playerName || shot.playerId,
+        ]),
+      ).entries(),
+    ].sort((a, b) => a[1].localeCompare(b[1], "ko"));
+
+    playerSelect.innerHTML = [
+      '<option value="all">전체</option>',
+      ...players.map(
+        ([playerId, playerName]) =>
+          `<option value="${playerId}">${playerName}</option>`,
+      ),
+    ].join("");
+    resultSelect.value = "all";
+    quarterSelect.value = "all";
+
+    const filters = { playerId: "all", result: "all", quarter: "all" };
+    const applyFilters = () => {
+      const filtered = filterGameShots(normalized, filters);
+      const summary = summarizeGameShots(filtered);
+      updateGameShotSummary(summary);
+      const hasData = filtered.length > 0;
+      emptyMsg.style.display = hasData ? "none" : "block";
+      if (!hasData) {
+        destroyGameShotCharts();
+        return;
+      }
+      renderGameShotScatterChart(filtered);
+      renderGameShotZoneChart(filtered);
+      renderGameShotQuarterChart(filtered);
+    };
+
+    const onPlayerChange = (event) => {
+      filters.playerId = event.target.value;
+      applyFilters();
+    };
+    const onResultChange = (event) => {
+      filters.result = event.target.value;
+      applyFilters();
+    };
+    const onQuarterChange = (event) => {
+      filters.quarter = event.target.value;
+      applyFilters();
+    };
+
+    playerSelect.addEventListener("change", onPlayerChange);
+    resultSelect.addEventListener("change", onResultChange);
+    quarterSelect.addEventListener("change", onQuarterChange);
+    unmountGameShotFilters = () => {
+      playerSelect.removeEventListener("change", onPlayerChange);
+      resultSelect.removeEventListener("change", onResultChange);
+      quarterSelect.removeEventListener("change", onQuarterChange);
+    };
+
+    applyFilters();
+  }
+
   async function loadGamePage(gameId) {
     try {
       window.scrollTo({ top: 0, left: 0, behavior: "instant" });
       const game = await fetchGameBoxscore(gameId);
+      const shotRows = await fetchGameShotChart(gameId);
 
       $("boxscoreDate").textContent = formatDate(game.game_date);
       $("boxscoreAwayTeam").textContent = game.away_team_name;
@@ -2120,6 +2368,8 @@ import {
       } else {
         legendEl.style.display = "none";
       }
+
+      renderGameShotSection(game, shotRows);
     } catch (error) {
       console.error("Failed to load game:", error);
     }

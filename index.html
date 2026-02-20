@@ -632,6 +632,81 @@
             style="display: none"
           ></div>
 
+          <div
+            id="gameShotSection"
+            class="game-shot-section"
+            style="display: none"
+          >
+            <div class="game-shot-header">
+              <h3>게임 슛차트</h3>
+              <div class="game-shot-filters">
+                <label>
+                  선수
+                  <select id="gameShotPlayerSelect">
+                    <option value="all">전체</option>
+                  </select>
+                </label>
+                <label>
+                  결과
+                  <select id="gameShotResultSelect">
+                    <option value="all">성공+실패</option>
+                    <option value="made">성공만</option>
+                    <option value="miss">실패만</option>
+                  </select>
+                </label>
+                <label>
+                  쿼터
+                  <select id="gameShotQuarterSelect">
+                    <option value="all">전체</option>
+                    <option value="1">1Q</option>
+                    <option value="2">2Q</option>
+                    <option value="3">3Q</option>
+                    <option value="4">4Q</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div class="game-shot-summary">
+              <div class="shot-card">
+                <span class="shot-label">시도</span>
+                <strong id="gameShotAttempts">0</strong>
+              </div>
+              <div class="shot-card">
+                <span class="shot-label">성공</span>
+                <strong id="gameShotMade">0</strong>
+              </div>
+              <div class="shot-card">
+                <span class="shot-label">실패</span>
+                <strong id="gameShotMissed">0</strong>
+              </div>
+              <div class="shot-card">
+                <span class="shot-label">FG%</span>
+                <strong id="gameShotFgPct">0.0%</strong>
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <canvas id="gameShotScatterChart"></canvas>
+              <p
+                id="gameShotEmptyMsg"
+                class="game-shot-empty"
+                style="display: none"
+              >
+                선택한 조건에 해당하는 슛 데이터가 없습니다.
+              </p>
+            </div>
+
+            <div class="game-shot-grid">
+              <div class="chart-card">
+                <canvas id="gameShotZoneChart"></canvas>
+              </div>
+              <div class="chart-card">
+                <canvas id="gameShotQuarterChart"></canvas>
+              </div>
+            </div>
+          </div>
+
           <div class="detail-section">
             <h3 id="boxscoreAwayTeamName">원정팀</h3>
             <div class="table-wrap">

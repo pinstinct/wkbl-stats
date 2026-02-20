@@ -90,6 +90,12 @@ export function createDataClient({ initDb, getDb, getSeasonLabel }) {
       return boxscore;
     },
 
+    async getGameShotChart(gameId, playerId = null) {
+      const db = await withDb();
+      if (!db) return [];
+      return db.getShotChart(gameId, playerId);
+    },
+
     async getLeaders(season, category, limit = 10) {
       const db = await withDb();
       if (!db) return [];
