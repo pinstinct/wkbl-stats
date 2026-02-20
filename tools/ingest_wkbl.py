@@ -3420,6 +3420,12 @@ def main():
 
     end_date = _resolve_season_params(args)
 
+    # Ensure schema migrations are applied even when no new games are fetched.
+    # This prevents later steps (e.g., lineup computation) from failing on
+    # existing DB files missing newly added tables.
+    if args.save_db:
+        database.init_db()
+
     # Get existing game IDs for incremental update
     existing_game_ids = None
     if args.save_db and not args.force_refresh:
