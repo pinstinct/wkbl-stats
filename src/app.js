@@ -1,5 +1,7 @@
 import {
   buildPlayerSelectOptions,
+  getCourtArcRadii,
+  getCourtAspectRatio,
   buildZoneTableRows,
   getShotChartScaleBounds,
   buildShotChartExportName,
@@ -1903,15 +1905,17 @@ import {
 
         const x = (v) => xScale.getPixelForValue(v);
         const y = (v) => yScale.getPixelForValue(v);
-        const xr = (delta) =>
-          Math.abs(xScale.getPixelForValue(145.5 + delta) - x(145.5));
-        const yr = (delta) =>
-          Math.abs(yScale.getPixelForValue(18 + delta) - y(18));
-        const rr = (delta) => (xr(delta) + yr(delta)) / 2;
+        const pxPerX = Math.abs(xScale.getPixelForValue(146.5) - x(145.5));
+        const pxPerY = Math.abs(yScale.getPixelForValue(19) - y(18));
+        const radii = (unit) => getCourtArcRadii(pxPerX, pxPerY, unit);
+        const sx = (v) => Math.round(v) + 0.5;
+        const sy = (v) => Math.round(v) + 0.5;
 
         ctx.save();
         ctx.strokeStyle = options.lineColor || "rgba(27, 28, 31, 0.25)";
-        ctx.lineWidth = options.lineWidth || 1.2;
+        ctx.lineWidth = options.lineWidth || 1;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
 
         // WKBL half-court guide based on shot chart px coordinates.
         // Court extents: x≈0~291, y≈18~176. Rim center around (145.5, 18).
@@ -1919,33 +1923,53 @@ import {
         ctx.strokeRect(x(117), y(18), x(174) - x(117), y(56) - y(18)); // key
 
         // Free-throw circle.
+        const ft = radii(20);
         ctx.beginPath();
-        ctx.arc(x(145.5), y(90), rr(20), 0, Math.PI * 2);
+        ctx.ellipse(x(145.5), y(90), ft.rx, ft.ry, 0, 0, Math.PI * 2);
         ctx.stroke();
 
         // Backboard and rim.
         ctx.beginPath();
-        ctx.moveTo(x(131), y(25));
-        ctx.lineTo(x(160), y(25));
+        ctx.moveTo(sx(x(131)), sy(y(25)));
+        ctx.lineTo(sx(x(160)), sy(y(25)));
         ctx.stroke();
+        const rim = radii(7);
         ctx.beginPath();
-        ctx.arc(x(145.5), y(18), rr(7), 0, Math.PI * 2);
+        ctx.ellipse(x(145.5), y(18), rim.rx, rim.ry, 0, 0, Math.PI * 2);
         ctx.stroke();
 
         // Restricted area arc.
+        const ra = radii(22);
         ctx.beginPath();
-        ctx.arc(x(145.5), y(18), rr(22), Math.PI * 0.12, Math.PI * 0.88);
+        ctx.ellipse(
+          x(145.5),
+          y(18),
+          ra.rx,
+          ra.ry,
+          0,
+          Math.PI * 0.12,
+          Math.PI * 0.88,
+        );
         ctx.stroke();
 
         // Three-point lines + arc.
         ctx.beginPath();
-        ctx.moveTo(x(33), y(18));
-        ctx.lineTo(x(33), y(122));
-        ctx.moveTo(x(258), y(18));
-        ctx.lineTo(x(258), y(122));
+        ctx.moveTo(sx(x(33)), sy(y(18)));
+        ctx.lineTo(sx(x(33)), sy(y(122)));
+        ctx.moveTo(sx(x(258)), sy(y(18)));
+        ctx.lineTo(sx(x(258)), sy(y(122)));
         ctx.stroke();
+        const three = radii(120);
         ctx.beginPath();
-        ctx.arc(x(145.5), y(18), rr(120), Math.PI * 0.19, Math.PI * 0.81);
+        ctx.ellipse(
+          x(145.5),
+          y(18),
+          three.rx,
+          three.ry,
+          0,
+          Math.PI * 0.19,
+          Math.PI * 0.81,
+        );
         ctx.stroke();
 
         ctx.restore();
@@ -1985,7 +2009,8 @@ import {
       },
       options: {
         responsive: true,
-        maintainAspectRatio: false,
+        maintainAspectRatio: true,
+        aspectRatio: getCourtAspectRatio(),
         scales: {
           x: {
             min: bounds.xMin,

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseQuarterCode,
+  getCourtAspectRatio,
+  getCourtArcRadii,
   buildPlayerSelectOptions,
   getShotChartScaleBounds,
   buildZoneTableRows,
@@ -216,5 +218,13 @@ describe("game shot logic", () => {
       yMin: 10,
       yMax: 186,
     });
+  });
+
+  it("returns fixed court aspect ratio from bounds", () => {
+    expect(getCourtAspectRatio()).toBeCloseTo(307 / 176, 5);
+  });
+
+  it("returns axis-aware arc radii", () => {
+    expect(getCourtArcRadii(1, 0.6, 20)).toEqual({ rx: 20, ry: 12 });
   });
 });

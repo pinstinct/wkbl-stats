@@ -22,6 +22,8 @@ export { renderBoxscoreRows } from "./game-detail.js";
 export {
   buildZoneTableRows,
   buildPlayerSelectOptions,
+  getCourtArcRadii,
+  getCourtAspectRatio,
   getShotChartScaleBounds,
   buildShotChartExportName,
   buildQuarterSelectOptions,

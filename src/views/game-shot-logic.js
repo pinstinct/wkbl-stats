@@ -124,6 +124,18 @@ export function getShotChartScaleBounds() {
   };
 }
 
+export function getCourtAspectRatio() {
+  const b = getShotChartScaleBounds();
+  return (b.xMax - b.xMin) / (b.yMax - b.yMin);
+}
+
+export function getCourtArcRadii(xPixelsPerUnit, yPixelsPerUnit, radiusUnit) {
+  return {
+    rx: xPixelsPerUnit * radiusUnit,
+    ry: yPixelsPerUnit * radiusUnit,
+  };
+}
+
 /**
  * Compute aggregate summary for cards.
  */
