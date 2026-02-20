@@ -2189,7 +2189,6 @@ const WKBLDatabase = (function () {
       "pir",
       "per",
       "ws",
-      "plus_minus_per100",
     ];
     const result = {};
 

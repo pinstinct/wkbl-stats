@@ -1811,7 +1811,6 @@ def api_get_all_leaders(
         "pir",
         "per",
         "ws",
-        "plus_minus_per100",
     ]
 
     categories_data: dict[str, list[dict]] = {}

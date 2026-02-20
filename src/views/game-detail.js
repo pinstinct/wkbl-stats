@@ -38,11 +38,11 @@ export function renderBoxscoreRows({
         <td class="${blkPred.cls}" title="${blkPred.title}">${p.blk}</td>
         <td class="hide-mobile">${p.tov}</td>
         <td class="hide-mobile">${p.fgm}/${p.fga}</td>
-        <td class="hide-tablet">${p.tpm}/${p.tpa}</td>
-        <td class="hide-tablet">${p.ftm}/${p.fta}</td>
-        <td class="hide-tablet">${formatPct(p.ts_pct)}</td>
-        <td class="hide-tablet">${p.pir}</td>
-        <td class="hide-tablet ${pmClass}">${pm === null || pm === undefined ? "-" : formatSigned(pm, 0)}</td>
+        <td>${p.tpm}/${p.tpa}</td>
+        <td>${p.ftm}/${p.fta}</td>
+        <td>${formatPct(p.ts_pct)}</td>
+        <td>${p.pir}</td>
+        <td class="${pmClass}">${pm === null || pm === undefined ? "-" : formatSigned(pm, 0)}</td>
       </tr>
     `;
   }
@@ -63,11 +63,11 @@ export function renderBoxscoreRows({
         <td title="예측: ${(pred.predicted_blk || 0).toFixed(1)}">-</td>
         <td class="hide-mobile">-</td>
         <td class="hide-mobile">-</td>
-        <td class="hide-tablet">-</td>
-        <td class="hide-tablet">-</td>
-        <td class="hide-tablet">-</td>
-        <td class="hide-tablet">-</td>
-        <td class="hide-tablet">-</td>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
       </tr>
     `;
   }

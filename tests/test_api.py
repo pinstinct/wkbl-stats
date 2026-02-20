@@ -621,7 +621,7 @@ class TestLeadersEndpoint:
             "ts_pct",
             "pir",
             "per",
-            "plus_minus_per100",
+            "ws",
         ]:
             assert key in categories, f"Missing advanced category: {key}"
             assert isinstance(categories[key], list)

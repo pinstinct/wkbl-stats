@@ -309,6 +309,38 @@
 
 /* Compare Responsive */
 @media (max-width: 768px) {
+  #compareTable {
+    border-collapse: separate;
+    border-spacing: 0;
+    min-width: 560px;
+    width: max-content;
+  }
+
+  #compareTable th,
+  #compareTable td {
+    padding: 7px 6px;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+
+  #compareTable th:first-child,
+  #compareTable td:first-child {
+    position: sticky;
+    left: 0;
+    min-width: 76px;
+    width: 76px;
+    max-width: 76px;
+    z-index: 6;
+  }
+
+  #compareTable th:first-child {
+    background: var(--surface-2);
+  }
+
+  #compareTable td:first-child {
+    background: var(--surface);
+  }
+
   .compare-cards {
     grid-template-columns: 1fr;
   }
@@ -323,6 +355,23 @@
 }
 
 @media (max-width: 480px) {
+  #compareTable {
+    min-width: 520px;
+  }
+
+  #compareTable th,
+  #compareTable td {
+    padding: 6px 4px;
+    font-size: 11px;
+  }
+
+  #compareTable th:first-child,
+  #compareTable td:first-child {
+    min-width: 68px;
+    width: 68px;
+    max-width: 68px;
+  }
+
   .compare-player-stats {
     grid-template-columns: repeat(4, 1fr);
   }

@@ -74,7 +74,6 @@ import {
     { key: "pir", label: "PIR", unit: "per game" },
     { key: "per", label: "PER", unit: "" },
     { key: "ws", label: "WS", unit: "" },
-    { key: "plus_minus_per100", label: "+/-/100", unit: "" },
   ];
 
   // =============================================================================
