@@ -279,6 +279,26 @@
   margin: 0;
 }
 
+.game-shot-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-shot-export {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-shot-export:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
 .game-shot-filters {
   display: flex;
   flex-wrap: wrap;
@@ -334,26 +354,11 @@
   height: 320px;
   border: 1px solid rgba(var(--ink-rgb), 0.08);
   border-radius: 10px;
-  background:
-    radial-gradient(
-      circle at 50% 75%,
-      rgba(0, 0, 0, 0) 19%,
-      rgba(var(--ink-rgb), 0.06) 19%,
-      rgba(var(--ink-rgb), 0.06) 20%,
-      rgba(0, 0, 0, 0) 20%
-    ),
-    linear-gradient(
-      to top,
-      rgba(var(--ink-rgb), 0.02),
-      rgba(var(--ink-rgb), 0.02)
-    ),
-    repeating-linear-gradient(
-      to right,
-      rgba(var(--ink-rgb), 0.04) 0,
-      rgba(var(--ink-rgb), 0.04) 1px,
-      transparent 1px,
-      transparent 40px
-    );
+  background: linear-gradient(
+    to top,
+    rgba(var(--ink-rgb), 0.03),
+    rgba(var(--ink-rgb), 0.01)
+  );
 }
 
 .game-shot-grid {
@@ -384,6 +389,7 @@
 @media (max-width: 900px) {
   .game-shot-header {
     flex-direction: column;
+    align-items: flex-start;
   }
 
   .game-shot-summary {

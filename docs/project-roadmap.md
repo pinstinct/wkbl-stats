@@ -268,9 +268,10 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] 쿼터별 성공/실패 누적 차트
 - [x] 팀 필터(홈/원정) 추가
 - [x] OT 쿼터 라벨(OT1, OT2...) 동적 지원
-- [x] 메인 슛 분포 코트 배경 오버레이 적용
+- [x] 메인 슛 분포 코트 라인 오버레이(Chart.js plugin) 적용
+- [x] 현재 필터 상태 기반 슛차트 PNG export
 - [x] TDD: `src/views/game-shot-logic.test.js` + `src/data/client.test.js` 확장
-- [ ] 슛차트 PNG export + 코트 SVG 정밀화
+- [ ] 코트 SVG 정밀화(선/호 치수 미세조정)
 - [x] EVENT_TYPE_MAP 추가 (한국어→영어 이벤트 코드 24종)
 - [x] event_types 마스터 테이블 추가 (코드, 한국어명, 카테고리)
 - [x] shot_charts 스키마 개선 (is_home 제거, shot_zone 좌표 기반 자동 분류)

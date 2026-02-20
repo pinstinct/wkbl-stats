@@ -1,4 +1,5 @@
 import {
+  buildShotChartExportName,
   buildQuarterSelectOptions,
   buildPredictionCompareState,
   buildQuarterSeries,
@@ -1868,6 +1869,7 @@ import {
   let gameShotZoneChart = null;
   let gameShotQuarterChart = null;
   let unmountGameShotFilters = null;
+  let shotCourtPluginRegistered = false;
 
   function destroyGameShotCharts() {
     if (gameShotScatterChart) gameShotScatterChart.destroy();
@@ -1885,10 +1887,69 @@ import {
     $("gameShotFgPct").textContent = `${summary.fgPct.toFixed(1)}%`;
   }
 
+  function ensureShotCourtOverlayPlugin() {
+    if (shotCourtPluginRegistered || !window.Chart) return;
+    window.Chart.register({
+      id: "shotCourtOverlay",
+      beforeDatasetsDraw(chart, _args, options) {
+        if (!options || chart.config.type !== "scatter") return;
+        const { ctx, scales } = chart;
+        const xScale = scales.x;
+        const yScale = scales.y;
+        if (!xScale || !yScale) return;
+
+        const x = (v) => xScale.getPixelForValue(v);
+        const y = (v) => yScale.getPixelForValue(v);
+        const r = (v) => Math.abs(x(v) - x(0));
+
+        ctx.save();
+        ctx.strokeStyle = options.lineColor || "rgba(27, 28, 31, 0.25)";
+        ctx.lineWidth = options.lineWidth || 1.2;
+
+        // Paint area rectangle.
+        ctx.strokeRect(x(40), y(19), x(60) - x(40), y(0) - y(19));
+
+        // Free throw circle.
+        ctx.beginPath();
+        ctx.arc(x(50), y(19), r(6), 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Backboard and rim.
+        ctx.beginPath();
+        ctx.moveTo(x(47), y(8));
+        ctx.lineTo(x(53), y(8));
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x(50), y(6), r(1.5), 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Restricted area arc.
+        ctx.beginPath();
+        ctx.arc(x(50), y(6), r(4), Math.PI * 0.1, Math.PI * 0.9);
+        ctx.stroke();
+
+        // Three-point boundary.
+        ctx.beginPath();
+        ctx.moveTo(x(22), y(0));
+        ctx.lineTo(x(22), y(28));
+        ctx.moveTo(x(78), y(0));
+        ctx.lineTo(x(78), y(28));
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x(50), y(6), r(28), Math.PI * 0.18, Math.PI * 0.82);
+        ctx.stroke();
+
+        ctx.restore();
+      },
+    });
+    shotCourtPluginRegistered = true;
+  }
+
   function renderGameShotScatterChart(shots) {
     const canvas = $("gameShotScatterChart");
     if (!canvas || !window.Chart) return;
     if (gameShotScatterChart) gameShotScatterChart.destroy();
+    ensureShotCourtOverlayPlugin();
 
     const made = shots.filter((shot) => shot.made);
     const missed = shots.filter((shot) => !shot.made);
@@ -1920,6 +1981,10 @@ import {
           y: { min: 0, max: 100, title: { display: true, text: "Y" } },
         },
         plugins: {
+          shotCourtOverlay: {
+            lineColor: "rgba(27, 28, 31, 0.24)",
+            lineWidth: 1.2,
+          },
           tooltip: {
             callbacks: {
               label(context) {
@@ -2041,7 +2106,19 @@ import {
     const teamSelect = $("gameShotTeamSelect");
     const resultSelect = $("gameShotResultSelect");
     const quarterSelect = $("gameShotQuarterSelect");
+    const exportBtn = $("gameShotExportBtn");
     const emptyMsg = $("gameShotEmptyMsg");
+    if (
+      !playerSelect ||
+      !teamSelect ||
+      !resultSelect ||
+      !quarterSelect ||
+      !exportBtn ||
+      !emptyMsg
+    ) {
+      section.style.display = "none";
+      return;
+    }
 
     const players = [
       ...new Map(
@@ -2087,6 +2164,23 @@ import {
       result: "all",
       quarter: "all",
     };
+    const getCurrentFilters = () => ({ ...filters });
+
+    const exportCurrentShotChart = () => {
+      if (!gameShotScatterChart) return;
+      const link = document.createElement("a");
+      link.download = buildShotChartExportName({
+        gameId:
+          game.id ||
+          game.game_id ||
+          game.home_team_id + "_" + game.away_team_id,
+        filters: getCurrentFilters(),
+      });
+      link.href = gameShotScatterChart.toBase64Image("image/png", 1);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
     const applyFilters = () => {
       const filtered = filterGameShots(normalized, filters);
       const summary = summarizeGameShots(filtered);
@@ -2095,11 +2189,13 @@ import {
       emptyMsg.style.display = hasData ? "none" : "block";
       if (!hasData) {
         destroyGameShotCharts();
+        exportBtn.disabled = true;
         return;
       }
       renderGameShotScatterChart(filtered);
       renderGameShotZoneChart(filtered);
       renderGameShotQuarterChart(filtered);
+      exportBtn.disabled = false;
     };
 
     const onPlayerChange = (event) => {
@@ -2118,16 +2214,21 @@ import {
       filters.quarter = event.target.value;
       applyFilters();
     };
+    const onExportClick = () => {
+      exportCurrentShotChart();
+    };
 
     playerSelect.addEventListener("change", onPlayerChange);
     teamSelect.addEventListener("change", onTeamChange);
     resultSelect.addEventListener("change", onResultChange);
     quarterSelect.addEventListener("change", onQuarterChange);
+    exportBtn.addEventListener("click", onExportClick);
     unmountGameShotFilters = () => {
       playerSelect.removeEventListener("change", onPlayerChange);
       teamSelect.removeEventListener("change", onTeamChange);
       resultSelect.removeEventListener("change", onResultChange);
       quarterSelect.removeEventListener("change", onQuarterChange);
+      exportBtn.removeEventListener("click", onExportClick);
     };
 
     applyFilters();

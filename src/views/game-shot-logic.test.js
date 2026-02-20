@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildShotChartExportName,
   buildQuarterSeries,
   buildQuarterSelectOptions,
   buildZoneSeries,
@@ -140,5 +141,19 @@ describe("game shot logic", () => {
       { value: "2", label: "2Q" },
       { value: "5", label: "OT1" },
     ]);
+  });
+
+  it("builds stable export file name", () => {
+    expect(
+      buildShotChartExportName({
+        gameId: "G20260220-001",
+        filters: {
+          teamId: "home",
+          playerId: "p1",
+          result: "made",
+          quarter: "5",
+        },
+      }),
+    ).toBe("shotchart_G20260220-001_home_p1_made_q5.png");
   });
 });

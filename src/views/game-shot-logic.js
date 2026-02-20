@@ -130,3 +130,24 @@ export function buildQuarterSeries(shots) {
 
   return { labels, made, missed };
 }
+
+function sanitizeFileToken(value) {
+  return String(value || "all")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9_-]/g, "");
+}
+
+export function buildShotChartExportName({
+  gameId,
+  filters = { teamId: "all", playerId: "all", result: "all", quarter: "all" },
+}) {
+  const team = sanitizeFileToken(filters.teamId || "all");
+  const player = sanitizeFileToken(filters.playerId || "all");
+  const result = sanitizeFileToken(filters.result || "all");
+  const quarter =
+    filters.quarter && filters.quarter !== "all"
+      ? `q${sanitizeFileToken(filters.quarter)}`
+      : "qall";
+  return `shotchart_${sanitizeFileToken(gameId)}_${team}_${player}_${result}_${quarter}.png`;
+}
