@@ -152,7 +152,7 @@ Hash-based routing system for single-page application.
 | `#/teams`        | Teams         | Standings table (rank, W-L, home/away)                                                                        |
 | `#/teams/{id}`   | Team Detail   | Roster, recent games                                                                                          |
 | `#/games`        | Games         | Game cards with scores                                                                                        |
-| `#/games/{id}`   | Boxscore      | Full box score + Shotcharts/Shotzones tabs + interactive shot chart filters + PNG export + WKBL court overlay |
+| `#/games/{id}`   | Boxscore      | Full box score + Shotcharts/Shotzones tabs + team-first linked shot filters + PNG export + WKBL court overlay |
 | `#/leaders`      | Leaders       | Top 5 in PTS/REB/AST/STL/BLK                                                                                  |
 | `#/compare`      | Compare       | Player comparison tool (up to 4 players)                                                                      |
 | `#/schedule`     | Schedule      | Upcoming and recent games with D-day countdown                                                                |

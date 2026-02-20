@@ -21,6 +21,8 @@ export { renderGamesList } from "./games.js";
 export { renderBoxscoreRows } from "./game-detail.js";
 export {
   buildZoneTableRows,
+  buildPlayerSelectOptions,
+  getShotChartScaleBounds,
   buildShotChartExportName,
   buildQuarterSelectOptions,
   buildQuarterSeries,

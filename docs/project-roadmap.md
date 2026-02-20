@@ -274,6 +274,9 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] WKBL 좌표계 축 스케일(0~291, 18~176)로 슛 점/코트 오버레이 정렬
 - [x] `Shotcharts / Shotzones` 탭 분리 UI
 - [x] Shotzones 테이블(Zone/FGM/FGA/FG%) 추가
+- [x] 필터 순서 팀 우선(팀→선수→결과→쿼터) 정렬
+- [x] 팀 선택 기반 선수 옵션 재구성(팀-선수 매칭 보정)
+- [x] 슛차트 스케일 확장으로 코트 clipping 완화
 - [x] TDD: `src/views/game-shot-logic.test.js` + `src/data/client.test.js` 확장
 - [ ] 코트 SVG 정밀화(선/호 치수 미세조정)
 - [x] EVENT_TYPE_MAP 추가 (한국어→영어 이벤트 코드 24종)

@@ -1,5 +1,7 @@
 import {
+  buildPlayerSelectOptions,
   buildZoneTableRows,
+  getShotChartScaleBounds,
   buildShotChartExportName,
   buildQuarterSelectOptions,
   buildPredictionCompareState,
@@ -1960,6 +1962,7 @@ import {
 
     const made = shots.filter((shot) => shot.made);
     const missed = shots.filter((shot) => !shot.made);
+    const bounds = getShotChartScaleBounds(shots);
 
     gameShotScatterChart = new Chart(canvas.getContext("2d"), {
       type: "scatter",
@@ -1985,15 +1988,15 @@ import {
         maintainAspectRatio: false,
         scales: {
           x: {
-            min: 0,
-            max: 291,
+            min: bounds.xMin,
+            max: bounds.xMax,
             grid: { display: false },
             ticks: { display: false },
             border: { display: false },
           },
           y: {
-            min: 18,
-            max: 176,
+            min: bounds.yMin,
+            max: bounds.yMax,
             reverse: true,
             grid: { display: false },
             ticks: { display: false },
@@ -2160,23 +2163,6 @@ import {
       return;
     }
 
-    const players = [
-      ...new Map(
-        normalized.map((shot) => [
-          shot.playerId,
-          shot.playerName || shot.playerId,
-        ]),
-      ).entries(),
-    ].sort((a, b) => a[1].localeCompare(b[1], "ko"));
-
-    playerSelect.innerHTML = [
-      '<option value="all">전체</option>',
-      ...players.map(
-        ([playerId, playerName]) =>
-          `<option value="${playerId}">${playerName}</option>`,
-      ),
-    ].join("");
-
     const teams = [
       { id: game.away_team_id, name: game.away_team_name || "원정팀" },
       { id: game.home_team_id, name: game.home_team_name || "홈팀" },
@@ -2230,6 +2216,23 @@ import {
       link.click();
       document.body.removeChild(link);
     };
+    const updatePlayerOptionsByTeam = () => {
+      const options = buildPlayerSelectOptions(normalized, filters.teamId);
+      playerSelect.innerHTML = options
+        .map(
+          (option) =>
+            `<option value="${option.value}">${option.label}</option>`,
+        )
+        .join("");
+      const hasCurrent = options.some(
+        (option) => option.value === filters.playerId,
+      );
+      if (!hasCurrent) {
+        filters.playerId = "all";
+      }
+      playerSelect.value = filters.playerId;
+    };
+
     const applyFilters = () => {
       const filtered = filterGameShots(normalized, filters);
       const summary = summarizeGameShots(filtered);
@@ -2255,6 +2258,7 @@ import {
     };
     const onTeamChange = (event) => {
       filters.teamId = event.target.value;
+      updatePlayerOptionsByTeam();
       applyFilters();
     };
     const onResultChange = (event) => {
@@ -2288,6 +2292,7 @@ import {
       tabZones.removeEventListener("click", onTabZonesClick);
     };
 
+    updatePlayerOptionsByTeam();
     activateTab(activeTab);
     applyFilters();
   }

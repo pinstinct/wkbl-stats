@@ -96,6 +96,34 @@ export function buildQuarterSelectOptions(shots) {
   ];
 }
 
+export function buildPlayerSelectOptions(shots, teamId = "all") {
+  const filtered =
+    teamId === "all"
+      ? shots || []
+      : (shots || []).filter((shot) => shot.teamId === teamId);
+
+  const entries = [
+    ...new Map(
+      filtered.map((shot) => [shot.playerId, shot.playerName]),
+    ).entries(),
+  ].sort((a, b) => a[1].localeCompare(b[1], "ko"));
+
+  return [
+    { value: "all", label: "전체" },
+    ...entries.map(([value, label]) => ({ value, label })),
+  ];
+}
+
+export function getShotChartScaleBounds() {
+  // WKBL half-court coordinates with padding to avoid clipping.
+  return {
+    xMin: -8,
+    xMax: 299,
+    yMin: 10,
+    yMax: 186,
+  };
+}
+
 /**
  * Compute aggregate summary for cards.
  */

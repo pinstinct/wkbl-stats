@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseQuarterCode,
+  buildPlayerSelectOptions,
+  getShotChartScaleBounds,
   buildZoneTableRows,
   buildShotChartExportName,
   buildQuarterSeries,
@@ -184,5 +186,35 @@ describe("game shot logic", () => {
       { zone: "MID", made: 1, attempts: 1, fgPct: 100 },
       { zone: "3PT", made: 0, attempts: 1, fgPct: 0 },
     ]);
+  });
+
+  it("builds player options scoped by team", () => {
+    const normalized = normalizeGameShots(rawShots, {
+      p1: "선수1",
+      p2: "선수2",
+    });
+    expect(buildPlayerSelectOptions(normalized, "all")).toEqual([
+      { value: "all", label: "전체" },
+      { value: "p1", label: "선수1" },
+      { value: "p2", label: "선수2" },
+    ]);
+    expect(buildPlayerSelectOptions(normalized, "home")).toEqual([
+      { value: "all", label: "전체" },
+      { value: "p2", label: "선수2" },
+    ]);
+  });
+
+  it("returns expanded shot chart scale bounds", () => {
+    const normalized = normalizeGameShots(rawShots, {
+      p1: "선수1",
+      p2: "선수2",
+    });
+    const bounds = getShotChartScaleBounds(normalized);
+    expect(bounds).toEqual({
+      xMin: -8,
+      xMax: 299,
+      yMin: 10,
+      yMax: 186,
+    });
   });
 });
