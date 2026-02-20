@@ -90,6 +90,7 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  margin-bottom: 6px;
 }
 
 .player-shot-header h3 {
