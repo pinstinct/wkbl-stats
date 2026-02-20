@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseQuarterCode,
+  buildThreePointGeometry,
+  reconcileShotTeams,
   getCourtAspectRatio,
   getCourtArcRadii,
   buildPlayerSelectOptions,
@@ -226,5 +228,33 @@ describe("game shot logic", () => {
 
   it("returns axis-aware arc radii", () => {
     expect(getCourtArcRadii(1, 0.6, 20)).toEqual({ rx: 20, ry: 12 });
+  });
+
+  it("returns connected three-point geometry", () => {
+    const geom = buildThreePointGeometry();
+    const dx = geom.cx - geom.xLeft;
+    const dy = geom.yJoin - geom.cy;
+    const computedRadius = Math.sqrt(dx * dx + dy * dy);
+    expect(Math.round(computedRadius * 10) / 10).toBe(
+      Math.round(geom.radius * 10) / 10,
+    );
+  });
+
+  it("reconciles shot team ids by player-team map", () => {
+    const normalized = normalizeGameShots(rawShots, {
+      p1: "선수1",
+      p2: "선수2",
+    }).map((shot) => ({ ...shot, teamId: "kb" }));
+
+    const corrected = reconcileShotTeams(normalized, {
+      p1: "kb",
+      p2: "samsung",
+    });
+
+    expect(
+      corrected.some(
+        (shot) => shot.playerId === "p2" && shot.teamId === "samsung",
+      ),
+    ).toBe(true);
   });
 });

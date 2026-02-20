@@ -144,19 +144,19 @@ uv run pytest tests/test_api.py -v
 
 Hash-based routing system for single-page application.
 
-| URL              | Page          | Description                                                                                                               |
-| ---------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `#/`             | Home          | Game prediction with optimal starting lineup recommendations                                                              |
-| `#/players`      | Players       | Player list with filters, sorting, search                                                                                 |
-| `#/players/{id}` | Player Detail | Career summary, season stats, trend chart, game log                                                                       |
-| `#/teams`        | Teams         | Standings table (rank, W-L, home/away)                                                                                    |
-| `#/teams/{id}`   | Team Detail   | Roster, recent games                                                                                                      |
-| `#/games`        | Games         | Game cards with scores                                                                                                    |
-| `#/games/{id}`   | Boxscore      | Full box score + Shotcharts/Shotzones tabs + team-first linked shot filters + PNG export + WKBL fixed-ratio court overlay |
-| `#/leaders`      | Leaders       | Top 5 in PTS/REB/AST/STL/BLK                                                                                              |
-| `#/compare`      | Compare       | Player comparison tool (up to 4 players)                                                                                  |
-| `#/schedule`     | Schedule      | Upcoming and recent games with D-day countdown                                                                            |
-| `#/predict`      | Predict       | Individual player performance prediction                                                                                  |
+| URL              | Page          | Description                                                                                                                          |
+| ---------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `#/`             | Home          | Game prediction with optimal starting lineup recommendations                                                                         |
+| `#/players`      | Players       | Player list with filters, sorting, search                                                                                            |
+| `#/players/{id}` | Player Detail | Career summary, season stats, trend chart, game log                                                                                  |
+| `#/teams`        | Teams         | Standings table (rank, W-L, home/away)                                                                                               |
+| `#/teams/{id}`   | Team Detail   | Roster, recent games                                                                                                                 |
+| `#/games`        | Games         | Game cards with scores                                                                                                               |
+| `#/games/{id}`   | Boxscore      | Full box score + Shotcharts/Shotzones tabs + team-first linked/reconciled shot filters + PNG export + WKBL fixed-ratio court overlay |
+| `#/leaders`      | Leaders       | Top 5 in PTS/REB/AST/STL/BLK                                                                                                         |
+| `#/compare`      | Compare       | Player comparison tool (up to 4 players)                                                                                             |
+| `#/schedule`     | Schedule      | Upcoming and recent games with D-day countdown                                                                                       |
+| `#/predict`      | Predict       | Individual player performance prediction                                                                                             |
 
 **Global Search**: Press `Ctrl+K` (or `Cmd+K` on Mac) to open global search modal.
 

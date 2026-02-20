@@ -136,6 +136,39 @@ export function getCourtArcRadii(xPixelsPerUnit, yPixelsPerUnit, radiusUnit) {
   };
 }
 
+export function buildThreePointGeometry() {
+  const cx = 145.5;
+  const cy = 18;
+  const xLeft = 33;
+  const xRight = 258;
+  const yStart = 18;
+  const yJoin = 122;
+  const dx = cx - xLeft;
+  const dy = yJoin - cy;
+  const radius = Math.sqrt(dx * dx + dy * dy);
+  return {
+    cx,
+    cy,
+    xLeft,
+    xRight,
+    yStart,
+    yJoin,
+    radius,
+    startAngle: Math.atan2(dy, -dx),
+    endAngle: Math.atan2(dy, dx),
+  };
+}
+
+export function reconcileShotTeams(shots, playerTeamMap = {}) {
+  return (shots || []).map((shot) => {
+    const mapped = playerTeamMap[shot.playerId];
+    if (mapped) {
+      return { ...shot, teamId: mapped };
+    }
+    return shot;
+  });
+}
+
 /**
  * Compute aggregate summary for cards.
  */

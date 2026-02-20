@@ -279,6 +279,8 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] 슛차트 스케일 확장으로 코트 clipping 완화
 - [x] 코트 비율 고정(`307:176`) 적용으로 반응형 왜곡 완화
 - [x] 오버레이 원/호 `ellipse` 렌더로 3점 라인 뭉개짐 완화
+- [x] 3점 직선/아크 연결 좌표를 단일 기하로 정렬
+- [x] player-team reconcile 로직으로 팀/선수 필터 불일치 보정
 - [x] TDD: `src/views/game-shot-logic.test.js` + `src/data/client.test.js` 확장
 - [ ] 코트 SVG 정밀화(선/호 치수 미세조정)
 - [x] EVENT_TYPE_MAP 추가 (한국어→영어 이벤트 코드 24종)

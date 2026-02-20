@@ -1,4 +1,6 @@
 import {
+  buildThreePointGeometry,
+  reconcileShotTeams,
   buildPlayerSelectOptions,
   getCourtArcRadii,
   getCourtAspectRatio,
@@ -1910,6 +1912,7 @@ import {
         const radii = (unit) => getCourtArcRadii(pxPerX, pxPerY, unit);
         const sx = (v) => Math.round(v) + 0.5;
         const sy = (v) => Math.round(v) + 0.5;
+        const three = buildThreePointGeometry();
 
         ctx.save();
         ctx.strokeStyle = options.lineColor || "rgba(27, 28, 31, 0.25)";
@@ -1954,21 +1957,21 @@ import {
 
         // Three-point lines + arc.
         ctx.beginPath();
-        ctx.moveTo(sx(x(33)), sy(y(18)));
-        ctx.lineTo(sx(x(33)), sy(y(122)));
-        ctx.moveTo(sx(x(258)), sy(y(18)));
-        ctx.lineTo(sx(x(258)), sy(y(122)));
+        ctx.moveTo(sx(x(three.xLeft)), sy(y(three.yStart)));
+        ctx.lineTo(sx(x(three.xLeft)), sy(y(three.yJoin)));
+        ctx.moveTo(sx(x(three.xRight)), sy(y(three.yStart)));
+        ctx.lineTo(sx(x(three.xRight)), sy(y(three.yJoin)));
         ctx.stroke();
-        const three = radii(120);
+        const threeRadius = radii(three.radius);
         ctx.beginPath();
         ctx.ellipse(
-          x(145.5),
-          y(18),
-          three.rx,
-          three.ry,
+          x(three.cx),
+          y(three.cy),
+          threeRadius.rx,
+          threeRadius.ry,
           0,
-          Math.PI * 0.19,
-          Math.PI * 0.81,
+          three.startAngle,
+          three.endAngle,
         );
         ctx.stroke();
 
@@ -2155,7 +2158,15 @@ import {
       },
     );
     const normalized = normalizeGameShots(rawShots, playerNameMap);
-    if (!window.Chart || normalized.length === 0) {
+    const playerTeamMap = {};
+    (game.away_team_stats || []).forEach((player) => {
+      playerTeamMap[player.player_id] = game.away_team_id;
+    });
+    (game.home_team_stats || []).forEach((player) => {
+      playerTeamMap[player.player_id] = game.home_team_id;
+    });
+    const correctedShots = reconcileShotTeams(normalized, playerTeamMap);
+    if (!window.Chart || correctedShots.length === 0) {
       section.style.display = "none";
       return;
     }
@@ -2199,7 +2210,7 @@ import {
       ),
     ].join("");
 
-    quarterSelect.innerHTML = buildQuarterSelectOptions(normalized)
+    quarterSelect.innerHTML = buildQuarterSelectOptions(correctedShots)
       .map(
         (option) => `<option value="${option.value}">${option.label}</option>`,
       )
@@ -2242,7 +2253,7 @@ import {
       document.body.removeChild(link);
     };
     const updatePlayerOptionsByTeam = () => {
-      const options = buildPlayerSelectOptions(normalized, filters.teamId);
+      const options = buildPlayerSelectOptions(correctedShots, filters.teamId);
       playerSelect.innerHTML = options
         .map(
           (option) =>
@@ -2259,7 +2270,7 @@ import {
     };
 
     const applyFilters = () => {
-      const filtered = filterGameShots(normalized, filters);
+      const filtered = filterGameShots(correctedShots, filters);
       const summary = summarizeGameShots(filtered);
       updateGameShotSummary(summary);
       const hasData = filtered.length > 0;
