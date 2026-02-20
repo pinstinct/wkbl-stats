@@ -119,7 +119,7 @@
 | +/- (Game)       | `plus_minus_game`: 경기 단위 라인업 스틴트 기반 온코트 득실차                                 | PBP + 교체 이벤트 기반 lineup 추적               | `tools/lineup.py`, `tools/api.py`, `src/db.js`                         |
 | +/-/G            | `plus_minus_per_game = plus_minus_total / GP`                                                 | 시즌별 lineup_stints + 경기 수                   | `tools/api.py`, `src/db.js`                                            |
 | +/-/100          | `plus_minus_per100 = 100 × plus_minus_total / 추정 온코트 포제션`                             | 시즌별 lineup_stints + 팀 포제션/분수 집계       | `tools/api.py`, `src/db.js`                                            |
-| 코트마진(근사)   | 출전시간 가중 팀 득실차 근사 (`팀 득실차 × 출전시간/40`)                                      | 경기별 팀 점수 + 선수 출전시간                   | `src/db.js:getPlayersCourtMargin`, `src/app.js`, `src/views/*`         |
+| 코트마진         | 출전시간 가중 팀 득실차 (`팀 득실차 × 출전시간/40`)                                           | 경기별 팀 점수 + 선수 출전시간                   | `src/db.js:getPlayersCourtMargin`, `src/app.js`, `src/views/*`         |
 
 주의:
 
@@ -435,6 +435,8 @@ GET https://datalab.wkbl.or.kr/teamAnalysis?id={game_id}&homeTeamCode={code1}&aw
 ## 데이터베이스 스키마
 
 `--save-db` 옵션 사용 시 SQLite 데이터베이스에 저장됩니다.
+라인업 기반 `+/-` 지표를 함께 사용하려면 `--fetch-play-by-play --compute-lineups`
+인자를 같이 사용해야 `lineup_stints`가 채워집니다.
 
 ```
 seasons ─┐

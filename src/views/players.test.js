@@ -41,6 +41,6 @@ describe("players view", () => {
 
     expect(tbody.innerHTML).toContain('href="#/players/p1"');
     expect(tbody.innerHTML).toContain("선수1");
-    expect(thead.innerHTML).toContain("코트마진(근사)");
+    expect(thead.innerHTML).toContain("코트마진");
   });
 });

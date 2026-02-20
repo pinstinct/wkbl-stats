@@ -74,7 +74,6 @@ import {
     { key: "pir", label: "PIR", unit: "per game" },
     { key: "per", label: "PER", unit: "" },
     { key: "ws", label: "WS", unit: "" },
-    { key: "plus_minus_per_game", label: "+/-/G", unit: "" },
     { key: "plus_minus_per100", label: "+/-/100", unit: "" },
   ];
 
@@ -990,9 +989,9 @@ import {
     },
     {
       key: "court_margin",
-      label: "코트마진(근사)",
+      label: "코트마진",
       format: "signed",
-      desc: "코트마진(출전 시간 가중 근사치). 라인업 스틴트 기반 +/-와 다른 보조 지표입니다.",
+      desc: "코트마진(출전 시간 가중 득실차). 시즌/커리어 맥락에서 흐름을 보는 보조 지표입니다.",
     },
   ];
 
@@ -1271,11 +1270,12 @@ import {
       const latestSeason = sortedSeasons[sortedSeasons.length - 1];
       const advSection = $("playerAdvancedSection");
       const advGrid = $("playerAdvancedGrid");
-      const advLabel = $("advancedSeasonLabel");
+      const advTitle = $("advancedStatsTitle");
       if (latestSeason && advGrid) {
-        if (advLabel) {
-          advLabel.textContent =
+        if (advTitle) {
+          const seasonLabel =
             latestSeason.season_label || latestSeason.season_id || "";
+          advTitle.textContent = `${seasonLabel} 고급지표`;
         }
         renderPlayerAdvancedStats({
           container: advGrid,
@@ -2167,7 +2167,7 @@ import {
     { key: "ts_pct", label: "TS%", format: "pct" },
     { key: "efg_pct", label: "eFG%", format: "pct" },
     { key: "pir", label: "PIR", format: "number" },
-    { key: "court_margin", label: "코트마진(근사)", format: "signed" },
+    { key: "court_margin", label: "코트마진", format: "signed" },
     { key: "plus_minus_per_game", label: "+/-/G", format: "signed" },
     { key: "plus_minus_per100", label: "+/-/100", format: "signed" },
   ];

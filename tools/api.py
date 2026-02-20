@@ -427,6 +427,40 @@ def _compute_plus_minus_per100(
     return round((100.0 * total_pm) / on_court_poss, 1)
 
 
+def _compute_plus_minus_per100_fallback(
+    total_pm: float,
+    row: dict,
+    team_totals: dict[str, dict],
+) -> Optional[float]:
+    """Fallback +/- per100 when lineup stints are unavailable."""
+    team_id = row.get("team_id")
+    gp = float(row.get("gp") or 0)
+    min_avg = float(row.get("min") or 0.0)
+    player_total_min = min_avg * gp
+    if not team_id or player_total_min <= 0:
+        return None
+
+    team_stats = team_totals.get(team_id)
+    if not team_stats:
+        return None
+
+    team_poss = estimate_possessions(
+        team_stats.get("fga", 0) or 0,
+        team_stats.get("fta", 0) or 0,
+        team_stats.get("tov", 0) or 0,
+        team_stats.get("oreb", 0) or 0,
+    )
+    team_min_5 = _safe_div(float(team_stats.get("min", 0) or 0.0), 5.0)
+    if team_poss <= 0 or team_min_5 <= 0:
+        return None
+
+    on_court_poss = team_poss * _safe_div(player_total_min, team_min_5)
+    if on_court_poss <= 0:
+        return None
+
+    return round((100.0 * total_pm) / on_court_poss, 1)
+
+
 def _apply_plus_minus_fields(
     row: dict,
     pm_agg: Optional[dict],
@@ -440,13 +474,23 @@ def _apply_plus_minus_fields(
         row["plus_minus_total"] = int(round(total_pm))
         row["plus_minus_per_game"] = float(pm_agg.get("pm_per_game") or 0.0)
         row["plus_minus_per100"] = _compute_plus_minus_per100(pm_agg, team_totals)
+        if row["plus_minus_per100"] is None:
+            row["plus_minus_per100"] = _compute_plus_minus_per100_fallback(
+                total_pm,
+                row,
+                team_totals,
+            )
         return
 
     total_pm = float(fallback_total or 0.0)
     gp = int(row.get("gp") or 0)
     row["plus_minus_total"] = int(round(total_pm))
     row["plus_minus_per_game"] = round(total_pm / gp, 1) if gp > 0 else 0.0
-    row["plus_minus_per100"] = None
+    row["plus_minus_per100"] = _compute_plus_minus_per100_fallback(
+        total_pm,
+        row,
+        team_totals,
+    )
 
 
 def get_players(
@@ -1184,6 +1228,15 @@ def get_game_boxscore(game_id: str) -> Optional[dict]:
                 "pir": pir,
                 "plus_minus_game": None,
             }
+            score_diff = (
+                (result["home_score"] or 0) - (result["away_score"] or 0)
+                if d["team_id"] == result["home_team_id"]
+                else (result["away_score"] or 0) - (result["home_score"] or 0)
+            )
+            stat["plus_minus_game"] = round(
+                score_diff * min((d.get("minutes") or 0) / 40.0, 1.0),
+                1,
+            )
             if d["team_id"] == result["home_team_id"]:
                 home_stats.append(stat)
             else:
@@ -1758,7 +1811,6 @@ def api_get_all_leaders(
         "pir",
         "per",
         "ws",
-        "plus_minus_per_game",
         "plus_minus_per100",
     ]
 

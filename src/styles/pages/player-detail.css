@@ -78,3 +78,30 @@
   color: #dc2626;
   font-weight: 600;
 }
+
+/* Compact advanced stats panel on player detail page */
+#playerAdvancedSection {
+  padding: clamp(12px, 2.5vw, 18px);
+}
+
+#playerAdvancedSection h3 {
+  margin-bottom: 10px;
+}
+
+#playerAdvancedGrid {
+  gap: 10px;
+}
+
+#playerAdvancedGrid .stat-grid-inner {
+  grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+  gap: 6px;
+}
+
+#playerAdvancedGrid .stat-card {
+  padding: 9px 8px;
+  border-radius: 10px;
+}
+
+#playerAdvancedGrid .stat-card strong {
+  font-size: clamp(14px, 2.4vw, 16px);
+}

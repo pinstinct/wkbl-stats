@@ -17,10 +17,10 @@ const BASIC_THEAD_HTML = `<tr>
   <th data-key="efg_pct" class="hide-mobile" title="Effective FG%">eFG%</th>
   <th data-key="ast_to" class="hide-tablet" title="Assist/Turnover Ratio">AST/TO</th>
   <th data-key="pir" class="hide-tablet" title="Performance Index Rating">PIR</th>
-  <th data-key="court_margin" class="hide-tablet" title="코트마진 (출전시간 가중 근사치)">코트마진(근사)</th>
   <th data-key="pts36" class="hide-tablet" title="Points per 36 min">PTS/36</th>
   <th data-key="reb36" class="hide-tablet" title="Rebounds per 36 min">REB/36</th>
   <th data-key="ast36" class="hide-tablet" title="Assists per 36 min">AST/36</th>
+  <th data-key="court_margin" class="hide-tablet" title="코트마진 (출전시간 가중 득실차)">코트마진</th>
 </tr>`;
 
 const ADVANCED_THEAD_HTML = `<tr>
@@ -110,10 +110,10 @@ export function renderPlayersTable({
           <td class="hide-mobile">${formatPct(player.efg_pct)}</td>
           <td class="hide-tablet">${formatNumber(player.ast_to)}</td>
           <td class="hide-tablet">${formatNumber(player.pir)}</td>
-          <td class="hide-tablet ${player.court_margin === null || player.court_margin === undefined ? "" : player.court_margin >= 0 ? "stat-positive" : "stat-negative"}">${formatSigned(player.court_margin)}</td>
           <td class="hide-tablet">${formatNumber(player.pts36)}</td>
           <td class="hide-tablet">${formatNumber(player.reb36)}</td>
           <td class="hide-tablet">${formatNumber(player.ast36)}</td>
+          <td class="hide-tablet ${player.court_margin === null || player.court_margin === undefined ? "" : player.court_margin >= 0 ? "stat-positive" : "stat-negative"}">${formatSigned(player.court_margin)}</td>
         </tr>
       `,
       )

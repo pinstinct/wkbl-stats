@@ -26,6 +26,8 @@ python3 tools/ingest_wkbl.py \
   --season-label 2025-26 \
   --auto \
   --save-db \
+  --fetch-play-by-play \
+  --compute-lineups \
   --load-all-players \
   --fetch-profiles \
   --active-only \
@@ -39,6 +41,8 @@ python3 tools/ingest_wkbl.py \
   --season-label 2025-26 \
   --auto \
   --save-db \
+  --fetch-play-by-play \
+  --compute-lineups \
   --load-all-players \
   --fetch-profiles \
   --force-refresh \
@@ -53,6 +57,8 @@ python3 tools/ingest_wkbl.py \
 python3 tools/ingest_wkbl.py \
   --auto \
   --save-db \
+  --fetch-play-by-play \
+  --compute-lineups \
   --load-all-players \
   --fetch-profiles \
   --all-seasons \
@@ -64,29 +70,29 @@ python3 tools/ingest_wkbl.py \
 
 ### Ingest Options
 
-| Option                              | Description                                                                              |
-| ----------------------------------- | ---------------------------------------------------------------------------------------- |
-| `--auto`                            | Auto-discover season start date and game IDs from Data Lab                               |
-| `--end-date YYYYMMDD`               | Aggregate stats up to this date (default: today)                                         |
-| `--active-only`                     | Filter to current active players only                                                    |
-| `--load-all-players`                | Load all players (active + retired + foreign) for correct pno mapping                    |
-| `--save-db`                         | Save game records to SQLite database                                                     |
-| `--force-refresh`                   | Ignore existing data, re-fetch all games                                                 |
-| `--fetch-team-stats`                | Also collect team statistics                                                             |
-| `--fetch-standings`                 | Also collect team standings/rankings                                                     |
-| `--game-type {regular,playoff,all}` | Game type to collect (default: regular)                                                  |
-| `--all-seasons`                     | Collect all historical seasons (2020-21 ~ current)                                       |
-| `--seasons 044 045`                 | Collect specific seasons by code                                                         |
-| `--include-future`                  | Save future (scheduled) games with NULL scores to database                               |
-| `--fetch-profiles`                  | Fetch individual player profiles for birth_date (slower, use with --load-all-players)    |
-| `--backfill-games {id...}`          | Backfill predictions for specific game IDs                                               |
-| `--fetch-play-by-play`              | Fetch play-by-play data for each game (per-game, slower)                                 |
-| `--fetch-shot-charts`               | Fetch shot chart data for each game (per-game, slower)                                   |
-| `--fetch-team-category-stats`       | Fetch team category rankings (12 categories per season)                                  |
-| `--fetch-head-to-head`              | Fetch head-to-head records for all team pairs (15 pairs per season)                      |
-| `--fetch-game-mvp`                  | Fetch game MVP data for the season                                                       |
-| `--fetch-quarter-scores`            | Fetch quarter scores and venue via Team Analysis (15 requests per season)                |
-| `--compute-lineups`                 | Compute lineup stints from existing PBP data (also runs auto after --fetch-play-by-play) |
+| Option                              | Description                                                                                              |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `--auto`                            | Auto-discover season start date and game IDs from Data Lab                                               |
+| `--end-date YYYYMMDD`               | Aggregate stats up to this date (default: today)                                                         |
+| `--active-only`                     | Filter to current active players only                                                                    |
+| `--load-all-players`                | Load all players (active + retired + foreign) for correct pno mapping                                    |
+| `--save-db`                         | Save game records to SQLite database (`+/-` 정확도를 위해 `--fetch-play-by-play --compute-lineups` 권장) |
+| `--force-refresh`                   | Ignore existing data, re-fetch all games                                                                 |
+| `--fetch-team-stats`                | Also collect team statistics                                                                             |
+| `--fetch-standings`                 | Also collect team standings/rankings                                                                     |
+| `--game-type {regular,playoff,all}` | Game type to collect (default: regular)                                                                  |
+| `--all-seasons`                     | Collect all historical seasons (2020-21 ~ current)                                                       |
+| `--seasons 044 045`                 | Collect specific seasons by code                                                                         |
+| `--include-future`                  | Save future (scheduled) games with NULL scores to database                                               |
+| `--fetch-profiles`                  | Fetch individual player profiles for birth_date (slower, use with --load-all-players)                    |
+| `--backfill-games {id...}`          | Backfill predictions for specific game IDs                                                               |
+| `--fetch-play-by-play`              | Fetch play-by-play data for each game (per-game, slower)                                                 |
+| `--fetch-shot-charts`               | Fetch shot chart data for each game (per-game, slower)                                                   |
+| `--fetch-team-category-stats`       | Fetch team category rankings (12 categories per season)                                                  |
+| `--fetch-head-to-head`              | Fetch head-to-head records for all team pairs (15 pairs per season)                                      |
+| `--fetch-game-mvp`                  | Fetch game MVP data for the season                                                                       |
+| `--fetch-quarter-scores`            | Fetch quarter scores and venue via Team Analysis (15 requests per season)                                |
+| `--compute-lineups`                 | Compute lineup stints from existing PBP data (also runs auto after --fetch-play-by-play)                 |
 
 ### Testing
 

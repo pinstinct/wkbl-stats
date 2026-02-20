@@ -788,13 +788,26 @@ const WKBLDatabase = (function () {
         d.plus_minus_total = pm.total_pm;
         d.plus_minus_per_game = pm.pm_per_game;
         d.plus_minus_per100 = computePlusMinusPer100(pm, teamSeasonStats);
+        if (d.plus_minus_per100 == null) {
+          d.plus_minus_per100 = computeFallbackPlusMinusPer100(
+            d.plus_minus_total,
+            d.team_id,
+            (d.min || 0) * (d.gp || 0),
+            teamSeasonStats,
+          );
+        }
       } else {
         // Fallback for missing lineup data: normalize team margin by games played.
         const totalPm = d.plus_minus_total || 0;
         d.plus_minus_total = totalPm;
         d.plus_minus_per_game =
           d.gp > 0 ? Math.round((totalPm / d.gp) * 10) / 10 : 0;
-        d.plus_minus_per100 = null;
+        d.plus_minus_per100 = computeFallbackPlusMinusPer100(
+          totalPm,
+          d.team_id,
+          (d.min || 0) * (d.gp || 0),
+          teamSeasonStats,
+        );
       }
 
       return d;
@@ -1016,12 +1029,25 @@ const WKBLDatabase = (function () {
         d.plus_minus_total = pm.total_pm;
         d.plus_minus_per_game = pm.pm_per_game;
         d.plus_minus_per100 = computePlusMinusPer100(pm, teamMap);
+        if (d.plus_minus_per100 == null) {
+          d.plus_minus_per100 = computeFallbackPlusMinusPer100(
+            d.plus_minus_total,
+            d.team_id,
+            (d.min || 0) * (d.gp || 0),
+            teamMap,
+          );
+        }
       } else {
         const totalPm = d.plus_minus_total || 0;
         d.plus_minus_total = totalPm;
         d.plus_minus_per_game =
           d.gp > 0 ? Math.round((totalPm / d.gp) * 10) / 10 : 0;
-        d.plus_minus_per100 = null;
+        d.plus_minus_per100 = computeFallbackPlusMinusPer100(
+          totalPm,
+          d.team_id,
+          (d.min || 0) * (d.gp || 0),
+          teamMap,
+        );
       }
 
       player.seasons[d.season_id] = d;
@@ -1171,7 +1197,10 @@ const WKBLDatabase = (function () {
         SUM(pg.tpm) as total_tpm,
         SUM(pg.tpa) as total_tpa,
         SUM(pg.ftm) as total_ftm,
-        SUM(pg.fta) as total_fta
+        SUM(pg.fta) as total_fta,
+        SUM(CASE WHEN g.home_team_id = pg.team_id
+              THEN g.home_score - g.away_score
+              ELSE g.away_score - g.home_score END) as plus_minus_total
       FROM player_games pg
       JOIN games g ON pg.game_id = g.id
       JOIN players p ON pg.player_id = p.id
@@ -1203,10 +1232,25 @@ const WKBLDatabase = (function () {
         d.plus_minus_total = pm.total_pm;
         d.plus_minus_per_game = pm.pm_per_game;
         d.plus_minus_per100 = computePlusMinusPer100(pm, teamSeasonStats);
+        if (d.plus_minus_per100 == null) {
+          d.plus_minus_per100 = computeFallbackPlusMinusPer100(
+            d.plus_minus_total,
+            d.team_id,
+            (d.min || 0) * (d.gp || 0),
+            teamSeasonStats,
+          );
+        }
       } else {
-        d.plus_minus_total = 0;
-        d.plus_minus_per_game = 0;
-        d.plus_minus_per100 = null;
+        const totalPm = d.plus_minus_total || 0;
+        d.plus_minus_total = totalPm;
+        d.plus_minus_per_game =
+          d.gp > 0 ? Math.round((totalPm / d.gp) * 10) / 10 : 0;
+        d.plus_minus_per100 = computeFallbackPlusMinusPer100(
+          totalPm,
+          d.team_id,
+          (d.min || 0) * (d.gp || 0),
+          teamSeasonStats,
+        );
       }
 
       // Clean up internal fields
@@ -1630,6 +1674,39 @@ const WKBLDatabase = (function () {
     return Math.round(((100 * (pmAgg.total_pm || 0)) / onCourtPoss) * 10) / 10;
   }
 
+  function computeFallbackPlusMinusPer100(
+    totalPm,
+    teamId,
+    playerTotalMinutes,
+    teamStatsMap,
+  ) {
+    if (
+      !teamId ||
+      !teamStatsMap ||
+      !playerTotalMinutes ||
+      playerTotalMinutes <= 0
+    ) {
+      return null;
+    }
+
+    const ts = teamStatsMap.get(teamId);
+    if (!ts) return null;
+
+    const teamPoss = estimatePossessions(
+      ts.team_fga || 0,
+      ts.team_fta || 0,
+      ts.team_tov || 0,
+      ts.team_oreb || 0,
+    );
+    const teamMinutes = safeDiv(ts.team_min || 0, 5);
+    if (teamPoss <= 0 || teamMinutes <= 0) return null;
+
+    const onCourtPoss = teamPoss * safeDiv(playerTotalMinutes, teamMinutes);
+    if (onCourtPoss <= 0) return null;
+
+    return Math.round(((100 * (totalPm || 0)) / onCourtPoss) * 10) / 10;
+  }
+
   /**
    * Get team standings for a season
    * Replaces: GET /api/seasons/{id}/standings
@@ -1816,7 +1893,14 @@ const WKBLDatabase = (function () {
         pir: pir,
         plus_minus_game: plusMinusGameMap.has(d.player_id)
           ? plusMinusGameMap.get(d.player_id)
-          : null,
+          : Math.round(
+              ((d.team_id === game.home_team_id
+                ? (game.home_score || 0) - (game.away_score || 0)
+                : (game.away_score || 0) - (game.home_score || 0)) *
+                Math.min((d.minutes || 0) / 40, 1) *
+                10) /
+                10,
+            ),
       };
 
       if (d.team_id === game.home_team_id) {
@@ -2105,7 +2189,6 @@ const WKBLDatabase = (function () {
       "pir",
       "per",
       "ws",
-      "plus_minus_per_game",
       "plus_minus_per100",
     ];
     const result = {};

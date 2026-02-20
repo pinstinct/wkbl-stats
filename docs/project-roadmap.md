@@ -309,6 +309,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] `lineup_stints` DB 테이블 + CRUD (`save_lineup_stints`, `get_lineup_stints`, `get_player_plus_minus_season`)
 - [x] API 통합: 박스스코어 `plus_minus_game`, 시즌 `plus_minus_per_game`/`plus_minus_per100`
 - [x] 인제스트 통합: `--compute-lineups` CLI 옵션, PBP fetch 후 자동 계산
+  - 운영 권장 실행: `--save-db --fetch-play-by-play --compute-lineups` (라인업 기반 +/- 데이터 보장)
 - [x] 테스트 18개 추가 (총 140개)
 
 ### Phase 7.4: 개인 ORtg/DRtg 전환 ✅ 완료 (2026-02-20)

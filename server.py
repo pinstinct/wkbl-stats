@@ -68,6 +68,8 @@ def run_ingest_if_needed():
         "--end-date",
         today,
         "--save-db",
+        "--fetch-play-by-play",
+        "--compute-lineups",
         "--load-all-players",
         "--active-only",
         "--output",

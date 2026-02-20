@@ -3362,6 +3362,15 @@ def main():
 
     args = parser.parse_args()
 
+    if args.save_db and not (
+        getattr(args, "fetch_play_by_play", False)
+        or getattr(args, "compute_lineups", False)
+    ):
+        logger.warning(
+            "--save-db without --fetch-play-by-play/--compute-lineups: "
+            "+/- 지표(lineup_stints)가 비어 있을 수 있습니다."
+        )
+
     if args.backfill_games:
         _generate_predictions_for_game_ids(args.backfill_games)
         return

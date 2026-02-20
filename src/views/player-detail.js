@@ -10,7 +10,7 @@ export function renderCareerSummary({ summaryEl, seasons, courtMargin }) {
   if (courtMargin !== null && courtMargin !== undefined) {
     const marginClass = courtMargin >= 0 ? "positive" : "negative";
     const marginSign = courtMargin >= 0 ? "+" : "";
-    courtMarginHtml = `<div class="career-stat career-stat--${marginClass}"><div class="career-stat-label">코트마진(근사)</div><div class="career-stat-value">${marginSign}${courtMargin.toFixed(1)}</div></div>`;
+    courtMarginHtml = `<div class="career-stat career-stat--${marginClass}"><div class="career-stat-label">코트마진</div><div class="career-stat-value">${marginSign}${courtMargin.toFixed(1)}</div></div>`;
   }
 
   summaryEl.innerHTML = `

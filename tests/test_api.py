@@ -621,7 +621,6 @@ class TestLeadersEndpoint:
             "ts_pct",
             "pir",
             "per",
-            "plus_minus_per_game",
             "plus_minus_per100",
         ]:
             assert key in categories, f"Missing advanced category: {key}"

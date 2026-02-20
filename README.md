@@ -13,7 +13,7 @@ WKBL(한국여자농구연맹) 통계를 Basketball Reference 스타일로 보�
 - 선수 상세 페이지 (커리어 스탯, 시즌별 기록, 트렌드 차트, 레이더 차트)
 - 팀 순위표 (승률 차트, 홈/원정 기록)
 - 경기 박스스코어 (예측 vs 실제 비교)
-- 부문별 리더보드 (득점/리바운드/어시스트/스틸/블록/PER/GmSc/TS%/PIR/WS/+/-/G/+/-/100)
+- 부문별 리더보드 (득점/리바운드/어시스트/스틸/블록/PER/GmSc/TS%/PIR/WS/+/-/100)
 - **선수 비교 도구** (최대 4명 비교, 레이더/바 차트)
 - **전역 검색** (Ctrl+K 단축키, 선수/팀 통합 검색)
 - 반응형 디자인 (모바일/태블릿/데스크톱)
@@ -56,15 +56,15 @@ WKBL(한국여자농구연맹) 통계를 Basketball Reference 스타일로 보�
 
 ### 2차 지표
 
-| 지표           | 설명                      | 계산식                                                                                                   |
-| -------------- | ------------------------- | -------------------------------------------------------------------------------------------------------- |
-| TS%            | True Shooting %           | `PTS / (2 × (FGA + 0.44 × FTA))`                                                                         |
-| eFG%           | Effective FG%             | `(FGM + 0.5 × 3PM) / FGA`                                                                                |
-| AST/TO         | 어시스트/턴오버 비율      | `AST / TO`                                                                                               |
-| PIR            | Performance Index Rating  | `(PTS + REB + AST + STL + BLK - TOV - (FGA - FGM) - (FTA - FTM)) / GP`                                   |
-| PTS/36         | 36분당 환산 득점          | `PTS × (36 / MIN)`                                                                                       |
-| GmSc           | Game Score (Hollinger)    | `PTS + 0.4×FGM - 0.7×FGA - 0.4×(FTA-FTM) + 0.7×OREB + 0.3×DREB + STL + 0.7×AST + 0.7×BLK - 0.4×PF - TOV` |
-| 코트마진(근사) | 출전시간 가중 득실차 근사 | 경기별 `(팀 득실차 × 출전시간/40)`의 시즌 평균 (라인업 기반 +/-와 별개 보조 지표)                        |
+| 지표     | 설명                     | 계산식                                                                                                   |
+| -------- | ------------------------ | -------------------------------------------------------------------------------------------------------- |
+| TS%      | True Shooting %          | `PTS / (2 × (FGA + 0.44 × FTA))`                                                                         |
+| eFG%     | Effective FG%            | `(FGM + 0.5 × 3PM) / FGA`                                                                                |
+| AST/TO   | 어시스트/턴오버 비율     | `AST / TO`                                                                                               |
+| PIR      | Performance Index Rating | `(PTS + REB + AST + STL + BLK - TOV - (FGA - FGM) - (FTA - FTM)) / GP`                                   |
+| PTS/36   | 36분당 환산 득점         | `PTS × (36 / MIN)`                                                                                       |
+| GmSc     | Game Score (Hollinger)   | `PTS + 0.4×FGM - 0.7×FGA - 0.4×(FTA-FTM) + 0.7×OREB + 0.3×DREB + STL + 0.7×AST + 0.7×BLK - 0.4×PF - TOV` |
+| 코트마진 | 출전시간 가중 득실차     | 경기별 `(팀 득실차 × 출전시간/40)`의 시즌 평균 (players: 시즌 기준, players/{id}: 커리어 전체 기준)      |
 
 ### 고급 지표
 
@@ -162,6 +162,8 @@ uv run python3 tools/ingest_wkbl.py \
   --season-label 2025-26 \
   --auto \
   --save-db \
+  --fetch-play-by-play \
+  --compute-lineups \
   --load-all-players \
   --include-future \
   --active-only \
@@ -172,6 +174,8 @@ uv run python3 tools/ingest_wkbl.py \
   --season-label 2025-26 \
   --auto \
   --save-db \
+  --fetch-play-by-play \
+  --compute-lineups \
   --load-all-players \
   --force-refresh \
   --include-future \

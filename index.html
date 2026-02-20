@@ -347,13 +347,6 @@
                     PIR
                   </th>
                   <th
-                    data-key="court_margin"
-                    class="hide-tablet"
-                    title="Court Margin (Estimated) - 출전 시간 가중 근사치"
-                  >
-                    코트마진(근사)
-                  </th>
-                  <th
                     data-key="pts36"
                     class="hide-tablet"
                     title="Points per 36 Minutes - 36분당 득점"
@@ -373,6 +366,13 @@
                     title="Assists per 36 Minutes - 36분당 어시스트"
                   >
                     AST/36
+                  </th>
+                  <th
+                    data-key="court_margin"
+                    class="hide-tablet"
+                    title="Court Margin - 출전 시간 가중 득실차"
+                  >
+                    코트마진
                   </th>
                 </tr>
               </thead>
@@ -459,10 +459,7 @@
             id="playerAdvancedSection"
             style="display: none"
           >
-            <h3>
-              고급 지표
-              <span class="season-badge" id="advancedSeasonLabel"></span>
-            </h3>
+            <h3 id="advancedStatsTitle">고급지표</h3>
             <div class="stat-grid" id="playerAdvancedGrid"></div>
           </div>
 
