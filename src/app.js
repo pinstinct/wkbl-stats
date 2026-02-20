@@ -2472,7 +2472,7 @@ import {
     tableHead.innerHTML = `
       <tr>
         <th>스탯</th>
-        ${players.map((p) => `<th>${p.name}</th>`).join("")}
+        ${players.map((p) => `<th title="${p.name}">${p.name}</th>`).join("")}
       </tr>
     `;
 
