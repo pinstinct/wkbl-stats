@@ -1473,9 +1473,7 @@ import {
     playerShotQuarterChart = new Chart(canvas.getContext("2d"), {
       type: "bar",
       data: {
-        labels: quarter.labels.map((q) =>
-          q <= 4 ? `${q}Q` : getQuarterLabel(q),
-        ),
+        labels: quarter.labels,
         datasets: [
           {
             label: "성공",
@@ -1485,7 +1483,7 @@ import {
           },
           {
             label: "실패",
-            data: quarter.miss,
+            data: quarter.missed,
             backgroundColor: "rgba(239, 68, 68, 0.65)",
             stack: "shots",
           },

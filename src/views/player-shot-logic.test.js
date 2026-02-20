@@ -71,4 +71,27 @@ describe("player shot logic", () => {
       { value: "three_pt", label: "3PT" },
     ]);
   });
+
+  it("reclassifies zone by coordinates when raw zone is inconsistent", () => {
+    const shots = normalizePlayerShots([
+      {
+        game_id: "g3",
+        quarter: "Q2",
+        made: 0,
+        shot_zone: "paint",
+        x: 12,
+        y: 40,
+      },
+      {
+        game_id: "g4",
+        quarter: "Q3",
+        made: 1,
+        shot_zone: "three_pt",
+        x: 145,
+        y: 40,
+      },
+    ]);
+    expect(shots[0].shotZone).toBe("three_pt");
+    expect(shots[1].shotZone).toBe("paint");
+  });
 });

@@ -112,6 +112,12 @@
 
 .player-shot-filters select {
   min-width: 96px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: #fff;
+  color: rgba(var(--ink-rgb), 0.85);
+  font-size: 12px;
 }
 
 #playerAdvancedSection h3 {
