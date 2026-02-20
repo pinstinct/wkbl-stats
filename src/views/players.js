@@ -41,7 +41,7 @@ const ADVANCED_THEAD_HTML = `<tr>
   <th data-key="stl_pct" class="hide-mobile" title="Steal %">STL%</th>
   <th data-key="blk_pct" class="hide-mobile" title="Block %">BLK%</th>
   <th data-key="ws" title="Win Shares">WS</th>
-  <th data-key="plus_minus" title="Plus/Minus">+/-</th>
+  <th data-key="plus_minus" title="Plus/Minus per Game">+/-/G</th>
 </tr>`;
 
 /** Render helpers for players list and stat tables. */

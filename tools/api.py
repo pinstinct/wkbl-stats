@@ -563,8 +563,12 @@ def get_player_detail(player_id: str) -> Optional[dict]:
             player_team = d.get("team_id") or result.get("team_id", "")
             ts = _build_team_stats(player_team, tt, ot, sw)
             season_stats = compute_advanced_stats(d, team_stats=ts, league_stats=lc)
-            # Inject +/- from lineup_stints
-            season_stats["plus_minus"] = get_player_plus_minus_season(player_id, sid)
+            # Inject +/- from lineup_stints:
+            # Keep total as metadata and expose per-game value for display consistency.
+            pm_total = get_player_plus_minus_season(player_id, sid)
+            season_stats["plus_minus_total"] = pm_total
+            gp = season_stats.get("gp", 0) or 0
+            season_stats["plus_minus"] = round(pm_total / gp, 1) if gp > 0 else 0.0
             result["seasons"][sid] = season_stats
 
         # Recent game log (last 10 games)

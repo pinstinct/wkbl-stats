@@ -734,7 +734,7 @@ const WKBLDatabase = (function () {
         AVG(pg.pf) as avg_pf,
         SUM(CASE WHEN g.home_team_id = pg.team_id
               THEN g.home_score - g.away_score
-              ELSE g.away_score - g.home_score END) as plus_minus
+              ELSE g.away_score - g.home_score END) as plus_minus_total
       FROM player_games pg
       JOIN games g ON pg.game_id = g.id
       JOIN players p ON pg.player_id = p.id
@@ -765,6 +765,8 @@ const WKBLDatabase = (function () {
     const teamSeasonStats = getTeamSeasonStats(seasonId);
     const leagueStats = getLeagueSeasonStats(seasonId);
 
+    const playerPlusMinusMap = getSeasonPlayerPlusMinusMap(seasonId);
+
     const players = rows.map((d) => {
       // Calculate percentages
       d.fgp = d.total_fga
@@ -780,6 +782,17 @@ const WKBLDatabase = (function () {
       roundStats(d);
       const teamStats = teamSeasonStats.get(d.team_id) || null;
       calculateAdvancedStats(d, teamStats, leagueStats);
+
+      const pm = playerPlusMinusMap.get(d.id);
+      if (pm) {
+        d.plus_minus_total = pm.total_pm;
+        d.plus_minus = pm.pm_per_game;
+      } else {
+        // Fallback for missing lineup data: normalize team margin by games played.
+        const totalPm = d.plus_minus_total || 0;
+        d.plus_minus_total = totalPm;
+        d.plus_minus = d.gp > 0 ? Math.round((totalPm / d.gp) * 10) / 10 : 0;
+      }
 
       return d;
     });
@@ -947,7 +960,7 @@ const WKBLDatabase = (function () {
         AVG(pg.pf) as avg_pf,
         SUM(CASE WHEN g.home_team_id = pg.team_id
               THEN g.home_score - g.away_score
-              ELSE g.away_score - g.home_score END) as plus_minus
+              ELSE g.away_score - g.home_score END) as plus_minus_total
       FROM player_games pg
       JOIN games g ON pg.game_id = g.id
       JOIN seasons s ON g.season_id = s.id
@@ -960,6 +973,7 @@ const WKBLDatabase = (function () {
 
     const seasonTeamStats = new Map();
     const seasonLeagueStats = new Map();
+    const seasonPlusMinusMaps = new Map();
     for (const seasonRow of seasons) {
       const sid = seasonRow.season_id;
       if (!seasonTeamStats.has(sid)) {
@@ -967,6 +981,9 @@ const WKBLDatabase = (function () {
       }
       if (!seasonLeagueStats.has(sid)) {
         seasonLeagueStats.set(sid, getLeagueSeasonStats(sid));
+      }
+      if (!seasonPlusMinusMaps.has(sid)) {
+        seasonPlusMinusMaps.set(sid, getSeasonPlayerPlusMinusMap(sid));
       }
     }
 
@@ -987,6 +1004,16 @@ const WKBLDatabase = (function () {
       const teamStats = teamMap?.get(d.team_id) || null;
       const leagueStats = seasonLeagueStats.get(d.season_id) || null;
       calculateAdvancedStats(d, teamStats, leagueStats);
+
+      const pm = seasonPlusMinusMaps.get(d.season_id)?.get(playerId);
+      if (pm) {
+        d.plus_minus_total = pm.total_pm;
+        d.plus_minus = pm.pm_per_game;
+      } else {
+        const totalPm = d.plus_minus_total || 0;
+        d.plus_minus_total = totalPm;
+        d.plus_minus = d.gp > 0 ? Math.round((totalPm / d.gp) * 10) / 10 : 0;
+      }
 
       player.seasons[d.season_id] = d;
     }
@@ -1432,6 +1459,85 @@ const WKBLDatabase = (function () {
 
       map.set(row.team_id, { off_rtg, def_rtg, net_rtg, pace });
     }
+    return map;
+  }
+
+  function getSeasonPlayerPlusMinusMap(seasonId) {
+    const map = new Map();
+    if (!seasonId || seasonId === "all") return map;
+
+    try {
+      const rows = query(
+        `
+        WITH stint_diff AS (
+          SELECT
+            ls.game_id,
+            ls.player1_id AS player_id,
+            (COALESCE(ls.end_score_for, 0) - COALESCE(ls.start_score_for, 0))
+              - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff
+          FROM lineup_stints ls
+          JOIN games g ON g.id = ls.game_id
+          WHERE g.season_id = ?
+          UNION ALL
+          SELECT
+            ls.game_id,
+            ls.player2_id AS player_id,
+            (COALESCE(ls.end_score_for, 0) - COALESCE(ls.start_score_for, 0))
+              - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff
+          FROM lineup_stints ls
+          JOIN games g ON g.id = ls.game_id
+          WHERE g.season_id = ?
+          UNION ALL
+          SELECT
+            ls.game_id,
+            ls.player3_id AS player_id,
+            (COALESCE(ls.end_score_for, 0) - COALESCE(ls.start_score_for, 0))
+              - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff
+          FROM lineup_stints ls
+          JOIN games g ON g.id = ls.game_id
+          WHERE g.season_id = ?
+          UNION ALL
+          SELECT
+            ls.game_id,
+            ls.player4_id AS player_id,
+            (COALESCE(ls.end_score_for, 0) - COALESCE(ls.start_score_for, 0))
+              - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff
+          FROM lineup_stints ls
+          JOIN games g ON g.id = ls.game_id
+          WHERE g.season_id = ?
+          UNION ALL
+          SELECT
+            ls.game_id,
+            ls.player5_id AS player_id,
+            (COALESCE(ls.end_score_for, 0) - COALESCE(ls.start_score_for, 0))
+              - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff
+          FROM lineup_stints ls
+          JOIN games g ON g.id = ls.game_id
+          WHERE g.season_id = ?
+        )
+        SELECT
+          player_id,
+          SUM(diff) AS total_pm,
+          COUNT(DISTINCT game_id) AS gp
+        FROM stint_diff
+        WHERE player_id IS NOT NULL
+        GROUP BY player_id
+        `,
+        [seasonId, seasonId, seasonId, seasonId, seasonId],
+      );
+
+      for (const row of rows) {
+        const totalPm = row.total_pm || 0;
+        const gp = row.gp || 0;
+        map.set(row.player_id, {
+          total_pm: totalPm,
+          pm_per_game: gp > 0 ? Math.round((totalPm / gp) * 10) / 10 : 0,
+        });
+      }
+    } catch (_err) {
+      return map;
+    }
+
     return map;
   }
 
