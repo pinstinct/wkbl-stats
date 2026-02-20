@@ -2438,6 +2438,32 @@ const WKBLDatabase = (function () {
   }
 
   /**
+   * Get shot chart data for a player (optionally by season)
+   * @param {string} playerId - Player ID
+   * @param {string|null} [seasonId] - Optional season filter
+   * @returns {Array} List of shot records with game context
+   */
+  function getPlayerShotChart(playerId, seasonId = null) {
+    const whereSeason = seasonId ? " AND g.season_id = ? " : "";
+    const params = seasonId ? [playerId, seasonId] : [playerId];
+    return query(
+      `SELECT sc.*,
+              g.game_date,
+              CASE
+                WHEN sc.team_id = g.home_team_id THEN at.name
+                ELSE ht.name
+              END AS opponent_name
+       FROM shot_charts sc
+       JOIN games g ON g.id = sc.game_id
+       LEFT JOIN teams ht ON ht.id = g.home_team_id
+       LEFT JOIN teams at ON at.id = g.away_team_id
+       WHERE sc.player_id = ? ${whereSeason}
+       ORDER BY g.game_date DESC, sc.quarter, sc.game_minute, sc.game_second`,
+      params,
+    );
+  }
+
+  /**
    * Get team category stats for a season
    * @param {string} seasonId - Season code
    * @param {string} [category] - Optional category filter
@@ -2561,6 +2587,7 @@ const WKBLDatabase = (function () {
     // Additional data
     getPlayByPlay,
     getShotChart,
+    getPlayerShotChart,
     getTeamCategoryStats,
     getHeadToHead,
     getGameMVP,

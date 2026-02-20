@@ -52,6 +52,12 @@ export function createDataClient({ initDb, getDb, getSeasonLabel }) {
       return db.getPlayerGamelog(playerId);
     },
 
+    async getPlayerShotChart(playerId, seasonId = null) {
+      const db = await withDb();
+      if (!db) return [];
+      return db.getPlayerShotChart(playerId, seasonId);
+    },
+
     async getTeams() {
       const db = await withDb();
       if (!db) return { teams: [] };

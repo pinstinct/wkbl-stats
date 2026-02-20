@@ -47,6 +47,11 @@ export {
   calculatePrediction,
 } from "./predict-logic.js";
 export {
+  buildPlayerShotZoneOptions,
+  filterPlayerShots,
+  normalizePlayerShots,
+} from "./player-shot-logic.js";
+export {
   renderPredictCards,
   renderPredictFactors,
   renderPredictPlayerInfo,

@@ -422,6 +422,85 @@
             </div>
           </div>
 
+          <div
+            id="playerShotSection"
+            class="detail-section player-shot-section"
+            style="display: none"
+          >
+            <div class="player-shot-header">
+              <h3>선수 슛차트</h3>
+              <div class="player-shot-filters">
+                <label>
+                  시즌
+                  <select id="playerShotSeasonSelect">
+                    <option value="all">전체</option>
+                  </select>
+                </label>
+                <label>
+                  결과
+                  <select id="playerShotResultSelect">
+                    <option value="all">성공+실패</option>
+                    <option value="made">성공만</option>
+                    <option value="miss">실패만</option>
+                  </select>
+                </label>
+                <label>
+                  쿼터
+                  <select id="playerShotQuarterSelect">
+                    <option value="all">전체</option>
+                  </select>
+                </label>
+                <label>
+                  존
+                  <select id="playerShotZoneSelect">
+                    <option value="all">전체</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div class="game-shot-summary">
+              <div class="shot-card">
+                <span class="shot-label">시도</span>
+                <strong id="playerShotAttempts">0</strong>
+              </div>
+              <div class="shot-card">
+                <span class="shot-label">성공</span>
+                <strong id="playerShotMade">0</strong>
+              </div>
+              <div class="shot-card">
+                <span class="shot-label">실패</span>
+                <strong id="playerShotMissed">0</strong>
+              </div>
+              <div class="shot-card">
+                <span class="shot-label">FG%</span>
+                <strong id="playerShotFgPct">0.0%</strong>
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <div class="game-shot-court">
+                <canvas id="playerShotScatterChart"></canvas>
+              </div>
+              <p
+                id="playerShotEmptyMsg"
+                class="game-shot-empty"
+                style="display: none"
+              >
+                선택한 조건에 해당하는 슛 데이터가 없습니다.
+              </p>
+            </div>
+
+            <div class="game-shot-grid">
+              <div class="chart-card">
+                <canvas id="playerShotQuarterChart"></canvas>
+              </div>
+              <div class="chart-card">
+                <canvas id="playerShotZoneChart"></canvas>
+              </div>
+            </div>
+          </div>
+
           <div class="detail-section">
             <h3>시즌별 기록</h3>
             <div class="table-wrap">

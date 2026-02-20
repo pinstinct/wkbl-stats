@@ -8,6 +8,7 @@ import {
   getShotChartScaleBounds,
   buildShotChartExportName,
   buildQuarterSelectOptions,
+  buildPlayerShotZoneOptions,
   buildPredictionCompareState,
   buildQuarterSeries,
   buildStandingsChartSeries,
@@ -17,6 +18,7 @@ import {
   filterPlayers,
   getQuarterLabel,
   normalizeGameShots,
+  normalizePlayerShots,
   renderBoxscoreRows,
   sortBoxscorePlayers,
   renderCareerSummary,
@@ -44,6 +46,7 @@ import {
   renderTotalStats,
   renderUpcomingGames,
   sortPlayers,
+  filterPlayerShots,
   sortStandings,
   summarizeGameShots,
 } from "./views/index.js";
@@ -118,6 +121,7 @@ import {
   let unmountGlobalSearchEvents = null;
   let unmountPlayersSortEvents = null;
   let unmountBoxscoreSortEvents = null;
+  let unmountPlayerShotFilters = null;
 
   // =============================================================================
   // Utility Functions
@@ -225,6 +229,10 @@ import {
 
   async function fetchPlayerGamelog(playerId) {
     return dataClient.getPlayerGamelog(playerId);
+  }
+
+  async function fetchPlayerShotChart(playerId, seasonId = null) {
+    return dataClient.getPlayerShotChart(playerId, seasonId);
   }
 
   async function fetchTeams() {
@@ -1319,6 +1327,8 @@ import {
         formatDate,
         formatNumber,
       });
+
+      await renderPlayerShotSection(playerId, sortedSeasons);
     } catch (error) {
       console.error("Failed to load player:", error);
       $("detailPlayerName").textContent = "선수를 찾을 수 없습니다";
@@ -1330,6 +1340,296 @@ import {
   let playerShootingChart = null;
   let playerRadarChart = null;
   let playerGameLogChart = null;
+  let playerShotScatterChart = null;
+  let playerShotZoneChart = null;
+  let playerShotQuarterChart = null;
+
+  function destroyPlayerShotCharts() {
+    if (playerShotScatterChart) playerShotScatterChart.destroy();
+    if (playerShotZoneChart) playerShotZoneChart.destroy();
+    if (playerShotQuarterChart) playerShotQuarterChart.destroy();
+    playerShotScatterChart = null;
+    playerShotZoneChart = null;
+    playerShotQuarterChart = null;
+  }
+
+  function renderPlayerShotScatterChart(shots) {
+    const canvas = $("playerShotScatterChart");
+    if (!canvas || !window.Chart) return;
+    if (playerShotScatterChart) playerShotScatterChart.destroy();
+    ensureShotCourtOverlayPlugin();
+
+    const made = shots.filter((shot) => shot.made);
+    const missed = shots.filter((shot) => !shot.made);
+    const bounds = getShotChartScaleBounds(shots);
+
+    playerShotScatterChart = new Chart(canvas.getContext("2d"), {
+      type: "scatter",
+      data: {
+        datasets: [
+          {
+            label: "성공",
+            data: made.map((shot) => ({ x: shot.x, y: shot.y, shot })),
+            pointRadius: 4,
+            pointBackgroundColor: "rgba(16, 185, 129, 0.85)",
+          },
+          {
+            label: "실패",
+            data: missed.map((shot) => ({ x: shot.x, y: shot.y, shot })),
+            pointRadius: 4,
+            pointStyle: "crossRot",
+            pointBackgroundColor: "rgba(239, 68, 68, 0.85)",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: getCourtAspectRatio(),
+        scales: {
+          x: {
+            min: bounds.xMin,
+            max: bounds.xMax,
+            grid: { display: false },
+            ticks: { display: false },
+            border: { display: false },
+          },
+          y: {
+            min: bounds.yMin,
+            max: bounds.yMax,
+            reverse: true,
+            grid: { display: false },
+            ticks: { display: false },
+            border: { display: false },
+          },
+        },
+        plugins: {
+          shotCourtOverlay: {
+            lineColor: "rgba(27, 28, 31, 0.24)",
+            lineWidth: 1.2,
+          },
+          tooltip: {
+            callbacks: {
+              label(context) {
+                const shot = context.raw.shot;
+                return `${shot.opponent} ${getQuarterLabel(shot.quarter)} ${shot.made ? "성공" : "실패"}`;
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  function renderPlayerShotZoneChart(shots) {
+    const canvas = $("playerShotZoneChart");
+    if (!canvas || !window.Chart) return;
+    if (playerShotZoneChart) playerShotZoneChart.destroy();
+    const zone = buildZoneSeries(shots);
+
+    playerShotZoneChart = new Chart(canvas.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: zone.labels,
+        datasets: [
+          {
+            label: "시도",
+            data: zone.attempts,
+            backgroundColor: "rgba(59, 130, 246, 0.5)",
+            yAxisID: "y",
+          },
+          {
+            label: "FG%",
+            data: zone.fgPct,
+            type: "line",
+            borderColor: "rgba(16, 185, 129, 0.9)",
+            backgroundColor: "rgba(16, 185, 129, 0.9)",
+            yAxisID: "y1",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: "Attempts" } },
+          y1: {
+            beginAtZero: true,
+            max: 100,
+            position: "right",
+            grid: { drawOnChartArea: false },
+            title: { display: true, text: "FG%" },
+          },
+        },
+      },
+    });
+  }
+
+  function renderPlayerShotQuarterChart(shots) {
+    const canvas = $("playerShotQuarterChart");
+    if (!canvas || !window.Chart) return;
+    if (playerShotQuarterChart) playerShotQuarterChart.destroy();
+    const quarter = buildQuarterSeries(shots);
+    playerShotQuarterChart = new Chart(canvas.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: quarter.labels.map((q) =>
+          q <= 4 ? `${q}Q` : getQuarterLabel(q),
+        ),
+        datasets: [
+          {
+            label: "성공",
+            data: quarter.made,
+            backgroundColor: "rgba(16, 185, 129, 0.7)",
+            stack: "shots",
+          },
+          {
+            label: "실패",
+            data: quarter.miss,
+            backgroundColor: "rgba(239, 68, 68, 0.65)",
+            stack: "shots",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { stacked: true },
+          y: { stacked: true, beginAtZero: true },
+        },
+      },
+    });
+  }
+
+  async function renderPlayerShotSection(playerId, seasons = []) {
+    const section = $("playerShotSection");
+    if (!section) return;
+
+    if (unmountPlayerShotFilters) {
+      unmountPlayerShotFilters();
+      unmountPlayerShotFilters = null;
+    }
+    destroyPlayerShotCharts();
+
+    const seasonSelect = $("playerShotSeasonSelect");
+    const resultSelect = $("playerShotResultSelect");
+    const quarterSelect = $("playerShotQuarterSelect");
+    const zoneSelect = $("playerShotZoneSelect");
+    const emptyMsg = $("playerShotEmptyMsg");
+    if (
+      !seasonSelect ||
+      !resultSelect ||
+      !quarterSelect ||
+      !zoneSelect ||
+      !emptyMsg
+    ) {
+      section.style.display = "none";
+      return;
+    }
+
+    const latestSeasonId =
+      seasons.length > 0 ? seasons[seasons.length - 1].season_id : null;
+    seasonSelect.innerHTML = [
+      '<option value="all">전체</option>',
+      ...[...seasons]
+        .reverse()
+        .map(
+          (season) =>
+            `<option value="${season.season_id}">${season.season_label || season.season_id}</option>`,
+        ),
+    ].join("");
+    seasonSelect.value = latestSeasonId || "all";
+
+    let normalized = [];
+    const filters = {
+      result: "all",
+      quarter: "all",
+      zone: "all",
+    };
+
+    const updateSummary = (summary) => {
+      $("playerShotAttempts").textContent = String(summary.attempts);
+      $("playerShotMade").textContent = String(summary.made);
+      $("playerShotMissed").textContent = String(summary.missed);
+      $("playerShotFgPct").textContent = `${summary.fgPct.toFixed(1)}%`;
+    };
+
+    const updateFilterOptions = () => {
+      quarterSelect.innerHTML = buildQuarterSelectOptions(normalized)
+        .map(
+          (option) =>
+            `<option value="${option.value}">${option.label}</option>`,
+        )
+        .join("");
+      zoneSelect.innerHTML = buildPlayerShotZoneOptions(normalized)
+        .map(
+          (option) =>
+            `<option value="${option.value}">${option.label}</option>`,
+        )
+        .join("");
+      filters.quarter = "all";
+      filters.zone = "all";
+      quarterSelect.value = "all";
+      zoneSelect.value = "all";
+    };
+
+    const applyFilters = () => {
+      const filtered = filterPlayerShots(normalized, filters);
+      const summary = summarizeGameShots(filtered);
+      updateSummary(summary);
+      const hasData = filtered.length > 0;
+      emptyMsg.style.display = hasData ? "none" : "block";
+      if (!hasData) {
+        destroyPlayerShotCharts();
+        return;
+      }
+      renderPlayerShotScatterChart(filtered);
+      renderPlayerShotZoneChart(filtered);
+      renderPlayerShotQuarterChart(filtered);
+    };
+
+    const loadShotData = async () => {
+      const seasonId =
+        seasonSelect.value && seasonSelect.value !== "all"
+          ? seasonSelect.value
+          : null;
+      const rows = await fetchPlayerShotChart(playerId, seasonId);
+      normalized = normalizePlayerShots(rows);
+      updateFilterOptions();
+      applyFilters();
+      section.style.display = normalized.length > 0 ? "block" : "none";
+    };
+
+    const onSeasonChange = () => {
+      loadShotData();
+    };
+    const onResultChange = (event) => {
+      filters.result = event.target.value;
+      applyFilters();
+    };
+    const onQuarterChange = (event) => {
+      filters.quarter = event.target.value;
+      applyFilters();
+    };
+    const onZoneChange = (event) => {
+      filters.zone = event.target.value;
+      applyFilters();
+    };
+
+    seasonSelect.addEventListener("change", onSeasonChange);
+    resultSelect.addEventListener("change", onResultChange);
+    quarterSelect.addEventListener("change", onQuarterChange);
+    zoneSelect.addEventListener("change", onZoneChange);
+    unmountPlayerShotFilters = () => {
+      seasonSelect.removeEventListener("change", onSeasonChange);
+      resultSelect.removeEventListener("change", onResultChange);
+      quarterSelect.removeEventListener("change", onQuarterChange);
+      zoneSelect.removeEventListener("change", onZoneChange);
+    };
+
+    await loadShotData();
+  }
 
   function renderPlayerTrendChart(seasons) {
     const canvas = $("playerTrendChart");

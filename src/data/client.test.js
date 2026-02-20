@@ -86,4 +86,17 @@ describe("data client", () => {
     expect(getShotChart).toHaveBeenCalledWith("g1", "p1");
     expect(rows).toEqual([{ id: 1 }]);
   });
+
+  it("returns player shot chart rows via db", async () => {
+    const getPlayerShotChart = vi.fn(() => [{ id: 2 }]);
+    const client = createDataClient({
+      initDb: async () => true,
+      getDb: () => ({ getPlayerShotChart }),
+      getSeasonLabel: () => "시즌",
+    });
+
+    const rows = await client.getPlayerShotChart("p1", "WKBL_2025_2026");
+    expect(getPlayerShotChart).toHaveBeenCalledWith("p1", "WKBL_2025_2026");
+    expect(rows).toEqual([{ id: 2 }]);
+  });
 });
