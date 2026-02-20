@@ -2483,6 +2483,9 @@ const WKBLDatabase = (function () {
     getHeadToHead,
     getGameMVP,
     getGameQuarterScores,
+
+    // Prediction helpers
+    getTeamSeasonStats,
   };
 })();
 

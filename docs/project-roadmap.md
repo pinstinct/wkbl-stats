@@ -346,6 +346,22 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
   - `getTeamSeasonStats()`, `getLeagueSeasonStats()` SQL 집계
   - PER, USG%, ORtg, DRtg, 모든 rate stats 정적 호스팅에서도 계산
 
+### Phase 9: 예측 시스템 리팩토링 ✅ 완료 (2026-02-20)
+
+- [x] `tools/predict.py` — 예측 로직 모듈 분리 (신규)
+  - `calculate_player_prediction()` — Game Score 가중 평균, 상대팀 수비력 보정, 출전시간 안정성 반영
+  - `calculate_win_probability()` — 6요소 복합 모델 (Net Rating 35%, 예측 스탯 25%, 승률 15%, H2H 10%, 모멘텀 10%, 홈 어드밴티지 5%)
+  - `select_optimal_lineup()` — Game Score 기반 정렬, 출전시간 15분 미만 선수 제외
+- [x] 예측 스탯 확장: PTS/REB/AST → PTS/REB/AST/**STL/BLK**
+- [x] DB 스키마: `game_predictions` 테이블에 `predicted_stl/blk` 컬럼 추가
+- [x] `get_player_recent_games()` 쿼리 확장 (슈팅 스탯 9개 추가)
+- [x] `ingest_wkbl.py` 리팩토링: 예측 함수 `predict.py`로 위임, 상대팀/시즌 컨텍스트 전달
+- [x] 프론트엔드 동기화: `app.js`, `home.js`, `predict.js`, `predict-logic.js`
+  - Game Score 가중 평균, 상대팀 보정, STL/BLK 렌더링
+  - 다요소 승리 확률 모델 (Net Rating + H2H + 모멘텀)
+- [x] 테스트 18개 추가 (총 169개)
+- [x] Graceful degradation: 모든 개선 사항이 데이터 미존재 시 기존 방식으로 폴백
+
 ### Phase 8.5: Basketball Reference 정합성 개선 계획 🆕 (2026-02-20)
 
 목표: Basketball Reference 기준 지표 정의와 현재 구현(`tools/stats.py`, `src/db.js`)의 차이를 줄여 지표 일관성과 해석 신뢰도를 높인다.
@@ -439,13 +455,13 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 
 ## 7. 향후 개선 아이디어
 
-| 기능           | 설명                          | 우선순위 |
-| -------------- | ----------------------------- | -------- |
-| 시즌 비교      | 두 시즌의 팀/선수 스탯 비교   | 낮음     |
-| 예측 모델 개선 | USG%/PER 등 신규 feature 실험 | 낮음     |
-| 드래프트 기록  | 드래프트 순위/출신학교 수집   | 낮음     |
-| PWA 지원       | 오프라인 접근, 앱 설치        | 낮음     |
-| 다크 모드      | 테마 전환 지원                | 낮음     |
-| i18n           | 영어 지원                     | 낮음     |
+| 기능           | 설명                                               | 우선순위 |
+| -------------- | -------------------------------------------------- | -------- |
+| 시즌 비교      | 두 시즌의 팀/선수 스탯 비교                        | 낮음     |
+| 예측 모델 개선 | ~~USG%/PER 등 신규 feature 실험~~ Phase 9에서 완료 | ✅ 완료  |
+| 드래프트 기록  | 드래프트 순위/출신학교 수집                        | 낮음     |
+| PWA 지원       | 오프라인 접근, 앱 설치                             | 낮음     |
+| 다크 모드      | 테마 전환 지원                                     | 낮음     |
+| i18n           | 영어 지원                                          | 낮음     |
 
 미완 항목 상세: `docs/bak/remaining-features.md`

@@ -10,26 +10,49 @@ function calcStd(arr, key, avg) {
   return Math.sqrt(variance);
 }
 
+function calcGameScore(g) {
+  return (
+    (g.pts || 0) +
+    0.4 * (g.fgm || 0) -
+    0.7 * (g.fga || 0) -
+    0.4 * ((g.fta || 0) - (g.ftm || 0)) +
+    0.7 * (g.off_reb || 0) +
+    0.3 * (g.def_reb || 0) +
+    (g.stl || 0) +
+    0.7 * (g.ast || 0) +
+    0.7 * (g.blk || 0) -
+    0.4 * (g.pf || 0) -
+    (g.tov || 0)
+  );
+}
+
+function gsWeightedAvg(games, key) {
+  if (!games.length) return 0;
+  let totalW = 0,
+    totalV = 0;
+  for (const g of games) {
+    const w = Math.max(0.1, calcGameScore(g));
+    totalW += w;
+    totalV += (g[key] || 0) * w;
+  }
+  return totalW > 0 ? totalV / totalW : 0;
+}
+
 export function calculatePrediction(gamelog) {
   const games = gamelog.slice(0, 15);
   const recent5 = games.slice(0, 5);
   const recent10 = games.slice(0, 10);
 
-  const recent5Avg = {
-    pts: calcAvg(recent5, "pts"),
-    reb: calcAvg(recent5, "reb"),
-    ast: calcAvg(recent5, "ast"),
-  };
-  const recent10Avg = {
-    pts: calcAvg(recent10, "pts"),
-    reb: calcAvg(recent10, "reb"),
-    ast: calcAvg(recent10, "ast"),
-  };
-  const seasonAvg = {
-    pts: calcAvg(games, "pts"),
-    reb: calcAvg(games, "reb"),
-    ast: calcAvg(games, "ast"),
-  };
+  const stats = ["pts", "reb", "ast", "stl", "blk"];
+
+  const recent5Avg = {};
+  const recent10Avg = {};
+  const seasonAvg = {};
+  for (const key of stats) {
+    recent5Avg[key] = gsWeightedAvg(recent5, key);
+    recent10Avg[key] = gsWeightedAvg(recent10, key);
+    seasonAvg[key] = calcAvg(games, key);
+  }
 
   const predict = (key) => {
     const base = recent5Avg[key] * 0.6 + recent10Avg[key] * 0.4;
@@ -57,14 +80,11 @@ export function calculatePrediction(gamelog) {
     return { predicted, low, high, trend, trendLabel };
   };
 
-  return {
-    pts: predict("pts"),
-    reb: predict("reb"),
-    ast: predict("ast"),
-    recent5Avg,
-    recent10Avg,
-    seasonAvg,
-  };
+  const result = { recent5Avg, recent10Avg, seasonAvg };
+  for (const key of stats) {
+    result[key] = predict(key);
+  }
+  return result;
 }
 
 export function buildPredictionCompareState({ homeWin, teamPrediction }) {

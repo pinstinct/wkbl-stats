@@ -437,8 +437,28 @@ import {
       console.log("Home roster:", homeRoster.length, "players");
       console.log("Away roster:", awayRoster.length, "players");
 
-      const homeLineup = generateOptimalLineup(homeRoster);
-      const awayLineup = generateOptimalLineup(awayRoster);
+      // Build recent games map for lineup minutes filtering
+      const homeRecentMap = {};
+      const awayRecentMap = {};
+      if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
+        for (const p of homeRoster.slice(0, 10)) {
+          homeRecentMap[p.id] = WKBLDatabase.getPlayerGamelog(
+            p.id,
+            state.currentSeason,
+            10,
+          );
+        }
+        for (const p of awayRoster.slice(0, 10)) {
+          awayRecentMap[p.id] = WKBLDatabase.getPlayerGamelog(
+            p.id,
+            state.currentSeason,
+            10,
+          );
+        }
+      }
+
+      const homeLineup = generateOptimalLineup(homeRoster, homeRecentMap);
+      const awayLineup = generateOptimalLineup(awayRoster, awayRecentMap);
 
       console.log("Home lineup:", homeLineup.length, "players");
       console.log("Away lineup:", awayLineup.length, "players");
@@ -450,31 +470,96 @@ import {
         return;
       }
 
+      // Build opponent context for defensive adjustments
+      let homeOppCtx = null;
+      let awayOppCtx = null;
+      let winCtx = {};
+      if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
+        const teamStats = WKBLDatabase.getTeamSeasonStats(state.currentSeason);
+        // Build opponent defense factors
+        const buildOppCtx = (oppTeamId) => {
+          const oppStats = teamStats.get(oppTeamId);
+          if (!oppStats) return null;
+          // Use opponent's allowed stats vs league avg
+          const allTeams = [...teamStats.values()];
+          const ctx = {};
+          for (const stat of ["pts", "reb", "ast", "stl", "blk"]) {
+            const oppKey = "opp_" + stat;
+            const teamKey = "team_" + stat;
+            const oppVal = oppStats[oppKey] || oppStats[teamKey] || 0;
+            const lgTotal = allTeams.reduce(
+              (s, t) => s + (t[oppKey] || t[teamKey] || 0),
+              0,
+            );
+            const lgAvg = lgTotal / allTeams.length;
+            ctx[stat + "_factor"] = lgAvg > 0 ? oppVal / lgAvg : 1.0;
+          }
+          return ctx;
+        };
+        homeOppCtx = buildOppCtx(nextGame.away_team_id);
+        awayOppCtx = buildOppCtx(nextGame.home_team_id);
+
+        // Build win probability context
+        const homeTs = teamStats.get(nextGame.home_team_id);
+        const awayTs = teamStats.get(nextGame.away_team_id);
+        if (homeTs && awayTs) {
+          const calcNetRtg = (ts) => {
+            const tPoss = _estimatePossessions(
+              ts.team_fga || 0,
+              ts.team_fta || 0,
+              ts.team_tov || 0,
+              ts.team_oreb || 0,
+            );
+            const oPoss = _estimatePossessions(
+              ts.opp_fga || 0,
+              ts.opp_fta || 0,
+              ts.opp_tov || 0,
+              ts.opp_oreb || 0,
+            );
+            if (tPoss > 0 && oPoss > 0) {
+              return (
+                ((ts.team_pts || 0) / tPoss) * 100 -
+                ((ts.opp_pts || 0) / oPoss) * 100
+              );
+            }
+            return undefined;
+          };
+          winCtx.homeNetRtg = calcNetRtg(homeTs);
+          winCtx.awayNetRtg = calcNetRtg(awayTs);
+        }
+
+        // H2H
+        const h2h = WKBLDatabase.getHeadToHead(
+          state.currentSeason,
+          nextGame.home_team_id,
+          nextGame.away_team_id,
+        );
+        if (h2h && h2h.length > 0) {
+          const homeWins = h2h.filter(
+            (g) => g.winner_id === nextGame.home_team_id,
+          ).length;
+          winCtx.h2hFactor = homeWins / h2h.length;
+        }
+      }
+
       // Calculate predictions for each player
       const homePredictions = await Promise.all(
-        homeLineup.map((p) => getPlayerPrediction(p, true)),
+        homeLineup.map((p) => getPlayerPrediction(p, true, homeOppCtx)),
       );
       const awayPredictions = await Promise.all(
-        awayLineup.map((p) => getPlayerPrediction(p, false)),
+        awayLineup.map((p) => getPlayerPrediction(p, false, awayOppCtx)),
       );
 
       // Calculate win probability
-      const homeStrength = calculateTeamStrength(
+      const winProb = calculateWinProbability(
         homePredictions,
-        homeStanding,
-        true,
-      );
-      const awayStrength = calculateTeamStrength(
         awayPredictions,
+        homeStanding,
         awayStanding,
-        false,
+        winCtx,
       );
-      const totalStrength = homeStrength + awayStrength;
-      const homeWinProb =
-        totalStrength > 0
-          ? ((homeStrength / totalStrength) * 100).toFixed(0)
-          : 50;
-      const awayWinProb = 100 - homeWinProb;
+      const homeWinProb = winProb.home;
+      const awayWinProb = winProb.away;
 
       // Render lineups
       $("homeLineupTitle").textContent =
@@ -531,22 +616,40 @@ import {
     return [];
   }
 
-  function generateOptimalLineup(roster) {
+  function generateOptimalLineup(roster, recentGamesMap) {
     if (!roster || roster.length === 0) return [];
 
-    // Sort by PIR (Performance Index Rating) as primary metric
-    const sorted = [...roster].sort((a, b) => (b.pir || 0) - (a.pir || 0));
+    // Filter by recent minutes: exclude players averaging < 15 min
+    let eligible = roster;
+    if (recentGamesMap) {
+      const filtered = roster.filter((p) => {
+        const recent = recentGamesMap[p.id];
+        if (!recent || recent.length === 0) return true; // No data → include
+        const games = recent.slice(0, 5);
+        const avgMin =
+          games.reduce((sum, g) => sum + (g.minutes || 0), 0) / games.length;
+        return avgMin >= 15;
+      });
+      if (filtered.length >= 5) eligible = filtered;
+    }
+
+    // Sort by Game Score (fall back to PIR)
+    const sorted = [...eligible].sort((a, b) => {
+      const aScore = a.game_score != null ? a.game_score : a.pir || 0;
+      const bScore = b.game_score != null ? b.game_score : b.pir || 0;
+      return bScore - aScore;
+    });
 
     // Select optimal 5: try to get position diversity
     const lineup = [];
     const positions = { G: 0, F: 0, C: 0 };
-    const positionLimits = { G: 2, F: 2, C: 1 }; // Typical basketball formation
+    const positionLimits = { G: 2, F: 2, C: 1 };
 
     // First pass: select by position
     for (const player of sorted) {
       if (lineup.length >= 5) break;
       const pos = player.pos || "F";
-      const mainPos = pos.charAt(0); // Get first character (G, F, or C)
+      const mainPos = pos.charAt(0);
 
       if (positions[mainPos] < positionLimits[mainPos]) {
         lineup.push(player);
@@ -565,7 +668,35 @@ import {
     return lineup.slice(0, 5);
   }
 
-  async function getPlayerPrediction(player, isHome) {
+  function _calcGameScore(g) {
+    return (
+      (g.pts || 0) +
+      0.4 * (g.fgm || 0) -
+      0.7 * (g.fga || 0) -
+      0.4 * ((g.fta || 0) - (g.ftm || 0)) +
+      0.7 * (g.off_reb || 0) +
+      0.3 * (g.def_reb || 0) +
+      (g.stl || 0) +
+      0.7 * (g.ast || 0) +
+      0.7 * (g.blk || 0) -
+      0.4 * (g.pf || 0) -
+      (g.tov || 0)
+    );
+  }
+
+  function _gsWeightedAvg(games, stat) {
+    if (!games.length) return 0;
+    let totalW = 0,
+      totalV = 0;
+    for (const g of games) {
+      const w = Math.max(0.1, _calcGameScore(g));
+      totalW += w;
+      totalV += (g[stat] || 0) * w;
+    }
+    return totalW > 0 ? totalV / totalW : 0;
+  }
+
+  async function getPlayerPrediction(player, isHome, oppContext) {
     // Get recent games for prediction
     let recentGames = [];
     if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
@@ -576,60 +707,70 @@ import {
       );
     }
 
-    const prediction = {
-      player: player,
-      pts: { pred: 0, low: 0, high: 0 },
-      reb: { pred: 0, low: 0, high: 0 },
-      ast: { pred: 0, low: 0, high: 0 },
-    };
+    const stats = ["pts", "reb", "ast", "stl", "blk"];
+    const prediction = { player };
+    for (const s of stats) {
+      prediction[s] = { pred: 0, low: 0, high: 0 };
+    }
 
     if (recentGames.length === 0) {
-      // Use season averages if no game log
-      prediction.pts.pred = player.pts || 0;
-      prediction.reb.pred = player.reb || 0;
-      prediction.ast.pred = player.ast || 0;
+      for (const s of stats) {
+        prediction[s].pred = player[s] || 0;
+      }
       return prediction;
     }
 
-    // Calculate predictions for each stat
-    ["pts", "reb", "ast"].forEach((stat) => {
-      const values = recentGames.map((g) => g[stat] || 0);
-      const recent5 = values.slice(0, 5);
-      const recent10 = values.slice(0, 10);
+    // Minutes stability (CV)
+    const minVals = recentGames.slice(0, 5).map((g) => g.minutes || 0);
+    const minAvg = minVals.reduce((a, b) => a + b, 0) / minVals.length;
+    let cv = 0;
+    if (minAvg > 0 && minVals.length > 1) {
+      const minVar =
+        minVals.reduce((acc, v) => acc + Math.pow(v - minAvg, 2), 0) /
+        minVals.length;
+      cv = Math.sqrt(minVar) / minAvg;
+    }
 
-      const avg5 =
-        recent5.length > 0
-          ? recent5.reduce((a, b) => a + b, 0) / recent5.length
-          : 0;
-      const avg10 =
-        recent10.length > 0
-          ? recent10.reduce((a, b) => a + b, 0) / recent10.length
-          : 0;
+    stats.forEach((stat) => {
+      const recent5 = recentGames.slice(0, 5);
+      const recent10 = recentGames.slice(0, 10);
 
-      // Weighted average: 60% recent 5, 40% recent 10
+      // Game Score weighted averages
+      const avg5 = _gsWeightedAvg(recent5, stat);
+      const avg10 = _gsWeightedAvg(recent10, stat);
+
       let basePred = avg5 * 0.6 + avg10 * 0.4;
 
-      // Home advantage (5%)
-      if (isHome) {
-        basePred *= 1.05;
-      } else {
-        basePred *= 0.97;
-      }
+      // Home/away
+      if (isHome) basePred *= 1.05;
+      else basePred *= 0.97;
 
       // Trend bonus
       const seasonAvg = player[stat] || 0;
-      if (avg5 > seasonAvg * 1.1) {
-        basePred *= 1.05; // Hot streak
-      } else if (avg5 < seasonAvg * 0.9) {
-        basePred *= 0.95; // Cold streak
+      if (seasonAvg > 0) {
+        if (avg5 > seasonAvg * 1.1) basePred *= 1.05;
+        else if (avg5 < seasonAvg * 0.9) basePred *= 0.95;
       }
 
-      // Standard deviation for confidence interval
-      const stdDev =
-        Math.sqrt(
-          values.reduce((acc, v) => acc + Math.pow(v - avg10, 2), 0) /
-            values.length,
-        ) || basePred * 0.15;
+      // Opponent defensive adjustment
+      if (oppContext) {
+        const factor = oppContext[stat + "_factor"] || 1.0;
+        basePred *= 1.0 + (factor - 1.0) * 0.15;
+      }
+
+      // Standard deviation
+      const values = recentGames.map((g) => g[stat] || 0);
+      const plainAvg = values.reduce((a, b) => a + b, 0) / values.length;
+      let stdDev =
+        values.length > 1
+          ? Math.sqrt(
+              values.reduce((acc, v) => acc + Math.pow(v - plainAvg, 2), 0) /
+                values.length,
+            ) || basePred * 0.15
+          : basePred * 0.15;
+
+      // Widen for unstable minutes
+      if (cv > 0.3) stdDev *= 1.0 + (cv - 0.3);
 
       prediction[stat] = {
         pred: basePred,
@@ -641,44 +782,112 @@ import {
     return prediction;
   }
 
-  function calculateTeamStrength(predictions, standing, isHome) {
-    // Base strength from predicted stats
-    let strength = predictions.reduce((acc, p) => {
-      return (
-        acc +
-        (p.pts.pred || 0) +
-        (p.reb.pred || 0) * 0.5 +
-        (p.ast.pred || 0) * 0.7
+  function _normalizeRating(rating, center = 0, scale = 10) {
+    return 1 / (1 + Math.exp(-(rating - center) / scale));
+  }
+
+  function _parseLast5(last5Str) {
+    if (!last5Str || !last5Str.includes("-")) return 0.5;
+    const parts = last5Str.split("-");
+    const total = parseInt(parts[0]) + parseInt(parts[1]);
+    return total > 0 ? parseInt(parts[0]) / total : 0.5;
+  }
+
+  function _estimatePossessions(fga, fta, tov, oreb) {
+    return fga + 0.44 * fta + tov - oreb;
+  }
+
+  function calculateWinProbability(
+    homePreds,
+    awayPreds,
+    homeStanding,
+    awayStanding,
+    winCtx,
+  ) {
+    const ctx = winCtx || {};
+
+    // 1. Predicted stats strength (25%)
+    const statStr = (preds) =>
+      preds.reduce(
+        (acc, p) =>
+          acc +
+          (p.pts.pred || 0) +
+          (p.reb.pred || 0) * 0.5 +
+          (p.ast.pred || 0) * 0.7,
+        0,
       );
-    }, 0);
+    const homeStr = statStr(homePreds);
+    const awayStr = statStr(awayPreds);
+    const totalStr = homeStr + awayStr;
+    const homeStatScore = totalStr > 0 ? homeStr / totalStr : 0.5;
+    const awayStatScore = totalStr > 0 ? awayStr / totalStr : 0.5;
 
-    // Factor in team record
-    if (standing) {
-      const winPct = standing.win_pct || 0.5;
-      strength *= 0.5 + winPct;
+    // 2. Net Rating (35%)
+    const hasNetRtg =
+      ctx.homeNetRtg !== undefined && ctx.awayNetRtg !== undefined;
+    const homeRtgScore = hasNetRtg ? _normalizeRating(ctx.homeNetRtg) : 0.5;
+    const awayRtgScore = hasNetRtg ? _normalizeRating(ctx.awayNetRtg) : 0.5;
 
-      // Home/away specific performance
-      if (isHome && standing.home_wins !== undefined) {
-        const homeWinPct =
-          standing.home_total > 0
-            ? standing.home_wins / standing.home_total
-            : 0.5;
-        strength *= 0.8 + homeWinPct * 0.4;
-      } else if (!isHome && standing.away_wins !== undefined) {
-        const awayWinPct =
-          standing.away_total > 0
-            ? standing.away_wins / standing.away_total
-            : 0.5;
-        strength *= 0.8 + awayWinPct * 0.4;
-      }
+    // 3. Win percentage (15%)
+    const homeWinPct = homeStanding ? homeStanding.win_pct || 0.5 : 0.5;
+    const awayWinPct = awayStanding ? awayStanding.win_pct || 0.5 : 0.5;
+
+    // 4. H2H (10%)
+    const h2hFactor = ctx.h2hFactor !== undefined ? ctx.h2hFactor : 0.5;
+
+    // 5. Momentum (10%)
+    const homeMom = _parseLast5(
+      ctx.homeLast5 || (homeStanding && homeStanding.last5),
+    );
+    const awayMom = _parseLast5(
+      ctx.awayLast5 || (awayStanding && awayStanding.last5),
+    );
+
+    // 6. Home court (5%)
+    let homeCourtPct = 0.5;
+    if (homeStanding) {
+      const hw = homeStanding.home_wins || 0;
+      const hl = homeStanding.home_losses || 0;
+      homeCourtPct = hw + hl > 0 ? hw / (hw + hl) : 0.5;
+    }
+    let awayCourtPct = 0.5;
+    if (awayStanding) {
+      const aw = awayStanding.away_wins || 0;
+      const al = awayStanding.away_losses || 0;
+      awayCourtPct = aw + al > 0 ? aw / (aw + al) : 0.5;
     }
 
-    // Home advantage
-    if (isHome) {
-      strength *= 1.05;
-    }
+    // Weight allocation
+    const wRtg = hasNetRtg ? 0.35 : 0.0;
+    const wStat = hasNetRtg ? 0.25 : 0.45;
+    const wWp = hasNetRtg ? 0.15 : 0.25;
+    const wH2h = 0.1;
+    const wMom = 0.1;
+    const wCourt = hasNetRtg ? 0.05 : 0.1;
 
-    return strength;
+    const homeScore =
+      wRtg * homeRtgScore +
+      wStat * homeStatScore +
+      wWp * homeWinPct +
+      wH2h * h2hFactor +
+      wMom * homeMom +
+      wCourt * homeCourtPct;
+    const awayScore =
+      wRtg * awayRtgScore +
+      wStat * awayStatScore +
+      wWp * awayWinPct +
+      wH2h * (1 - h2hFactor) +
+      wMom * awayMom +
+      wCourt * awayCourtPct;
+
+    const total = homeScore + awayScore;
+    if (total > 0) {
+      return {
+        home: Math.round((homeScore / total) * 100),
+        away: Math.round(100 - (homeScore / total) * 100),
+      };
+    }
+    return { home: 50, away: 50 };
   }
 
   // =============================================================================
@@ -1688,8 +1897,14 @@ import {
         const sumActual = (stats, stat) =>
           (stats || []).reduce((s, p) => s + (p[stat] || 0), 0);
 
-        const stats = ["pts", "reb", "ast"];
-        const statLabels = { pts: "득점", reb: "리바운드", ast: "어시스트" };
+        const stats = ["pts", "reb", "ast", "stl", "blk"];
+        const statLabels = {
+          pts: "득점",
+          reb: "리바운드",
+          ast: "어시스트",
+          stl: "스틸",
+          blk: "블록",
+        };
         const teams = [
           {
             id: game.away_team_id,
@@ -1754,15 +1969,11 @@ import {
               <thead>
                 <tr>
                   <th></th>
-                  <th colspan="3">득점</th>
-                  <th colspan="3">리바운드</th>
-                  <th colspan="3">어시스트</th>
+                  ${stats.map((s) => `<th colspan="3">${statLabels[s]}</th>`).join("")}
                 </tr>
                 <tr>
                   <th></th>
-                  <th>예측</th><th>실제</th><th>차이</th>
-                  <th>예측</th><th>실제</th><th>차이</th>
-                  <th>예측</th><th>실제</th><th>차이</th>
+                  ${stats.map(() => `<th>예측</th><th>실제</th><th>차이</th>`).join("")}
                 </tr>
               </thead>
               <tbody>${tableRows}</tbody>
@@ -1774,21 +1985,15 @@ import {
         const buildTeamTotals = (players, teamId) => {
           const teamPlayers = players.filter((p) => p.team_id === teamId);
           if (teamPlayers.length === 0) return null;
-          const totals = {
-            pts: { pred: 0, low: 0, high: 0 },
-            reb: { pred: 0, low: 0, high: 0 },
-            ast: { pred: 0, low: 0, high: 0 },
-          };
+          const statKeys = ["pts", "reb", "ast", "stl", "blk"];
+          const totals = {};
+          statKeys.forEach((s) => (totals[s] = { pred: 0, low: 0, high: 0 }));
           teamPlayers.forEach((p) => {
-            totals.pts.pred += p.predicted_pts || 0;
-            totals.pts.low += p.predicted_pts_low || 0;
-            totals.pts.high += p.predicted_pts_high || 0;
-            totals.reb.pred += p.predicted_reb || 0;
-            totals.reb.low += p.predicted_reb_low || 0;
-            totals.reb.high += p.predicted_reb_high || 0;
-            totals.ast.pred += p.predicted_ast || 0;
-            totals.ast.low += p.predicted_ast_low || 0;
-            totals.ast.high += p.predicted_ast_high || 0;
+            statKeys.forEach((s) => {
+              totals[s].pred += p[`predicted_${s}`] || 0;
+              totals[s].low += p[`predicted_${s}_low`] || 0;
+              totals[s].high += p[`predicted_${s}_high`] || 0;
+            });
           });
           return totals;
         };
@@ -1812,50 +2017,36 @@ import {
           predictions.players,
           game.home_team_id,
         );
+        const totalStatLabels = {
+          pts: "총 득점",
+          reb: "총 리바운드",
+          ast: "총 어시스트",
+          stl: "총 스틸",
+          blk: "총 블록",
+        };
+        const renderTotalTeam = (teamName, totals) => {
+          const statItems = ["pts", "reb", "ast", "stl", "blk"]
+            .map(
+              (s) => `
+                <div class="total-stat">
+                  <span class="stat-label">${totalStatLabels[s]}</span>
+                  <span class="stat-value">${formatNumber(totals[s].pred)}</span>
+                  <span class="stat-range">${formatRange(totals[s].low, totals[s].high)}</span>
+                </div>`,
+            )
+            .join("");
+          return `
+            <div class="pred-total-team">
+              <div class="pred-total-header">${teamName}</div>
+              <div class="lineup-total-stats">${statItems}</div>
+            </div>`;
+        };
         const totalsHtml =
           awayTotals && homeTotals
             ? `
           <div class="pred-total-stats">
-            <div class="pred-total-team">
-              <div class="pred-total-header">${game.away_team_name}</div>
-              <div class="lineup-total-stats">
-                <div class="total-stat">
-                  <span class="stat-label">총 득점</span>
-                  <span class="stat-value">${formatNumber(awayTotals.pts.pred)}</span>
-                  <span class="stat-range">${formatRange(awayTotals.pts.low, awayTotals.pts.high)}</span>
-                </div>
-                <div class="total-stat">
-                  <span class="stat-label">총 리바운드</span>
-                  <span class="stat-value">${formatNumber(awayTotals.reb.pred)}</span>
-                  <span class="stat-range">${formatRange(awayTotals.reb.low, awayTotals.reb.high)}</span>
-                </div>
-                <div class="total-stat">
-                  <span class="stat-label">총 어시스트</span>
-                  <span class="stat-value">${formatNumber(awayTotals.ast.pred)}</span>
-                  <span class="stat-range">${formatRange(awayTotals.ast.low, awayTotals.ast.high)}</span>
-                </div>
-              </div>
-            </div>
-            <div class="pred-total-team">
-              <div class="pred-total-header">${game.home_team_name}</div>
-              <div class="lineup-total-stats">
-                <div class="total-stat">
-                  <span class="stat-label">총 득점</span>
-                  <span class="stat-value">${formatNumber(homeTotals.pts.pred)}</span>
-                  <span class="stat-range">${formatRange(homeTotals.pts.low, homeTotals.pts.high)}</span>
-                </div>
-                <div class="total-stat">
-                  <span class="stat-label">총 리바운드</span>
-                  <span class="stat-value">${formatNumber(homeTotals.reb.pred)}</span>
-                  <span class="stat-range">${formatRange(homeTotals.reb.low, homeTotals.reb.high)}</span>
-                </div>
-                <div class="total-stat">
-                  <span class="stat-label">총 어시스트</span>
-                  <span class="stat-value">${formatNumber(homeTotals.ast.pred)}</span>
-                  <span class="stat-range">${formatRange(homeTotals.ast.low, homeTotals.ast.high)}</span>
-                </div>
-              </div>
-            </div>
+            ${renderTotalTeam(game.away_team_name, awayTotals)}
+            ${renderTotalTeam(game.home_team_name, homeTotals)}
           </div>
         `
             : "";

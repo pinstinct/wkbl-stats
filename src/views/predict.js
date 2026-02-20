@@ -48,10 +48,13 @@ export function renderPredictCards({ container, prediction }) {
     { key: "pts", label: "득점" },
     { key: "reb", label: "리바운드" },
     { key: "ast", label: "어시스트" },
+    { key: "stl", label: "스틸" },
+    { key: "blk", label: "블록" },
   ];
   container.innerHTML = stats
     .map((stat) => {
       const pred = prediction[stat.key];
+      if (!pred) return "";
       return `
           <div class="predict-stat-card">
             <div class="predict-stat-label">${stat.label}</div>
@@ -73,7 +76,7 @@ export function renderPredictFactors({ container, prediction }) {
         <li>최근 5경기 평균: ${prediction.recent5Avg.pts.toFixed(1)}점 / ${prediction.recent5Avg.reb.toFixed(1)}리바 / ${prediction.recent5Avg.ast.toFixed(1)}어시</li>
         <li>최근 10경기 평균: ${prediction.recent10Avg.pts.toFixed(1)}점 / ${prediction.recent10Avg.reb.toFixed(1)}리바 / ${prediction.recent10Avg.ast.toFixed(1)}어시</li>
         <li>시즌 평균: ${prediction.seasonAvg.pts.toFixed(1)}점 / ${prediction.seasonAvg.reb.toFixed(1)}리바 / ${prediction.seasonAvg.ast.toFixed(1)}어시</li>
-        <li>예측 모델: (최근 5경기 × 60%) + (최근 10경기 × 40%)</li>
+        <li>예측 모델: Game Score 가중 (최근 5경기 × 60%) + (최근 10경기 × 40%)</li>
       </ul>
     </div>
   `;

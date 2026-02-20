@@ -102,7 +102,7 @@ uv run pytest tests/test_database.py -v
 uv run pytest tests/test_api.py -v
 ```
 
-**Test coverage (143 tests total):**
+**Test coverage (169 tests total):**
 
 - `test_database.py`: Database operations (49 tests)
   - Database init, CRUD operations, season stats, boxscore, standings, predictions
@@ -122,6 +122,11 @@ uv run pytest tests/test_api.py -v
   - Rate stats (OREB%, DREB%, AST%, STL%, BLK%)
   - PER (Player Efficiency Rating)
   - Individual ORtg/DRtg (points produced, scoring possessions)
+- `test_predict.py`: Prediction system (18 tests)
+  - Player stat prediction (basic, STL/BLK, Game Score weighting, opponent adjustment)
+  - Minutes stability confidence interval widening
+  - Win probability (basic, net rating, H2H, momentum, graceful degradation)
+  - Lineup selection (Game Score priority, minutes filter, position diversity)
 - `test_lineup.py`: Lineup tracking engine (18 tests)
   - Starter inference (events, minutes backfill, per-quarter)
   - Stint tracking (substitutions, quarter transitions, scores)
@@ -201,6 +206,7 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.jso
 - `tools/ingest_wkbl.py` - Web scraper and data aggregation pipeline
 - `tools/database.py` - SQLite schema and database operations
 - `tools/stats.py` - Advanced stat calculations (TS%, PER, individual ORtg/DRtg, USG%, etc.)
+- `tools/predict.py` - Prediction system (Game Score weighted stats, multi-factor win probability, lineup selection)
 - `tools/lineup.py` - Lineup tracking engine (stints, +/-, On/Off ratings)
 - `tools/season_utils.py` - Season code resolver
 - `tools/config.py` - Centralized configuration (URLs, paths, settings)

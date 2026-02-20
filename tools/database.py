@@ -190,6 +190,12 @@ CREATE TABLE IF NOT EXISTS game_predictions (
     predicted_ast REAL,
     predicted_ast_low REAL,
     predicted_ast_high REAL,
+    predicted_stl REAL,
+    predicted_stl_low REAL,
+    predicted_stl_high REAL,
+    predicted_blk REAL,
+    predicted_blk_low REAL,
+    predicted_blk_high REAL,
     created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (game_id) REFERENCES games(id),
     FOREIGN KEY (player_id) REFERENCES players(id),
@@ -489,6 +495,8 @@ META_DESCRIPTIONS = [
     ("game_predictions", "predicted_pts", "예측 득점"),
     ("game_predictions", "predicted_reb", "예측 리바운드"),
     ("game_predictions", "predicted_ast", "예측 어시스트"),
+    ("game_predictions", "predicted_stl", "예측 스틸"),
+    ("game_predictions", "predicted_blk", "예측 블록"),
     # game_team_predictions 테이블
     ("game_team_predictions", "", "경기별 팀 승률 예측"),
     ("game_team_predictions", "home_win_prob", "홈팀 승률 예측 (0-100)"),
@@ -574,6 +582,23 @@ def init_db():
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.executescript(SCHEMA)
+
+        # Migrate existing tables: add columns that may not exist yet.
+        _migrations = [
+            ("game_predictions", "predicted_stl", "REAL"),
+            ("game_predictions", "predicted_stl_low", "REAL"),
+            ("game_predictions", "predicted_stl_high", "REAL"),
+            ("game_predictions", "predicted_blk", "REAL"),
+            ("game_predictions", "predicted_blk_low", "REAL"),
+            ("game_predictions", "predicted_blk_high", "REAL"),
+        ]
+        for table, col, col_type in _migrations:
+            try:
+                cursor.execute(  # nosec B608 — table/col are hardcoded constants
+                    f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"
+                )
+            except Exception:  # nosec B110 — intentional: column may already exist
+                pass
 
         # Teams are seeded once and reused by ingest/API joins.
         # Insert teams master data
@@ -1291,6 +1316,8 @@ def get_player_recent_games(
             """SELECT
                 g.id as game_id, g.game_date,
                 pg.pts, pg.reb, pg.ast, pg.stl, pg.blk, pg.tov, pg.minutes,
+                pg.fgm, pg.fga, pg.tpm, pg.tpa, pg.ftm, pg.fta,
+                pg.off_reb, pg.def_reb, pg.pf,
                 g.home_team_id, g.away_team_id, pg.team_id
             FROM player_games pg
             JOIN games g ON pg.game_id = g.id
@@ -1318,6 +1345,8 @@ def save_game_predictions(
             - predicted_pts, predicted_pts_low, predicted_pts_high
             - predicted_reb, predicted_reb_low, predicted_reb_high
             - predicted_ast, predicted_ast_low, predicted_ast_high
+            - predicted_stl, predicted_stl_low, predicted_stl_high (optional)
+            - predicted_blk, predicted_blk_low, predicted_blk_high (optional)
         team_prediction: Optional dict with:
             - home_win_prob, away_win_prob
             - home_predicted_pts, away_predicted_pts
@@ -1331,8 +1360,11 @@ def save_game_predictions(
                     predicted_pts, predicted_pts_low, predicted_pts_high,
                     predicted_reb, predicted_reb_low, predicted_reb_high,
                     predicted_ast, predicted_ast_low, predicted_ast_high,
+                    predicted_stl, predicted_stl_low, predicted_stl_high,
+                    predicted_blk, predicted_blk_low, predicted_blk_high,
                     created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                           ?, ?, ?, ?, ?, ?, datetime('now'))""",
                 (
                     game_id,
                     pred.get("team_id"),
@@ -1347,6 +1379,12 @@ def save_game_predictions(
                     pred.get("predicted_ast"),
                     pred.get("predicted_ast_low"),
                     pred.get("predicted_ast_high"),
+                    pred.get("predicted_stl"),
+                    pred.get("predicted_stl_low"),
+                    pred.get("predicted_stl_high"),
+                    pred.get("predicted_blk"),
+                    pred.get("predicted_blk_low"),
+                    pred.get("predicted_blk_high"),
                 ),
             )
 

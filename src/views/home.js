@@ -31,6 +31,16 @@ export function renderLineupPlayers({
               <span class="stat-value">${formatNumber(pred.ast.pred)}</span>
               <span class="stat-range">${formatNumber(pred.ast.low)}-${formatNumber(pred.ast.high)}</span>
             </div>
+            <div class="lineup-stat">
+              <span class="stat-label">STL</span>
+              <span class="stat-value">${formatNumber(pred.stl.pred)}</span>
+              <span class="stat-range">${formatNumber(pred.stl.low)}-${formatNumber(pred.stl.high)}</span>
+            </div>
+            <div class="lineup-stat">
+              <span class="stat-label">BLK</span>
+              <span class="stat-value">${formatNumber(pred.blk.pred)}</span>
+              <span class="stat-range">${formatNumber(pred.blk.low)}-${formatNumber(pred.blk.high)}</span>
+            </div>
           </div>
         </div>
       `;
@@ -45,9 +55,11 @@ export function renderTotalStats({ container, predictions, formatNumber }) {
       acc.pts += p.pts.pred;
       acc.reb += p.reb.pred;
       acc.ast += p.ast.pred;
+      acc.stl += p.stl.pred;
+      acc.blk += p.blk.pred;
       return acc;
     },
-    { pts: 0, reb: 0, ast: 0 },
+    { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0 },
   );
 
   container.innerHTML = `
@@ -62,6 +74,14 @@ export function renderTotalStats({ container, predictions, formatNumber }) {
       <div class="total-stat">
         <span class="stat-label">총 어시스트</span>
         <span class="stat-value">${formatNumber(totals.ast)}</span>
+      </div>
+      <div class="total-stat">
+        <span class="stat-label">총 스틸</span>
+        <span class="stat-value">${formatNumber(totals.stl)}</span>
+      </div>
+      <div class="total-stat">
+        <span class="stat-label">총 블록</span>
+        <span class="stat-value">${formatNumber(totals.blk)}</span>
       </div>
     `;
 }

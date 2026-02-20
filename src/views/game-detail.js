@@ -21,6 +21,8 @@ export function renderBoxscoreRows({
     const ptsPred = getPredStyle(pred, p.pts, "pts");
     const rebPred = getPredStyle(pred, p.reb, "reb");
     const astPred = getPredStyle(pred, p.ast, "ast");
+    const stlPred = getPredStyle(pred, p.stl, "stl");
+    const blkPred = getPredStyle(pred, p.blk, "blk");
 
     return `
       <tr class="${pred?.is_starter ? "starter-row" : ""}">
@@ -32,8 +34,8 @@ export function renderBoxscoreRows({
         <td class="${ptsPred.cls}" title="${ptsPred.title}">${p.pts}</td>
         <td class="${rebPred.cls}" title="${rebPred.title}">${p.reb}</td>
         <td class="${astPred.cls}" title="${astPred.title}">${p.ast}</td>
-        <td>${p.stl}</td>
-        <td>${p.blk}</td>
+        <td class="${stlPred.cls}" title="${stlPred.title}">${p.stl}</td>
+        <td class="${blkPred.cls}" title="${blkPred.title}">${p.blk}</td>
         <td class="hide-mobile">${p.tov}</td>
         <td class="hide-mobile">${p.fgm}/${p.fga}</td>
         <td class="hide-tablet">${p.tpm}/${p.tpa}</td>
@@ -57,7 +59,8 @@ export function renderBoxscoreRows({
         <td title="예측: ${pred.predicted_pts.toFixed(1)}">-</td>
         <td title="예측: ${pred.predicted_reb.toFixed(1)}">-</td>
         <td title="예측: ${pred.predicted_ast.toFixed(1)}">-</td>
-        <td>-</td><td>-</td>
+        <td title="예측: ${(pred.predicted_stl || 0).toFixed(1)}">-</td>
+        <td title="예측: ${(pred.predicted_blk || 0).toFixed(1)}">-</td>
         <td class="hide-mobile">-</td>
         <td class="hide-mobile">-</td>
         <td class="hide-tablet">-</td>
