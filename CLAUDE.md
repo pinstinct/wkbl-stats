@@ -102,7 +102,7 @@ uv run pytest tests/test_database.py -v
 uv run pytest tests/test_api.py -v
 ```
 
-**Test coverage (140 tests total):**
+**Test coverage (143 tests total):**
 
 - `test_database.py`: Database operations (49 tests)
   - Database init, CRUD operations, season stats, boxscore, standings, predictions
@@ -116,11 +116,12 @@ uv run pytest tests/test_api.py -v
   - Play-by-play, head-to-head, shot chart, player profile, event type mapping
   - Ambiguous player resolution (season adjacency, overlap exclusion, minutes tiebreak, tie detection)
 - `test_ingest_predictions.py`: Ingest prediction backfill (3 tests)
-- `test_refactor_p0.py`: Advanced stats and season resolver (19 tests)
+- `test_refactor_p0.py`: Advanced stats and season resolver (22 tests)
   - Basic stats (TS%, eFG%, PIR, Per-36), Game Score, TOV%
   - Team-context stats (USG%, ORtg, DRtg, Net Rating, Pace)
   - Rate stats (OREB%, DREB%, AST%, STL%, BLK%)
   - PER (Player Efficiency Rating)
+  - Individual ORtg/DRtg (points produced, scoring possessions)
 - `test_lineup.py`: Lineup tracking engine (18 tests)
   - Starter inference (events, minutes backfill, per-quarter)
   - Stint tracking (substitutions, quarter transitions, scores)
@@ -184,9 +185,12 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.jso
 **Frontend (Static Hosting):**
 
 - `index.html` - SPA with all view templates (includes Chart.js, sql.js CDN)
-- `src/app.js` - Frontend: routing, data fetching, view rendering, charts
-- `src/db.js` - Browser SQLite module (sql.js wrapper for client-side queries)
-- `src/styles.css` - Responsive styles for all pages
+- `src/app.js` - Frontend entry: routing, page orchestration
+- `src/db.js` - Browser SQLite module (sql.js wrapper, team/league aggregation, advanced stats)
+- `src/views/` - Page rendering and per-page pure logic (players, teams, games, etc.)
+- `src/ui/` - DOM event binding, navigation, router logic
+- `src/data/` - Data access layer (API/local DB abstraction)
+- `src/styles/` - CSS split: core/components/pages/responsive
 - `data/wkbl.db` - SQLite database (fetched by browser for static hosting)
 - `data/wkbl-active.json` - Generated player stats (JSON fallback)
 
@@ -196,8 +200,9 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.jso
 - `tools/api.py` - REST API endpoints (players, teams, games, compare, search)
 - `tools/ingest_wkbl.py` - Web scraper and data aggregation pipeline
 - `tools/database.py` - SQLite schema and database operations
-- `tools/stats.py` - Advanced stat calculations (TS%, eFG%, PER, USG%, etc.)
+- `tools/stats.py` - Advanced stat calculations (TS%, PER, individual ORtg/DRtg, USG%, etc.)
 - `tools/lineup.py` - Lineup tracking engine (stints, +/-, On/Off ratings)
+- `tools/season_utils.py` - Season code resolver
 - `tools/config.py` - Centralized configuration (URLs, paths, settings)
 
 **Data & Config:**
@@ -236,7 +241,7 @@ Query parameters:
 
 - `season`: Season code (e.g., `046` for 2025-26) or `all` for all seasons
 - `team`: Team ID filter (e.g., `kb`, `samsung`)
-- `category`: Leader category (`pts`, `reb`, `ast`, `stl`, `blk`, `fgp`, `tpp`, `ftp`)
+- `category`: Leader category (`pts`, `reb`, `ast`, `stl`, `blk`, `fgp`, `tpp`, `ftp`, `game_score`, `ts_pct`, `pir`, `per`)
 - `ids`: Comma-separated player IDs (for compare)
 - `q`: Search query (for search)
 - `limit`, `offset`: Pagination
@@ -442,9 +447,7 @@ python3 -m http.server 8000
 # Open http://localhost:8000
 ```
 
-**All features work:** Player stats, game logs, box scores, standings, leaders, search, comparison.
-
-**Troubleshooting:** See `docs/static-hosting-troubleshooting.md` for common issues and solutions.
+**All features work:** Player stats, advanced stats (PER, ORtg/DRtg, USG%), game logs, box scores, standings, leaders, search, comparison.
 
 ### Pre-commit Hooks
 
@@ -499,8 +502,11 @@ uv run pre-commit run --all-files
 
 ## Documentation
 
-| Document                                 | Description                                                |
-| ---------------------------------------- | ---------------------------------------------------------- |
-| `docs/data-sources.md`                   | WKBL Data Lab API endpoints and data schemas               |
-| `docs/project-roadmap.md`                | Feature roadmap and development plans                      |
-| `docs/static-hosting-troubleshooting.md` | GitHub Pages issues and solutions (sql.js, CDN, is_active) |
+| Document                       | Description                                      |
+| ------------------------------ | ------------------------------------------------ |
+| `docs/project-roadmap.md`      | Feature roadmap and completion status            |
+| `docs/project-structure.md`    | Directory responsibilities and structure rules   |
+| `docs/data-sources.md`         | WKBL Data Lab API endpoints and database schemas |
+| `docs/sql-query-contract.md`   | SQL query contracts between api.py and db.js     |
+| `docs/regression-checklist.md` | Mobile/responsive QA checklist                   |
+| `docs/bak/`                    | Archived completed plan documents                |

@@ -4,29 +4,27 @@
 
 Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 
-## 리팩토링 계획 (2026-02-06 추가)
+## 리팩토링 현황
 
-- 전면 리팩토링 태스크/범위 문서화: `docs/refactor-plan.md`
-- 데이터 정확도 개선(시즌 로스터), 데이터 접근 계층화, 뷰 분리, CSS 정리 포함
-- 2026-02-09 업데이트:
-  - P0 완료(시즌 상수/스탯 계산 공통화, players 파라미터 계약)
-  - P1 완료(view/data/ui 이벤트 분리: `src/views/*`, `src/data/client.js`, `src/ui/*.js`)
-  - 프론트 테스트 전략을 Python 계약 테스트에서 Vitest로 전환, `npm run test:front` 통과
-  - `pre-commit`에 프론트 검사 체인 추가(`eslint` 보안 규칙 + `prettier --check`)
+- P0~P4 전체 완료 (시즌 상수 공통화, 뷰/데이터/이벤트 분리, CSS 분할, 데이터 정확도, 테스트 보강)
+- 상세 기록: `docs/bak/refactor-plan.md`
 
-## 현재 상태 (2026-02-04)
+## 현재 상태 (2026-02-20)
 
-| 단계      | 상태    | 설명                                                        |
-| --------- | ------- | ----------------------------------------------------------- |
-| Phase 1   | ✅ 완료 | SQLite DB 기반 구축, 증분 업데이트                          |
-| Phase 2   | ✅ 완료 | 팀 순위, 역대 시즌, 플레이오프 분리                         |
-| Phase 3   | ✅ 완료 | REST API 서버 구축                                          |
-| Phase 4   | ✅ 완료 | 선수/팀/경기 상세 페이지, 리더보드                          |
-| Phase 5   | ✅ 완료 | 고급 기능 (선수 비교, 트렌드 차트, 전역 검색)               |
-| Phase 6   | ✅ 완료 | 추가 데이터 수집 (PBP, 샷차트, H2H, MVP, 쿼터점수)          |
-| Phase 6.3 | ✅ 완료 | 데이터 품질 (고아 선수 해결, 이벤트 카테고리 세분화)        |
-| Phase 7   | ✅ 완료 | 고급 지표 Tier 1 (GmSc, USG%, ORtg/DRtg, Pace, PER 등 14개) |
-| Phase 7.3 | ✅ 완료 | 고급 지표 Tier 2 — On/Off Rating & +/- (라인업 추적 엔진)   |
+| 단계      | 상태    | 설명                                                          |
+| --------- | ------- | ------------------------------------------------------------- |
+| Phase 1   | ✅ 완료 | SQLite DB 기반 구축, 증분 업데이트                            |
+| Phase 2   | ✅ 완료 | 팀 순위, 역대 시즌, 플레이오프 분리                           |
+| Phase 3   | ✅ 완료 | REST API 서버 구축                                            |
+| Phase 4   | ✅ 완료 | 선수/팀/경기 상세 페이지, 리더보드                            |
+| Phase 5   | ✅ 완료 | 고급 기능 (선수 비교, 트렌드 차트, 전역 검색)                 |
+| Phase 6   | ✅ 완료 | 추가 데이터 수집 (PBP, 샷차트, H2H, MVP, 쿼터점수)            |
+| Phase 6.3 | ✅ 완료 | 데이터 품질 (고아 선수 해결, 이벤트 카테고리 세분화)          |
+| Phase 7   | ✅ 완료 | 고급 지표 Tier 1 (GmSc, USG%, ORtg/DRtg, Pace, PER 등 14개)   |
+| Phase 7.3 | ✅ 완료 | 고급 지표 Tier 2 — On/Off Rating & +/- (라인업 추적 엔진)     |
+| Phase 7.4 | ✅ 완료 | 개인 ORtg/DRtg (팀 수준 → 개인 수준 전환)                     |
+| Phase 8   | ✅ 완료 | 프론트엔드 고급 지표 표시 (정적 호스팅 팀 컨텍스트 계산 포함) |
+| 리팩토링  | ✅ 완료 | P0~P4 전체 (구조 분리, CSS 정리, 데이터 정확도, 테스트 보강)  |
 
 ---
 
@@ -300,24 +298,6 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] API 통합: `get_players()`, `get_player_detail()`, `get_player_comparison()` 모두 고급 지표 포함
 - [x] 테스트 20개 추가 (총 122개)
 
-### Phase 8: 프론트엔드 고급 지표 표시 ✅ 완료 (2026-02-19)
-
-- [x] 선수 목록 (`#/players`) — Basic/Advanced 탭 토글
-  - Advanced 탭: PER, GmSc, USG%, TOV%, ORtg, DRtg, NetRtg, REB%, AST%, STL%, BLK%, +/-
-  - 선수 카드 사이드바에 "고급 지표" 3번째 섹션 추가
-- [x] 선수 상세 (`#/players/{id}`) — 고급 지표 섹션 추가
-  - 최신 시즌 PER, GmSc, USG%, TOV%, ORtg, DRtg, NetRtg, OREB%~BLK%, +/-
-  - null 값은 "-" 표시 (정적 호스팅에서 팀 컨텍스트 필요 지표)
-- [x] 리더보드 (`#/leaders`) — 카테고리 확장
-  - 추가: GmSc, TS%, PIR, PER (API 서버 모드)
-  - `api.py`: `game_score`, `ts_pct`, `pir` SQL 쿼리 + `_get_per_leaders()` 헬퍼
-  - `db.js`: `game_score`, `ts_pct`, `pir` SQL 쿼리 (정적 호스팅)
-- [x] 팀 상세 (`#/teams/{id}`) — 팀 고급 지표 섹션
-  - ORtg, DRtg, NetRtg, Pace (API 서버 모드에서 계산)
-- **주의**: 정적 호스팅(db.js/sql.js)은 팀 컨텍스트 없이 일부 지표만 계산 가능
-  - 가능: ts_pct, efg_pct, pir, ast_to, pts36, reb36, ast36, game_score
-  - 불가(null 표시): per, usg_pct, off_rtg, def_rtg, net_rtg, pace, rate stats
-
 ### Phase 7.3: 고급 지표 Tier 2 — On/Off Rating & +/- ✅ 완료 (2026-02-19)
 
 - [x] `tools/lineup.py` — 라인업 추적 엔진 (신규)
@@ -330,6 +310,33 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] API 통합: 박스스코어에 경기별 `plus_minus`, 선수 상세에 시즌 `plus_minus`
 - [x] 인제스트 통합: `--compute-lineups` CLI 옵션, PBP fetch 후 자동 계산
 - [x] 테스트 18개 추가 (총 140개)
+
+### Phase 7.4: 개인 ORtg/DRtg 전환 ✅ 완료 (2026-02-20)
+
+- [x] 팀 수준 ORtg/DRtg → 개인 수준 ORtg/DRtg 전환
+  - `tools/stats.py`: `compute_individual_ortg()`, `compute_individual_drtg()` 추가
+  - `tools/database.py`: `get_player_game_stats_for_ratings()` 경기별 상세 데이터 조회
+  - `tools/api.py`: 개인 ORtg/DRtg API 통합
+  - `src/db.js`: 정적 호스팅에서 개인 ORtg/DRtg 계산
+- [x] 테스트 3개 추가 (총 143개)
+
+### Phase 8: 프론트엔드 고급 지표 표시 ✅ 완료 (2026-02-19)
+
+- [x] 선수 목록 (`#/players`) — Basic/Advanced 탭 토글
+  - Advanced 탭: PER, GmSc, USG%, TOV%, ORtg, DRtg, NetRtg, REB%, AST%, STL%, BLK%, +/-
+  - 선수 카드 사이드바에 "고급 지표" 3번째 섹션 추가
+- [x] 선수 상세 (`#/players/{id}`) — 고급 지표 섹션 추가
+  - 최신 시즌 PER, GmSc, USG%, TOV%, ORtg, DRtg, NetRtg, OREB%~BLK%, +/-
+- [x] 리더보드 (`#/leaders`) — 카테고리 확장
+  - 추가: GmSc, TS%, PIR, PER
+  - `api.py` + `db.js` 모두 지원
+- [x] 팀 상세 (`#/teams/{id}`) — 팀 고급 지표 섹션
+  - ORtg, DRtg, NetRtg, Pace
+- [x] 순위표 (`#/teams`) — 고급 지표 컬럼 추가 + 정렬
+  - ORtg, DRtg, NetRtg, Pace 컬럼
+- [x] 정적 호스팅(db.js/sql.js)에서 팀 컨텍스트 계산 완료
+  - `getTeamSeasonStats()`, `getLeagueSeasonStats()` SQL 집계
+  - PER, USG%, ORtg, DRtg, 모든 rate stats 정적 호스팅에서도 계산
 
 ---
 
@@ -368,11 +375,14 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 
 ## 7. 향후 개선 아이디어
 
-| 기능           | 설명                                                            | 우선순위 |
-| -------------- | --------------------------------------------------------------- | -------- |
-| 시즌 비교      | 두 시즌의 팀/선수 스탯 비교                                     | 낮음     |
-| 고급 지표 추가 | ~~PER, WS, VORP 등~~ Tier 1 완료 (Phase 7), Tier 2: WS, VORP 등 | 낮음     |
-| PWA 지원       | 오프라인 접근, 앱 설치                                          | 낮음     |
-| 알림 기능      | 경기 결과, 선수 하이라이트 알림                                 | 낮음     |
-| 다크 모드      | 테마 전환 지원                                                  | 낮음     |
-| i18n           | 영어 지원                                                       | 낮음     |
+| 기능            | 설명                            | 우선순위 |
+| --------------- | ------------------------------- | -------- |
+| 시즌 비교       | 두 시즌의 팀/선수 스탯 비교     | 낮음     |
+| WS (Win Shares) | 개인 ORtg/DRtg 기반 승리 기여도 | 낮음     |
+| 예측 모델 개선  | USG%/PER 등 신규 feature 실험   | 낮음     |
+| 드래프트 기록   | 드래프트 순위/출신학교 수집     | 낮음     |
+| PWA 지원        | 오프라인 접근, 앱 설치          | 낮음     |
+| 다크 모드       | 테마 전환 지원                  | 낮음     |
+| i18n            | 영어 지원                       | 낮음     |
+
+미완 항목 상세: `docs/bak/remaining-features.md`

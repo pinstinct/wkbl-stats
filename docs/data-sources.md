@@ -408,30 +408,41 @@ seasons ─┐
          │
 teams ───┼──→ games ──→ player_games (경기별 선수 기록)
          │        └──→ team_games (경기별 팀 기록)
+         │        └──→ game_predictions (선수 예측)
+         │        └──→ game_team_predictions (팀 예측)
          │        └──→ play_by_play (플레이바이플레이)
          │        └──→ shot_charts (샷 차트)
+         │        └──→ lineup_stints (라인업 구간)
+         │        └──→ position_matchups (포지션 매치업)
          │
          ├──→ team_standings (시즌 순위)
          ├──→ team_category_stats (팀 카테고리 순위)
          ├──→ head_to_head (상대전적)
          └──→ game_mvp (경기 MVP)
 players ─┘
+event_types (이벤트 코드 마스터)
 ```
 
-| 테이블                | 설명                                                            |
-| --------------------- | --------------------------------------------------------------- |
-| `seasons`             | 시즌 정보 (label, 시작일, 종료일)                               |
-| `teams`               | 팀 정보 (이름, 약칭)                                            |
-| `players`             | 선수 정보 (pno, 이름, 팀, 포지션, 신장, 생년월일)               |
-| `games`               | 경기 정보 (날짜, 홈/원정팀, 점수, 쿼터 점수, 경기장, game_type) |
-| `player_games`        | 경기별 선수 기록 (MIN, PTS, REB, AST, 슈팅 등)                  |
-| `team_games`          | 경기별 팀 기록 (속공, 페인트존 득점 등)                         |
-| `team_standings`      | 시즌 순위 (rank, wins, losses, win_pct, games_behind)           |
-| `play_by_play`        | 플레이바이플레이 이벤트 (쿼터, 시계, 이벤트 유형, 점수)         |
-| `shot_charts`         | 샷 차트 (선수, 좌표, 성공/실패, 쿼터)                           |
-| `team_category_stats` | 팀 카테고리별 순위 (12개 카테고리)                              |
-| `head_to_head`        | 팀 간 상대전적 (점수, 경기장, 승자)                             |
-| `game_mvp`            | 경기 MVP (선수, 스탯, EFF)                                      |
+| 테이블                  | 설명                                                            |
+| ----------------------- | --------------------------------------------------------------- |
+| `seasons`               | 시즌 정보 (label, 시작일, 종료일)                               |
+| `teams`                 | 팀 정보 (이름, 약칭)                                            |
+| `players`               | 선수 정보 (pno, 이름, 팀, 포지션, 신장, 생년월일)               |
+| `games`                 | 경기 정보 (날짜, 홈/원정팀, 점수, 쿼터 점수, 경기장, game_type) |
+| `player_games`          | 경기별 선수 기록 (MIN, PTS, REB, AST, 슈팅 등)                  |
+| `team_games`            | 경기별 팀 기록 (속공, 페인트존 득점 등)                         |
+| `team_standings`        | 시즌 순위 (rank, wins, losses, win_pct, games_behind)           |
+| `game_predictions`      | 선수별 경기 예측 (예측 PTS/REB/AST, 신뢰구간)                   |
+| `game_team_predictions` | 팀별 경기 예측 (승률, 예상 점수)                                |
+| `play_by_play`          | 플레이바이플레이 이벤트 (쿼터, 시계, 이벤트 유형, 점수)         |
+| `shot_charts`           | 샷 차트 (선수, 좌표, 성공/실패, 쿼터)                           |
+| `lineup_stints`         | 라인업 구간 (5인 조합, 득실점, 시간)                            |
+| `position_matchups`     | 포지션 매치업 분석 (G/F/C별 스탯 비교)                          |
+| `team_category_stats`   | 팀 카테고리별 순위 (12개 카테고리)                              |
+| `head_to_head`          | 팀 간 상대전적 (점수, 경기장, 승자)                             |
+| `game_mvp`              | 경기 MVP (선수, 스탯, EFF)                                      |
+| `event_types`           | PBP 이벤트 코드 마스터 (코드, 한국어명, 카테고리)               |
+| `_meta_descriptions`    | 테이블/컬럼 설명 메타데이터                                     |
 
 ### Game Types
 
