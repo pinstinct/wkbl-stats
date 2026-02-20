@@ -1,11 +1,13 @@
 import {
+  buildQuarterSelectOptions,
   buildPredictionCompareState,
   buildQuarterSeries,
   buildStandingsChartSeries,
   buildZoneSeries,
   calculatePrediction,
-  filterPlayers,
   filterGameShots,
+  filterPlayers,
+  getQuarterLabel,
   normalizeGameShots,
   renderBoxscoreRows,
   renderCareerSummary,
@@ -32,9 +34,9 @@ import {
   renderTeamStats,
   renderTotalStats,
   renderUpcomingGames,
-  summarizeGameShots,
   sortPlayers,
   sortStandings,
+  summarizeGameShots,
 } from "./views/index.js";
 import { createDataClient } from "./data/client.js";
 import {
@@ -1922,7 +1924,7 @@ import {
             callbacks: {
               label(context) {
                 const shot = context.raw.shot;
-                return `${shot.playerName} Q${shot.quarter} ${shot.made ? "성공" : "실패"}`;
+                return `${shot.playerName} ${getQuarterLabel(shot.quarter)} ${shot.made ? "성공" : "실패"}`;
               },
             },
           },
@@ -2036,6 +2038,7 @@ import {
     section.style.display = "block";
 
     const playerSelect = $("gameShotPlayerSelect");
+    const teamSelect = $("gameShotTeamSelect");
     const resultSelect = $("gameShotResultSelect");
     const quarterSelect = $("gameShotQuarterSelect");
     const emptyMsg = $("gameShotEmptyMsg");
@@ -2056,10 +2059,34 @@ import {
           `<option value="${playerId}">${playerName}</option>`,
       ),
     ].join("");
+
+    const teams = [
+      { id: game.away_team_id, name: game.away_team_name || "원정팀" },
+      { id: game.home_team_id, name: game.home_team_name || "홈팀" },
+    ];
+    teamSelect.innerHTML = [
+      '<option value="all">전체</option>',
+      ...teams.map(
+        (team) => `<option value="${team.id}">${team.name}</option>`,
+      ),
+    ].join("");
+
+    quarterSelect.innerHTML = buildQuarterSelectOptions(normalized)
+      .map(
+        (option) => `<option value="${option.value}">${option.label}</option>`,
+      )
+      .join("");
+
     resultSelect.value = "all";
+    teamSelect.value = "all";
     quarterSelect.value = "all";
 
-    const filters = { playerId: "all", result: "all", quarter: "all" };
+    const filters = {
+      playerId: "all",
+      teamId: "all",
+      result: "all",
+      quarter: "all",
+    };
     const applyFilters = () => {
       const filtered = filterGameShots(normalized, filters);
       const summary = summarizeGameShots(filtered);
@@ -2079,6 +2106,10 @@ import {
       filters.playerId = event.target.value;
       applyFilters();
     };
+    const onTeamChange = (event) => {
+      filters.teamId = event.target.value;
+      applyFilters();
+    };
     const onResultChange = (event) => {
       filters.result = event.target.value;
       applyFilters();
@@ -2089,10 +2120,12 @@ import {
     };
 
     playerSelect.addEventListener("change", onPlayerChange);
+    teamSelect.addEventListener("change", onTeamChange);
     resultSelect.addEventListener("change", onResultChange);
     quarterSelect.addEventListener("change", onQuarterChange);
     unmountGameShotFilters = () => {
       playerSelect.removeEventListener("change", onPlayerChange);
+      teamSelect.removeEventListener("change", onTeamChange);
       resultSelect.removeEventListener("change", onResultChange);
       quarterSelect.removeEventListener("change", onQuarterChange);
     };

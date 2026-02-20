@@ -20,9 +20,11 @@ export { buildStandingsChartSeries } from "./teams-chart-logic.js";
 export { renderGamesList } from "./games.js";
 export { renderBoxscoreRows } from "./game-detail.js";
 export {
+  buildQuarterSelectOptions,
   buildQuarterSeries,
   buildZoneSeries,
   filterGameShots,
+  getQuarterLabel,
   normalizeGameShots,
   summarizeGameShots,
 } from "./game-shot-logic.js";

@@ -647,6 +647,12 @@
                   </select>
                 </label>
                 <label>
+                  팀
+                  <select id="gameShotTeamSelect">
+                    <option value="all">전체</option>
+                  </select>
+                </label>
+                <label>
                   결과
                   <select id="gameShotResultSelect">
                     <option value="all">성공+실패</option>
@@ -687,7 +693,9 @@
             </div>
 
             <div class="chart-card">
-              <canvas id="gameShotScatterChart"></canvas>
+              <div class="game-shot-court">
+                <canvas id="gameShotScatterChart"></canvas>
+              </div>
               <p
                 id="gameShotEmptyMsg"
                 class="game-shot-empty"

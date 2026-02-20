@@ -5,6 +5,7 @@ export function normalizeGameShots(shots, playerNameMap = {}) {
   return (shots || []).map((shot) => ({
     playerId: shot.player_id,
     playerName: playerNameMap[shot.player_id] || shot.player_id || "Unknown",
+    teamId: shot.team_id || "",
     quarter: Number(shot.quarter) || 0,
     made: Number(shot.made) === 1,
     shotZone: shot.shot_zone || "unknown",
@@ -26,15 +27,37 @@ export function normalizeGameShots(shots, playerNameMap = {}) {
  */
 export function filterGameShots(
   shots,
-  { playerId = "all", result = "all", quarter = "all" } = {},
+  { playerId = "all", teamId = "all", result = "all", quarter = "all" } = {},
 ) {
   return (shots || []).filter((shot) => {
     if (playerId !== "all" && shot.playerId !== playerId) return false;
+    if (teamId !== "all" && shot.teamId !== teamId) return false;
     if (result === "made" && !shot.made) return false;
     if (result === "miss" && shot.made) return false;
     if (quarter !== "all" && shot.quarter !== Number(quarter)) return false;
     return true;
   });
+}
+
+export function getQuarterLabel(quarter) {
+  if (quarter <= 4) return `Q${quarter}`;
+  return `OT${quarter - 4}`;
+}
+
+export function buildQuarterSelectOptions(shots) {
+  const quarters = [
+    ...new Set((shots || []).map((shot) => Number(shot.quarter))),
+  ]
+    .filter((quarter) => Number.isFinite(quarter) && quarter > 0)
+    .sort((a, b) => a - b);
+
+  return [
+    { value: "all", label: "전체" },
+    ...quarters.map((quarter) => ({
+      value: String(quarter),
+      label: quarter <= 4 ? `${quarter}Q` : getQuarterLabel(quarter),
+    })),
+  ];
 }
 
 /**
@@ -101,7 +124,7 @@ export function buildQuarterSeries(shots) {
   }
 
   const quarters = [...quarterMap.keys()].sort((a, b) => a - b);
-  const labels = quarters.map((q) => `Q${q}`);
+  const labels = quarters.map((q) => getQuarterLabel(q));
   const made = quarters.map((q) => quarterMap.get(q).made);
   const missed = quarters.map((q) => quarterMap.get(q).missed);
 

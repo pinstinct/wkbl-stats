@@ -330,6 +330,32 @@
   background: #fff;
 }
 
+.game-shot-court {
+  height: 320px;
+  border: 1px solid rgba(var(--ink-rgb), 0.08);
+  border-radius: 10px;
+  background:
+    radial-gradient(
+      circle at 50% 75%,
+      rgba(0, 0, 0, 0) 19%,
+      rgba(var(--ink-rgb), 0.06) 19%,
+      rgba(var(--ink-rgb), 0.06) 20%,
+      rgba(0, 0, 0, 0) 20%
+    ),
+    linear-gradient(
+      to top,
+      rgba(var(--ink-rgb), 0.02),
+      rgba(var(--ink-rgb), 0.02)
+    ),
+    repeating-linear-gradient(
+      to right,
+      rgba(var(--ink-rgb), 0.04) 0,
+      rgba(var(--ink-rgb), 0.04) 1px,
+      transparent 1px,
+      transparent 40px
+    );
+}
+
 .game-shot-grid {
   margin-top: 10px;
   display: grid;
@@ -339,7 +365,7 @@
 
 #gameShotScatterChart {
   width: 100%;
-  max-height: 320px;
+  height: 100%;
 }
 
 #gameShotZoneChart,
