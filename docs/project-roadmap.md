@@ -346,6 +346,62 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
   - `getTeamSeasonStats()`, `getLeagueSeasonStats()` SQL 집계
   - PER, USG%, ORtg, DRtg, 모든 rate stats 정적 호스팅에서도 계산
 
+### Phase 8.5: Basketball Reference 정합성 개선 계획 🆕 (2026-02-20)
+
+목표: Basketball Reference 기준 지표 정의와 현재 구현(`tools/stats.py`, `src/db.js`)의 차이를 줄여 지표 일관성과 해석 신뢰도를 높인다.
+
+#### 점검 결과 (2026-02-20)
+
+- 추가 후보 지표
+  - `3PAr` (3PA/FGA), `FTr` (FTA/FGA)
+  - `OWS`, `DWS`, `WS/40` UI 노출 (계산값은 이미 존재)
+  - `OBPM`, `DBPM`, `BPM`, `VORP` (중장기; 계수/보정 모델 필요)
+- 계산식 정합성 이슈
+  - `PER`: 정적 계산(`src/db.js:computePER`)과 백엔드 계산(`tools/stats.py:_compute_per`) 수식이 상이
+  - `PER`: 파울 패널티/리그 평균 정규화 항이 Basketball Reference 공식과 완전 일치하지 않음
+  - `Possessions`: 현재 단순 추정식(`FGA + 0.44×FTA + TOV - OREB`) 사용으로 `Pace`, `ORtg/DRtg`, 일부 Rate 계열이 BBR 값과 체계적으로 차이
+  - `WS`: `Marginal Points Per Win` 계수/보정이 BBR 방식과 달라 절대값 스케일 차이 가능
+
+#### 실행 계획
+
+1. P0 (즉시): PER 계산식 단일화 + 프론트/백엔드 값 정합성 복구
+   - [ ] `src/db.js:computePER()`를 `tools/stats.py:_compute_per()`와 동일 수식으로 정렬
+   - [ ] `tools/stats.py:_compute_per()`에서 BBR 공식 대비 차이 항(`PF penalty`, `lg_aPER`) 재검토
+   - [ ] 동일 입력 fixture에 대해 API/정적 계산 `PER` 오차 임계값(`abs <= 0.1`) 회귀 테스트 추가
+
+2. P1 (단기): Possessions 공식을 BBR 표준식으로 전환 가능한 구조로 분리
+   - [ ] `estimate_possessions()`를 단순식/표준식 선택 가능한 전략 함수로 분리
+   - [ ] `Pace`, `ORtg/DRtg`, Rate 계열에 미치는 영향 범위 측정(시즌 전체 diff 리포트)
+   - [ ] 리그 규모(6팀, 40분) 기준으로 표준식 채택 또는 하이브리드 유지 결정
+
+3. P2 (단기): Win Shares 보정
+   - [ ] `marginal_ppw` 계산을 BBR 문서식 기준으로 재검증
+   - [ ] `OWS`, `DWS`, `WS`, `WS/40` 분포(상위/하위/평균) sanity check 및 회귀 테스트 추가
+   - [ ] API/정적 계산 동치성 테스트 추가
+
+4. P3 (중기): BBR 주요 누락 지표 추가
+   - [ ] `3PAr`, `FTr` 계산/노출 (players, detail, compare, leaders)
+   - [ ] `OWS`, `DWS`, `WS/40` UI 및 리더보드 카테고리 확장
+   - [ ] 문서(`README.md`, `docs/data-sources.md`)에 공식/해석/주의사항 동기화
+
+5. P4 (중장기): BPM/VORP 도입 타당성 검토
+   - [ ] NBA 계수 직접 이식 대신 WKBL 데이터 기반 보정(또는 비도입) 방침 수립
+   - [ ] 표본 수/안정성 기준(최소 시즌 수, 최소 분수) 정의 후 PoC
+
+#### 완료 기준 (Definition of Done)
+
+- 프론트(`src/db.js`)와 백엔드(`tools/stats.py`)의 동명 지표 값이 허용 오차 내 일치
+- 핵심 고급 지표(`PER`, `WS`, `ORtg/DRtg`, `USG%`)에 대해 공식/코드/문서가 동일 정의를 사용
+- 미구현 BBR 지표의 우선순위와 도입/보류 근거가 문서에 명시
+
+참고 기준:
+
+- https://www.basketball-reference.com/about/glossary.html
+- https://www.basketball-reference.com/about/per.html
+- https://www.basketball-reference.com/about/ratings.html
+- https://www.basketball-reference.com/about/ws.html
+- https://www.basketball-reference.com/about/bpm2.html
+
 ---
 
 ## 4. 기술 스택

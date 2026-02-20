@@ -95,6 +95,36 @@
 
 ---
 
+## 지표 계산 정의 (요약)
+
+아래 지표는 수집된 `player_games` 원시 데이터와 시즌 집계(`team_totals`, `opp_totals`, `league_totals`)를 기반으로 계산한다.
+
+| 지표             | 공식/정의                                                                                     | 필요 데이터                                      | 구현 위치                                                              |
+| ---------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------- |
+| TS%              | `PTS / (2 × (FGA + 0.44 × FTA))`                                                              | 선수 슈팅 합계                                   | `tools/stats.py`, `src/db.js`                                          |
+| eFG%             | `(FGM + 0.5 × 3PM) / FGA`                                                                     | 선수 슈팅 합계                                   | `tools/stats.py`, `src/db.js`                                          |
+| PIR              | `(PTS + REB + AST + STL + BLK - TOV - (FGA-FGM) - (FTA-FTM)) / GP`                            | 선수 박스스코어 평균/합계                        | `tools/stats.py`, `src/db.js`                                          |
+| GmSc             | Hollinger Game Score 공식                                                                     | 선수 박스스코어 + PF/OREB/DREB                   | `tools/stats.py`, `src/db.js`                                          |
+| TOV%             | `100 × TOV / (FGA + 0.44 × FTA + TOV)`                                                        | 선수 공격 시도/턴오버                            | `tools/stats.py`, `src/db.js`                                          |
+| USG%             | `100 × (FGA + 0.44×FTA + TOV) × (Team_MIN/5) / (MIN × (Team_FGA + 0.44×Team_FTA + Team_TOV))` | 선수 + 팀 시즌 합계                              | `tools/stats.py`, `src/db.js`                                          |
+| OREB%/DREB%/REB% | 리바운드 점유율 공식 (`Team_MIN/5` 보정)                                                      | 선수 리바운드 + 팀/상대 리바운드 시즌 합계       | `tools/stats.py`, `src/db.js`                                          |
+| AST%/STL%/BLK%   | 기여율 공식 (`Team_MIN/5`, `Opp_Poss` 보정)                                                   | 선수 기록 + 팀/상대 시즌 합계                    | `tools/stats.py`, `src/db.js`                                          |
+| Possessions      | `FGA + 0.44×FTA + TOV - OREB` (현재 구현 추정식)                                              | 팀/상대 시즌 합계                                | `tools/stats.py:estimate_possessions`, `src/db.js:estimatePossessions` |
+| ORtg             | 박스스코어 기반 `Points Produced / Total Possessions` 추정                                    | 선수 시즌 합계 + 팀 시즌 합계                    | `tools/stats.py`, `src/db.js`                                          |
+| DRtg             | Stops 기반 개인 수비 기여 추정 (100포제션당 실점)                                             | 선수 수비 이벤트 + 팀/상대 시즌 합계             | `tools/stats.py`, `src/db.js`                                          |
+| NetRtg           | `ORtg - DRtg`                                                                                 | ORtg, DRtg                                       | `tools/stats.py`, `src/db.js`                                          |
+| Pace             | `40 × (Team_Poss + Opp_Poss) / (2 × Team_MIN/5)`                                              | 팀/상대 포제션 + 팀 분수                         | `tools/stats.py`, `src/db.js`                                          |
+| PER              | Hollinger uPER + pace 보정 + 리그 평균 15 정규화                                              | 선수/팀/리그 시즌 합계                           | `tools/stats.py:_compute_per`, `src/db.js:computePER`                  |
+| OWS/DWS/WS/WS40  | 공격/수비 기여 승수 환산 (`WS = OWS + DWS`)                                                   | ORtg 파생값 + DRtg + 팀/리그 시즌 합계 + 팀 승패 | `tools/stats.py:_compute_ws_components`, `src/db.js:computeWinShares`  |
+| +/-              | 라인업 스틴트 기반 온코트 득실차                                                              | PBP + 교체 이벤트 기반 lineup 추적               | `tools/lineup.py`, `tools/api.py`, `src/db.js`                         |
+
+주의:
+
+- ORtg/DRtg/PER/WS는 Basketball Reference 방법론을 참고했으며, WKBL 40분 경기와 데이터 가용성에 맞춰 일부 항목을 근사화했다.
+- 프론트 정적 계산(`src/db.js`)과 백엔드 계산(`tools/stats.py`)은 동일 공식 유지가 원칙이며, 회귀 테스트로 값 정합성을 관리한다.
+
+---
+
 ## 엔드포인트 상세
 
 ### 1. 경기별 박스스코어 (Player Record)
