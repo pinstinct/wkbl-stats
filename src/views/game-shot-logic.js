@@ -139,10 +139,10 @@ export function getCourtArcRadii(xPixelsPerUnit, yPixelsPerUnit, radiusUnit) {
 export function buildThreePointGeometry() {
   const cx = 145.5;
   const cy = 18;
-  const xLeft = 33;
-  const xRight = 258;
+  const xLeft = 22;
+  const xRight = 269;
   const yStart = 18;
-  const radius = 120;
+  const radius = 140;
   const halfWidth = cx - xLeft;
   const dy = Math.sqrt(Math.max(0, radius * radius - halfWidth * halfWidth));
   const yJoin = cy + dy;

@@ -1952,7 +1952,7 @@ import {
           0,
           Math.PI * 0.12,
           Math.PI * 0.88,
-          true,
+          false,
         );
         ctx.stroke();
 
