@@ -1178,6 +1178,15 @@ def get_team_standings(season_id: str) -> List[Dict]:
         return [dict(row) for row in rows]
 
 
+def get_team_wins_by_season(season_id: str) -> Dict[str, Dict[str, int]]:
+    """Return standings wins/losses indexed by team_id for a season."""
+    standings = get_team_standings(season_id)
+    return {
+        s["team_id"]: {"wins": s.get("wins", 0), "losses": s.get("losses", 0)}
+        for s in standings
+    }
+
+
 def get_table_description(table_name: str) -> Optional[str]:
     """Get description for a table."""
     with get_connection() as conn:

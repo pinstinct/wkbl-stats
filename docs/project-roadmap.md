@@ -320,6 +320,14 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
   - `src/db.js`: 정적 호스팅에서 개인 ORtg/DRtg 계산
 - [x] 테스트 3개 추가 (총 143개)
 
+### Phase 7.5: Win Shares (WS) 추가 ✅ 완료 (2026-02-20)
+
+- [x] `tools/stats.py`: OWS/DWS/WS/WS40 계산 추가
+- [x] `tools/database.py`: `get_team_wins_by_season()` 추가
+- [x] `tools/api.py`: standings 기반 `team_wins/losses` 전달 + WS 리더(`category=ws`) 지원
+- [x] `src/db.js`: 정적 호스팅 WS 계산 동기화 + WS 리더 지원
+- [x] `src/views/players.js`, `src/views/player-detail.js`: WS 표시 (`WS/40`은 계산값만 유지, UI 미표시)
+
 ### Phase 8: 프론트엔드 고급 지표 표시 ✅ 완료 (2026-02-19)
 
 - [x] 선수 목록 (`#/players`) — Basic/Advanced 탭 토글
@@ -375,14 +383,13 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 
 ## 7. 향후 개선 아이디어
 
-| 기능            | 설명                            | 우선순위 |
-| --------------- | ------------------------------- | -------- |
-| 시즌 비교       | 두 시즌의 팀/선수 스탯 비교     | 낮음     |
-| WS (Win Shares) | 개인 ORtg/DRtg 기반 승리 기여도 | 낮음     |
-| 예측 모델 개선  | USG%/PER 등 신규 feature 실험   | 낮음     |
-| 드래프트 기록   | 드래프트 순위/출신학교 수집     | 낮음     |
-| PWA 지원        | 오프라인 접근, 앱 설치          | 낮음     |
-| 다크 모드       | 테마 전환 지원                  | 낮음     |
-| i18n            | 영어 지원                       | 낮음     |
+| 기능           | 설명                          | 우선순위 |
+| -------------- | ----------------------------- | -------- |
+| 시즌 비교      | 두 시즌의 팀/선수 스탯 비교   | 낮음     |
+| 예측 모델 개선 | USG%/PER 등 신규 feature 실험 | 낮음     |
+| 드래프트 기록  | 드래프트 순위/출신학교 수집   | 낮음     |
+| PWA 지원       | 오프라인 접근, 앱 설치        | 낮음     |
+| 다크 모드      | 테마 전환 지원                | 낮음     |
+| i18n           | 영어 지원                     | 낮음     |
 
 미완 항목 상세: `docs/bak/remaining-features.md`

@@ -421,6 +421,91 @@ def test_per_without_league_context():
     assert "per" not in computed
 
 
+# ============================================================================
+# Batch 5: Win Shares
+# ============================================================================
+
+
+def test_compute_win_shares():
+    """WS should be present and equal OWS + DWS when standings context exists."""
+    from stats import compute_advanced_stats
+
+    team_stats = dict(_TEAM_STATS)
+    team_stats.update({"team_wins": 18, "team_losses": 12})
+    computed = compute_advanced_stats(
+        dict(_BASE_ROW),
+        team_stats=team_stats,
+        league_stats=dict(_LEAGUE_STATS),
+    )
+
+    assert "ows" in computed
+    assert "dws" in computed
+    assert "ws" in computed
+    assert computed["ws"] == round(computed["ows"] + computed["dws"], 2)
+    assert computed["ws"] > 0
+
+
+def test_ws_without_standings():
+    """WS should not appear when team wins/losses are unavailable."""
+    from stats import compute_advanced_stats
+
+    computed = compute_advanced_stats(
+        dict(_BASE_ROW),
+        team_stats=dict(_TEAM_STATS),
+        league_stats=dict(_LEAGUE_STATS),
+    )
+    assert "ws" not in computed
+    assert "ws_40" not in computed
+
+
+def test_ws_40_normalization():
+    """WS/40 should scale by total minutes."""
+    from stats import compute_advanced_stats
+
+    team_stats = dict(_TEAM_STATS)
+    team_stats.update({"team_wins": 18, "team_losses": 12})
+    computed = compute_advanced_stats(
+        dict(_BASE_ROW),
+        team_stats=team_stats,
+        league_stats=dict(_LEAGUE_STATS),
+    )
+
+    total_min = _BASE_ROW["gp"] * _BASE_ROW["min"]
+    expected_ws_40 = computed["ws"] / total_min * 40
+    assert abs(computed["ws_40"] - expected_ws_40) <= 0.002
+
+
+def test_ows_zero_floor():
+    """OWS should be floored at zero for poor offensive profile."""
+    from stats import compute_advanced_stats
+
+    low_off = dict(_BASE_ROW)
+    low_off.update(
+        {
+            "pts": 4.0,
+            "ast": 0.5,
+            "tov": 5.0,
+            "total_fgm": 15,
+            "total_fga": 90,
+            "total_tpm": 1,
+            "total_ftm": 5,
+            "total_fta": 12,
+            "total_ast": 5,
+            "total_tov": 50,
+            "total_off_reb": 3,
+        }
+    )
+    team_stats = dict(_TEAM_STATS)
+    team_stats.update({"team_wins": 18, "team_losses": 12})
+    computed = compute_advanced_stats(
+        low_off,
+        team_stats=team_stats,
+        league_stats=dict(_LEAGUE_STATS),
+    )
+
+    assert computed["ows"] >= 0
+
+
 def test_season_resolver_latest_and_all():
     """Season resolver should consistently handle default and 'all'."""
     from season_utils import resolve_season
