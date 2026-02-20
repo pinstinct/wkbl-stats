@@ -1952,6 +1952,7 @@ import {
           0,
           Math.PI * 0.12,
           Math.PI * 0.88,
+          true,
         );
         ctx.stroke();
 
@@ -1972,6 +1973,7 @@ import {
           0,
           three.startAngle,
           three.endAngle,
+          true,
         );
         ctx.stroke();
 

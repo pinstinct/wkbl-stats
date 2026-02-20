@@ -142,10 +142,11 @@ export function buildThreePointGeometry() {
   const xLeft = 33;
   const xRight = 258;
   const yStart = 18;
-  const yJoin = 122;
-  const dx = cx - xLeft;
-  const dy = yJoin - cy;
-  const radius = Math.sqrt(dx * dx + dy * dy);
+  const radius = 120;
+  const halfWidth = cx - xLeft;
+  const dy = Math.sqrt(Math.max(0, radius * radius - halfWidth * halfWidth));
+  const yJoin = cy + dy;
+  const theta = Math.atan2(dy, halfWidth);
   return {
     cx,
     cy,
@@ -154,8 +155,8 @@ export function buildThreePointGeometry() {
     yStart,
     yJoin,
     radius,
-    startAngle: Math.atan2(dy, -dx),
-    endAngle: Math.atan2(dy, dx),
+    startAngle: Math.PI - theta,
+    endAngle: theta,
   };
 }
 

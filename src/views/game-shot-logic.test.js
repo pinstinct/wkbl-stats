@@ -232,6 +232,8 @@ describe("game shot logic", () => {
 
   it("returns connected three-point geometry", () => {
     const geom = buildThreePointGeometry();
+    expect(Math.round(geom.radius * 10) / 10).toBe(120);
+    expect(Math.round(geom.yJoin * 10) / 10).toBe(59.8);
     const dx = geom.cx - geom.xLeft;
     const dy = geom.yJoin - geom.cy;
     const computedRadius = Math.sqrt(dx * dx + dy * dy);
