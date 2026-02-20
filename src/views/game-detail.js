@@ -1,4 +1,53 @@
 /** Render helpers for game detail and boxscore rows. */
+function compareNullableNumbers(a, b, dirSign) {
+  const aNull = a === null || a === undefined || Number.isNaN(a);
+  const bNull = b === null || b === undefined || Number.isNaN(b);
+  if (aNull && bNull) return 0;
+  if (aNull) return 1;
+  if (bNull) return -1;
+  if (a === b) return 0;
+  return a > b ? dirSign : -dirSign;
+}
+
+export function sortBoxscorePlayers(players = [], sort = {}) {
+  const key = sort.key || "pts";
+  const dir = sort.dir === "asc" ? "asc" : "desc";
+  const dirSign = dir === "asc" ? 1 : -1;
+
+  const getters = {
+    player_name: (p) => String(p.player_name || ""),
+    minutes: (p) => Number(p.minutes),
+    pts: (p) => Number(p.pts),
+    reb: (p) => Number(p.reb),
+    ast: (p) => Number(p.ast),
+    stl: (p) => Number(p.stl),
+    blk: (p) => Number(p.blk),
+    tov: (p) => Number(p.tov),
+    fg: (p) =>
+      Number(p.fga) > 0 ? Number(p.fgm) / Number(p.fga) : Number(p.fgm),
+    tp: (p) =>
+      Number(p.tpa) > 0 ? Number(p.tpm) / Number(p.tpa) : Number(p.tpm),
+    ft: (p) =>
+      Number(p.fta) > 0 ? Number(p.ftm) / Number(p.fta) : Number(p.ftm),
+    ts_pct: (p) => Number(p.ts_pct),
+    pir: (p) => Number(p.pir),
+    plus_minus_game: (p) => Number(p.plus_minus_game),
+  };
+
+  const getter = getters[key] || getters.pts;
+  return [...(players || [])].sort((a, b) => {
+    if (key === "player_name") {
+      const nameA = getter(a);
+      const nameB = getter(b);
+      if (nameA === nameB) return 0;
+      return dir === "asc"
+        ? nameA.localeCompare(nameB, "ko")
+        : nameB.localeCompare(nameA, "ko");
+    }
+    return compareNullableNumbers(getter(a), getter(b), dirSign);
+  });
+}
+
 export function renderBoxscoreRows({
   game,
   predictions,

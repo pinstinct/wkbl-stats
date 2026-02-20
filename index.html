@@ -766,23 +766,25 @@
           <div class="detail-section">
             <h3 id="boxscoreAwayTeamName">원정팀</h3>
             <div class="table-wrap">
-              <table class="detail-table boxscore-table">
+              <table id="boxscoreAwayTable" class="detail-table boxscore-table">
                 <thead>
                   <tr>
-                    <th>선수</th>
-                    <th>MIN</th>
-                    <th>PTS</th>
-                    <th>REB</th>
-                    <th>AST</th>
-                    <th>STL</th>
-                    <th>BLK</th>
-                    <th class="hide-mobile">TO</th>
-                    <th class="hide-mobile">FG</th>
-                    <th>3P</th>
-                    <th>FT</th>
-                    <th title="True Shooting %">TS%</th>
-                    <th title="Performance Index Rating">PIR</th>
-                    <th title="Plus/Minus (Game)">+/-</th>
+                    <th data-key="player_name">선수</th>
+                    <th data-key="minutes">MIN</th>
+                    <th data-key="pts">PTS</th>
+                    <th data-key="reb">REB</th>
+                    <th data-key="ast">AST</th>
+                    <th data-key="stl">STL</th>
+                    <th data-key="blk">BLK</th>
+                    <th data-key="tov" class="hide-mobile">TO</th>
+                    <th data-key="fg" class="hide-mobile">FG</th>
+                    <th data-key="tp">3P</th>
+                    <th data-key="ft">FT</th>
+                    <th data-key="ts_pct" title="True Shooting %">TS%</th>
+                    <th data-key="pir" title="Performance Index Rating">PIR</th>
+                    <th data-key="plus_minus_game" title="Plus/Minus (Game)">
+                      +/-
+                    </th>
                   </tr>
                 </thead>
                 <tbody id="boxscoreAwayBody"></tbody>
@@ -793,23 +795,25 @@
           <div class="detail-section">
             <h3 id="boxscoreHomeTeamName">홈팀</h3>
             <div class="table-wrap">
-              <table class="detail-table boxscore-table">
+              <table id="boxscoreHomeTable" class="detail-table boxscore-table">
                 <thead>
                   <tr>
-                    <th>선수</th>
-                    <th>MIN</th>
-                    <th>PTS</th>
-                    <th>REB</th>
-                    <th>AST</th>
-                    <th>STL</th>
-                    <th>BLK</th>
-                    <th class="hide-mobile">TO</th>
-                    <th class="hide-mobile">FG</th>
-                    <th>3P</th>
-                    <th>FT</th>
-                    <th title="True Shooting %">TS%</th>
-                    <th title="Performance Index Rating">PIR</th>
-                    <th title="Plus/Minus (Game)">+/-</th>
+                    <th data-key="player_name">선수</th>
+                    <th data-key="minutes">MIN</th>
+                    <th data-key="pts">PTS</th>
+                    <th data-key="reb">REB</th>
+                    <th data-key="ast">AST</th>
+                    <th data-key="stl">STL</th>
+                    <th data-key="blk">BLK</th>
+                    <th data-key="tov" class="hide-mobile">TO</th>
+                    <th data-key="fg" class="hide-mobile">FG</th>
+                    <th data-key="tp">3P</th>
+                    <th data-key="ft">FT</th>
+                    <th data-key="ts_pct" title="True Shooting %">TS%</th>
+                    <th data-key="pir" title="Performance Index Rating">PIR</th>
+                    <th data-key="plus_minus_game" title="Plus/Minus (Game)">
+                      +/-
+                    </th>
                   </tr>
                 </thead>
                 <tbody id="boxscoreHomeBody"></tbody>

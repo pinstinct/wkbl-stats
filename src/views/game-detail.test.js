@@ -1,6 +1,83 @@
 import { describe, expect, it } from "vitest";
 
-import { renderBoxscoreRows } from "./game-detail.js";
+import { renderBoxscoreRows, sortBoxscorePlayers } from "./game-detail.js";
+
+describe("game-detail sort", () => {
+  const players = [
+    {
+      player_id: "p1",
+      player_name: "가드",
+      minutes: 30,
+      pts: 10,
+      reb: 4,
+      ast: 7,
+      stl: 1,
+      blk: 0,
+      tov: 3,
+      fgm: 4,
+      fga: 10,
+      tpm: 2,
+      tpa: 6,
+      ftm: 0,
+      fta: 0,
+      ts_pct: 0.53,
+      pir: 12,
+      plus_minus_game: -2,
+    },
+    {
+      player_id: "p2",
+      player_name: "센터",
+      minutes: 24,
+      pts: 16,
+      reb: 11,
+      ast: 2,
+      stl: 0,
+      blk: 2,
+      tov: 1,
+      fgm: 7,
+      fga: 12,
+      tpm: 0,
+      tpa: 0,
+      ftm: 2,
+      fta: 2,
+      ts_pct: 0.61,
+      pir: 20,
+      plus_minus_game: 6,
+    },
+  ];
+
+  it("sorts by numeric stat descending", () => {
+    const sorted = sortBoxscorePlayers(players, { key: "pts", dir: "desc" });
+    expect(sorted.map((p) => p.player_id)).toEqual(["p2", "p1"]);
+    expect(players.map((p) => p.player_id)).toEqual(["p1", "p2"]);
+  });
+
+  it("sorts by player name ascending", () => {
+    const sorted = sortBoxscorePlayers(players, {
+      key: "player_name",
+      dir: "asc",
+    });
+    expect(sorted.map((p) => p.player_name)).toEqual(["가드", "센터"]);
+  });
+
+  it("sorts by shooting efficiency keys", () => {
+    expect(
+      sortBoxscorePlayers(players, { key: "fg", dir: "desc" }).map(
+        (p) => p.player_id,
+      ),
+    ).toEqual(["p2", "p1"]);
+    expect(
+      sortBoxscorePlayers(players, { key: "tp", dir: "desc" }).map(
+        (p) => p.player_id,
+      ),
+    ).toEqual(["p1", "p2"]);
+    expect(
+      sortBoxscorePlayers(players, { key: "ft", dir: "desc" }).map(
+        (p) => p.player_id,
+      ),
+    ).toEqual(["p2", "p1"]);
+  });
+});
 
 describe("game-detail view", () => {
   it("renders away/home rows including dnp", () => {

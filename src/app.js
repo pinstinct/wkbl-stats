@@ -18,6 +18,7 @@ import {
   getQuarterLabel,
   normalizeGameShots,
   renderBoxscoreRows,
+  sortBoxscorePlayers,
   renderCareerSummary,
   renderCompareCards,
   renderCompareSelected,
@@ -116,6 +117,7 @@ import {
   let unmountPredictEvents = null;
   let unmountGlobalSearchEvents = null;
   let unmountPlayersSortEvents = null;
+  let unmountBoxscoreSortEvents = null;
 
   // =============================================================================
   // Utility Functions
@@ -2584,17 +2586,72 @@ import {
         return { cls, title };
       }
 
-      const { awayRows, homeRows } = renderBoxscoreRows({
-        game,
-        predictions,
-        predictionMap,
-        getPredStyle,
-        formatNumber,
-        formatPct,
-        formatSigned,
+      let boxscoreSort = { key: "pts", dir: "desc" };
+      const awayBaseStats = [...(game.away_team_stats || [])];
+      const homeBaseStats = [...(game.home_team_stats || [])];
+      const updateBoxscoreSortIndicators = () => {
+        document
+          .querySelectorAll("#view-game .boxscore-table th[data-key]")
+          .forEach((th) => {
+            const key = th.dataset.key;
+            const isActive = key === boxscoreSort.key;
+            th.setAttribute(
+              "aria-sort",
+              isActive
+                ? boxscoreSort.dir === "asc"
+                  ? "ascending"
+                  : "descending"
+                : "none",
+            );
+          });
+      };
+      const renderSortedBoxscoreRows = () => {
+        const sortedGame = {
+          ...game,
+          away_team_stats: sortBoxscorePlayers(awayBaseStats, boxscoreSort),
+          home_team_stats: sortBoxscorePlayers(homeBaseStats, boxscoreSort),
+        };
+        const { awayRows, homeRows } = renderBoxscoreRows({
+          game: sortedGame,
+          predictions,
+          predictionMap,
+          getPredStyle,
+          formatNumber,
+          formatPct,
+          formatSigned,
+        });
+        $("boxscoreAwayBody").innerHTML = awayRows;
+        $("boxscoreHomeBody").innerHTML = homeRows;
+        updateBoxscoreSortIndicators();
+      };
+      renderSortedBoxscoreRows();
+
+      if (unmountBoxscoreSortEvents) {
+        unmountBoxscoreSortEvents();
+        unmountBoxscoreSortEvents = null;
+      }
+      const awayTable = $("boxscoreAwayTable");
+      const homeTable = $("boxscoreHomeTable");
+      const tables = [awayTable, homeTable].filter(Boolean);
+      const onBoxscoreSortClick = (event) => {
+        const th = event.target.closest("th[data-key]");
+        const key = th?.dataset?.key;
+        if (!key) return;
+        const isSame = boxscoreSort.key === key;
+        boxscoreSort = {
+          key,
+          dir: isSame && boxscoreSort.dir === "desc" ? "asc" : "desc",
+        };
+        renderSortedBoxscoreRows();
+      };
+      tables.forEach((table) => {
+        table.addEventListener("click", onBoxscoreSortClick);
       });
-      $("boxscoreAwayBody").innerHTML = awayRows;
-      $("boxscoreHomeBody").innerHTML = homeRows;
+      unmountBoxscoreSortEvents = () => {
+        tables.forEach((table) => {
+          table.removeEventListener("click", onBoxscoreSortClick);
+        });
+      };
 
       // Show prediction legend if predictions exist
       const legendEl = $("boxscorePredictionLegend");

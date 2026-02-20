@@ -378,6 +378,9 @@
   border-radius: 12px;
   padding: 10px;
   background: #fff;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .game-shot-court {
@@ -403,6 +406,7 @@
 #gameShotScatterChart {
   width: 100%;
   height: auto;
+  display: block;
 }
 
 #gameShotZoneChart,
@@ -435,6 +439,25 @@
 
   .game-shot-grid {
     grid-template-columns: 1fr;
+  }
+
+  .chart-card {
+    padding: 8px;
+  }
+
+  .game-shot-court {
+    min-height: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .game-shot-court {
+    min-height: 180px;
+  }
+
+  #gameShotZoneChart,
+  #gameShotQuarterChart {
+    max-height: 200px;
   }
 }
 
