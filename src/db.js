@@ -787,12 +787,14 @@ const WKBLDatabase = (function () {
       if (pm) {
         d.plus_minus_total = pm.total_pm;
         d.plus_minus_per_game = pm.pm_per_game;
+        d.plus_minus_per100 = computePlusMinusPer100(pm, teamSeasonStats);
       } else {
         // Fallback for missing lineup data: normalize team margin by games played.
         const totalPm = d.plus_minus_total || 0;
         d.plus_minus_total = totalPm;
         d.plus_minus_per_game =
           d.gp > 0 ? Math.round((totalPm / d.gp) * 10) / 10 : 0;
+        d.plus_minus_per100 = null;
       }
 
       return d;
@@ -911,6 +913,9 @@ const WKBLDatabase = (function () {
             pts36: 0,
             reb36: 0,
             ast36: 0,
+            plus_minus_total: 0,
+            plus_minus_per_game: 0,
+            plus_minus_per100: null,
           });
         }
       }
@@ -1010,11 +1015,13 @@ const WKBLDatabase = (function () {
       if (pm) {
         d.plus_minus_total = pm.total_pm;
         d.plus_minus_per_game = pm.pm_per_game;
+        d.plus_minus_per100 = computePlusMinusPer100(pm, teamMap);
       } else {
         const totalPm = d.plus_minus_total || 0;
         d.plus_minus_total = totalPm;
         d.plus_minus_per_game =
           d.gp > 0 ? Math.round((totalPm / d.gp) * 10) / 10 : 0;
+        d.plus_minus_per100 = null;
       }
 
       player.seasons[d.season_id] = d;
@@ -1150,7 +1157,7 @@ const WKBLDatabase = (function () {
     const sql = `
       SELECT
         p.id, p.name, p.position, p.height,
-        t.name as team,
+        t.id as team_id, t.name as team,
         COUNT(*) as gp,
         AVG(pg.minutes) as min,
         AVG(pg.pts) as pts,
@@ -1174,6 +1181,8 @@ const WKBLDatabase = (function () {
     `;
 
     const rows = query(sql, [...playerIds, seasonId]);
+    const playerPlusMinusMap = getSeasonPlayerPlusMinusMap(seasonId);
+    const teamSeasonStats = getTeamSeasonStats(seasonId);
 
     return rows.map((d) => {
       d.fgp = d.total_fga
@@ -1188,6 +1197,17 @@ const WKBLDatabase = (function () {
 
       roundStats(d);
       calculateAdvancedStats(d);
+
+      const pm = playerPlusMinusMap.get(d.id);
+      if (pm) {
+        d.plus_minus_total = pm.total_pm;
+        d.plus_minus_per_game = pm.pm_per_game;
+        d.plus_minus_per100 = computePlusMinusPer100(pm, teamSeasonStats);
+      } else {
+        d.plus_minus_total = 0;
+        d.plus_minus_per_game = 0;
+        d.plus_minus_per100 = null;
+      }
 
       // Clean up internal fields
       delete d.total_fgm;
@@ -1474,66 +1494,105 @@ const WKBLDatabase = (function () {
         WITH stint_diff AS (
           SELECT
             ls.game_id,
+            ls.team_id,
             ls.player1_id AS player_id,
             (COALESCE(ls.end_score_for, 0) - COALESCE(ls.start_score_for, 0))
-              - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff
+              - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff,
+            COALESCE(ls.duration_seconds, 0) AS duration_seconds
           FROM lineup_stints ls
           JOIN games g ON g.id = ls.game_id
           WHERE g.season_id = ?
           UNION ALL
           SELECT
             ls.game_id,
+            ls.team_id,
             ls.player2_id AS player_id,
             (COALESCE(ls.end_score_for, 0) - COALESCE(ls.start_score_for, 0))
-              - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff
+              - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff,
+            COALESCE(ls.duration_seconds, 0) AS duration_seconds
           FROM lineup_stints ls
           JOIN games g ON g.id = ls.game_id
           WHERE g.season_id = ?
           UNION ALL
           SELECT
             ls.game_id,
+            ls.team_id,
             ls.player3_id AS player_id,
             (COALESCE(ls.end_score_for, 0) - COALESCE(ls.start_score_for, 0))
-              - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff
+              - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff,
+            COALESCE(ls.duration_seconds, 0) AS duration_seconds
           FROM lineup_stints ls
           JOIN games g ON g.id = ls.game_id
           WHERE g.season_id = ?
           UNION ALL
           SELECT
             ls.game_id,
+            ls.team_id,
             ls.player4_id AS player_id,
             (COALESCE(ls.end_score_for, 0) - COALESCE(ls.start_score_for, 0))
-              - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff
+              - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff,
+            COALESCE(ls.duration_seconds, 0) AS duration_seconds
           FROM lineup_stints ls
           JOIN games g ON g.id = ls.game_id
           WHERE g.season_id = ?
           UNION ALL
           SELECT
             ls.game_id,
+            ls.team_id,
             ls.player5_id AS player_id,
             (COALESCE(ls.end_score_for, 0) - COALESCE(ls.start_score_for, 0))
-              - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff
+              - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff,
+            COALESCE(ls.duration_seconds, 0) AS duration_seconds
           FROM lineup_stints ls
           JOIN games g ON g.id = ls.game_id
           WHERE g.season_id = ?
+        ),
+        grouped AS (
+          SELECT
+            player_id,
+            team_id,
+            SUM(diff) AS total_pm_team,
+            SUM(duration_seconds) AS on_court_seconds_team,
+            COUNT(DISTINCT game_id) AS gp_team
+          FROM stint_diff
+          WHERE player_id IS NOT NULL
+          GROUP BY player_id, team_id
         )
         SELECT
           player_id,
-          SUM(diff) AS total_pm,
-          COUNT(DISTINCT game_id) AS gp
-        FROM stint_diff
-        WHERE player_id IS NOT NULL
-        GROUP BY player_id
+          team_id,
+          total_pm_team,
+          on_court_seconds_team,
+          gp_team
+        FROM grouped
         `,
         [seasonId, seasonId, seasonId, seasonId, seasonId],
       );
 
       for (const row of rows) {
-        const totalPm = row.total_pm || 0;
-        const gp = row.gp || 0;
-        map.set(row.player_id, {
-          total_pm: totalPm,
-          pm_per_game: gp > 0 ? Math.round((totalPm / gp) * 10) / 10 : 0,
+        const pid = row.player_id;
+        const existing = map.get(pid) || {
+          total_pm: 0,
+          gp: 0,
+          on_court_seconds: 0,
+          segments: [],
+        };
+        existing.total_pm += row.total_pm_team || 0;
+        existing.gp += row.gp_team || 0;
+        existing.on_court_seconds += row.on_court_seconds_team || 0;
+        existing.segments.push({
+          team_id: row.team_id,
+          total_pm: row.total_pm_team || 0,
+          on_court_seconds: row.on_court_seconds_team || 0,
+        });
+        map.set(pid, existing);
+      }
+
+      for (const [pid, agg] of map.entries()) {
+        map.set(pid, {
+          ...agg,
+          pm_per_game:
+            agg.gp > 0 ? Math.round((agg.total_pm / agg.gp) * 10) / 10 : 0,
         });
       }
     } catch (_err) {
@@ -1541,6 +1600,34 @@ const WKBLDatabase = (function () {
     }
 
     return map;
+  }
+
+  function computePlusMinusPer100(pmAgg, teamStatsMap) {
+    if (
+      !pmAgg ||
+      !Array.isArray(pmAgg.segments) ||
+      pmAgg.segments.length === 0
+    ) {
+      return null;
+    }
+
+    let onCourtPoss = 0;
+    for (const seg of pmAgg.segments) {
+      const ts = teamStatsMap?.get(seg.team_id);
+      if (!ts) continue;
+      const teamPoss = estimatePossessions(
+        ts.team_fga || 0,
+        ts.team_fta || 0,
+        ts.team_tov || 0,
+        ts.team_oreb || 0,
+      );
+      const teamSeconds = safeDiv(ts.team_min || 0, 5) * 60;
+      if (teamPoss <= 0 || teamSeconds <= 0) continue;
+      onCourtPoss += teamPoss * safeDiv(seg.on_court_seconds || 0, teamSeconds);
+    }
+
+    if (onCourtPoss <= 0) return null;
+    return Math.round(((100 * (pmAgg.total_pm || 0)) / onCourtPoss) * 10) / 10;
   }
 
   /**
@@ -1661,6 +1748,31 @@ const WKBLDatabase = (function () {
     game.home_team_stats = [];
     game.away_team_stats = [];
 
+    const gameStints = query(
+      `SELECT *
+       FROM lineup_stints
+       WHERE game_id = ?
+       ORDER BY stint_order`,
+      [gameId],
+    );
+    const plusMinusGameMap = new Map();
+    for (const s of gameStints) {
+      const diff =
+        (s.end_score_for || 0) -
+        (s.start_score_for || 0) -
+        ((s.end_score_against || 0) - (s.start_score_against || 0));
+      for (const pid of [
+        s.player1_id,
+        s.player2_id,
+        s.player3_id,
+        s.player4_id,
+        s.player5_id,
+      ]) {
+        if (!pid) continue;
+        plusMinusGameMap.set(pid, (plusMinusGameMap.get(pid) || 0) + diff);
+      }
+    }
+
     for (const d of players) {
       // Calculate advanced stats for this game
       const pts = d.pts || 0;
@@ -1682,16 +1794,6 @@ const WKBLDatabase = (function () {
       const tov = d.tov || 0;
       const pir = pts + reb + ast + stl + blk - tov - (fga - fgm) - (fta - ftm);
 
-      // Court margin for this game
-      const isHome = d.team_id === game.home_team_id;
-      const teamScore = isHome ? game.home_score : game.away_score;
-      const oppScore = isHome ? game.away_score : game.home_score;
-      const playTimeRatio = Math.min((d.minutes || 0) / 40, 1);
-      const courtMargin =
-        teamScore && oppScore
-          ? Math.round((teamScore - oppScore) * playTimeRatio * 10) / 10
-          : null;
-
       const stat = {
         player_id: d.player_id,
         player_name: d.player_name,
@@ -1712,7 +1814,9 @@ const WKBLDatabase = (function () {
         fta: d.fta,
         ts_pct: ts_pct,
         pir: pir,
-        court_margin: courtMargin,
+        plus_minus_game: plusMinusGameMap.has(d.player_id)
+          ? plusMinusGameMap.get(d.player_id)
+          : null,
       };
 
       if (d.team_id === game.home_team_id) {
@@ -1827,6 +1931,48 @@ const WKBLDatabase = (function () {
       }));
   }
 
+  function getLeadersByPlusMinusPerGame(seasonId, limit = 10) {
+    const minGames = 5;
+    return getPlayers(seasonId, null, true, false)
+      .filter((p) => p.gp >= minGames && p.plus_minus_per_game != null)
+      .sort(
+        (a, b) => (b.plus_minus_per_game || 0) - (a.plus_minus_per_game || 0),
+      )
+      .slice(0, limit)
+      .map((p, i) => ({
+        rank: i + 1,
+        player_id: p.id,
+        player_name: p.name,
+        team_name: p.team,
+        team_id: p.team_id,
+        gp: p.gp,
+        value: Math.round((p.plus_minus_per_game || 0) * 10) / 10,
+      }));
+  }
+
+  function getLeadersByPlusMinusPer100(seasonId, limit = 10) {
+    const minGames = 5;
+    const minTotalMinutes = 100;
+    return getPlayers(seasonId, null, true, false)
+      .filter(
+        (p) =>
+          p.gp >= minGames &&
+          (p.min || 0) * (p.gp || 0) >= minTotalMinutes &&
+          p.plus_minus_per100 != null,
+      )
+      .sort((a, b) => (b.plus_minus_per100 || 0) - (a.plus_minus_per100 || 0))
+      .slice(0, limit)
+      .map((p, i) => ({
+        rank: i + 1,
+        player_id: p.id,
+        player_name: p.name,
+        team_name: p.team,
+        team_id: p.team_id,
+        gp: p.gp,
+        value: Math.round((p.plus_minus_per100 || 0) * 10) / 10,
+      }));
+  }
+
   /**
    * Get statistical leaders for a category
    * Replaces: GET /api/leaders
@@ -1847,6 +1993,8 @@ const WKBLDatabase = (function () {
       "pir",
       "per",
       "ws",
+      "plus_minus_per_game",
+      "plus_minus_per100",
     ];
     if (!validCategories.includes(category)) {
       category = "pts";
@@ -1858,6 +2006,12 @@ const WKBLDatabase = (function () {
     }
     if (category === "ws") {
       return getLeadersByWS(seasonId, limit);
+    }
+    if (category === "plus_minus_per_game") {
+      return getLeadersByPlusMinusPerGame(seasonId, limit);
+    }
+    if (category === "plus_minus_per100") {
+      return getLeadersByPlusMinusPer100(seasonId, limit);
     }
 
     // Minimum games threshold for percentage categories
@@ -1951,6 +2105,8 @@ const WKBLDatabase = (function () {
       "pir",
       "per",
       "ws",
+      "plus_minus_per_game",
+      "plus_minus_per100",
     ];
     const result = {};
 

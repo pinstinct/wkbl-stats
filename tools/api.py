@@ -21,7 +21,6 @@ from database import (
     get_opponent_season_totals,
     get_team_wins_by_season,
     get_position_matchups,
-    get_player_plus_minus_season,
     get_team_season_totals,
     init_db,
 )
@@ -245,6 +244,211 @@ def _build_league_stats(season_id: str, team_totals: dict[str, dict]) -> Optiona
     }
 
 
+def _safe_div(numerator: float, denominator: float) -> float:
+    """Safe division helper."""
+    return numerator / denominator if denominator else 0.0
+
+
+def _get_season_player_plus_minus_map(season_id: Optional[str]) -> dict[str, dict]:
+    """Get lineup-based season +/- aggregates by player.
+
+    Returns:
+        {
+          player_id: {
+            total_pm: float,
+            gp: int,
+            on_court_seconds: float,
+            segments: [{team_id, total_pm, on_court_seconds}],
+            pm_per_game: float,
+          }
+        }
+    """
+    if not season_id or season_id == "all":
+        return {}
+
+    sql = """
+        WITH stint_diff AS (
+            SELECT
+                ls.game_id,
+                ls.team_id,
+                ls.player1_id AS player_id,
+                (COALESCE(ls.end_score_for, 0) - COALESCE(ls.start_score_for, 0))
+                  - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff,
+                COALESCE(ls.duration_seconds, 0) AS duration_seconds
+            FROM lineup_stints ls
+            JOIN games g ON g.id = ls.game_id
+            WHERE g.season_id = ?
+            UNION ALL
+            SELECT
+                ls.game_id,
+                ls.team_id,
+                ls.player2_id AS player_id,
+                (COALESCE(ls.end_score_for, 0) - COALESCE(ls.start_score_for, 0))
+                  - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff,
+                COALESCE(ls.duration_seconds, 0) AS duration_seconds
+            FROM lineup_stints ls
+            JOIN games g ON g.id = ls.game_id
+            WHERE g.season_id = ?
+            UNION ALL
+            SELECT
+                ls.game_id,
+                ls.team_id,
+                ls.player3_id AS player_id,
+                (COALESCE(ls.end_score_for, 0) - COALESCE(ls.start_score_for, 0))
+                  - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff,
+                COALESCE(ls.duration_seconds, 0) AS duration_seconds
+            FROM lineup_stints ls
+            JOIN games g ON g.id = ls.game_id
+            WHERE g.season_id = ?
+            UNION ALL
+            SELECT
+                ls.game_id,
+                ls.team_id,
+                ls.player4_id AS player_id,
+                (COALESCE(ls.end_score_for, 0) - COALESCE(ls.start_score_for, 0))
+                  - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff,
+                COALESCE(ls.duration_seconds, 0) AS duration_seconds
+            FROM lineup_stints ls
+            JOIN games g ON g.id = ls.game_id
+            WHERE g.season_id = ?
+            UNION ALL
+            SELECT
+                ls.game_id,
+                ls.team_id,
+                ls.player5_id AS player_id,
+                (COALESCE(ls.end_score_for, 0) - COALESCE(ls.start_score_for, 0))
+                  - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff,
+                COALESCE(ls.duration_seconds, 0) AS duration_seconds
+            FROM lineup_stints ls
+            JOIN games g ON g.id = ls.game_id
+            WHERE g.season_id = ?
+        ),
+        grouped AS (
+            SELECT
+                player_id,
+                team_id,
+                SUM(diff) AS total_pm_team,
+                SUM(duration_seconds) AS on_court_seconds_team,
+                COUNT(DISTINCT game_id) AS gp_team
+            FROM stint_diff
+            WHERE player_id IS NOT NULL
+            GROUP BY player_id, team_id
+        )
+        SELECT
+            player_id,
+            team_id,
+            total_pm_team,
+            on_court_seconds_team,
+            gp_team
+        FROM grouped
+    """
+
+    with get_connection() as conn:
+        rows = conn.execute(
+            sql, (season_id, season_id, season_id, season_id, season_id)
+        ).fetchall()
+
+    result: dict[str, dict] = {}
+    for row in rows:
+        d = dict(row)
+        player_id = d.get("player_id")
+        if not player_id:
+            continue
+
+        agg = result.setdefault(
+            player_id,
+            {
+                "total_pm": 0.0,
+                "gp": 0,
+                "on_court_seconds": 0.0,
+                "segments": [],
+            },
+        )
+
+        total_pm_team = float(d.get("total_pm_team") or 0.0)
+        on_court_seconds_team = float(d.get("on_court_seconds_team") or 0.0)
+        gp_team = int(d.get("gp_team") or 0)
+
+        agg["total_pm"] += total_pm_team
+        agg["gp"] += gp_team
+        agg["on_court_seconds"] += on_court_seconds_team
+        agg["segments"].append(
+            {
+                "team_id": d.get("team_id"),
+                "total_pm": total_pm_team,
+                "on_court_seconds": on_court_seconds_team,
+            }
+        )
+
+    for agg in result.values():
+        gp = int(agg.get("gp") or 0)
+        total_pm = float(agg.get("total_pm") or 0.0)
+        agg["pm_per_game"] = round(total_pm / gp, 1) if gp > 0 else 0.0
+
+    return result
+
+
+def _compute_plus_minus_per100(
+    pm_agg: Optional[dict],
+    team_totals: dict[str, dict],
+) -> Optional[float]:
+    """Compute lineup-based +/- per 100 possessions using on-court time share."""
+    if not pm_agg:
+        return None
+
+    segments = pm_agg.get("segments") or []
+    if not segments:
+        return None
+
+    on_court_poss = 0.0
+    for seg in segments:
+        team_id = seg.get("team_id")
+        team_stats = team_totals.get(team_id) if team_id else None
+        if not team_stats:
+            continue
+
+        team_poss = estimate_possessions(
+            team_stats.get("fga", 0) or 0,
+            team_stats.get("fta", 0) or 0,
+            team_stats.get("tov", 0) or 0,
+            team_stats.get("oreb", 0) or 0,
+        )
+        team_seconds = _safe_div(float(team_stats.get("min", 0) or 0), 5.0) * 60.0
+        if team_poss <= 0 or team_seconds <= 0:
+            continue
+
+        on_court_seconds = float(seg.get("on_court_seconds") or 0.0)
+        on_court_poss += team_poss * _safe_div(on_court_seconds, team_seconds)
+
+    if on_court_poss <= 0:
+        return None
+
+    total_pm = float(pm_agg.get("total_pm") or 0.0)
+    return round((100.0 * total_pm) / on_court_poss, 1)
+
+
+def _apply_plus_minus_fields(
+    row: dict,
+    pm_agg: Optional[dict],
+    team_totals: dict[str, dict],
+    *,
+    fallback_total: float = 0.0,
+) -> None:
+    """Populate plus-minus fields on a season aggregate row."""
+    if pm_agg:
+        total_pm = float(pm_agg.get("total_pm") or 0.0)
+        row["plus_minus_total"] = int(round(total_pm))
+        row["plus_minus_per_game"] = float(pm_agg.get("pm_per_game") or 0.0)
+        row["plus_minus_per100"] = _compute_plus_minus_per100(pm_agg, team_totals)
+        return
+
+    total_pm = float(fallback_total or 0.0)
+    gp = int(row.get("gp") or 0)
+    row["plus_minus_total"] = int(round(total_pm))
+    row["plus_minus_per_game"] = round(total_pm / gp, 1) if gp > 0 else 0.0
+    row["plus_minus_per100"] = None
+
+
 def get_players(
     season_id: Optional[str] = None,
     team_id: Optional[str] = None,
@@ -283,6 +487,13 @@ def get_players(
             SUM(pg.off_reb) as total_off_reb,
             SUM(pg.def_reb) as total_def_reb,
             SUM(pg.pf) as total_pf,
+            SUM(
+                CASE
+                    WHEN g.home_team_id = pg.team_id
+                        THEN COALESCE(g.home_score, 0) - COALESCE(g.away_score, 0)
+                    ELSE COALESCE(g.away_score, 0) - COALESCE(g.home_score, 0)
+                END
+            ) as plus_minus_total,
             AVG(pg.off_reb) as off_reb,
             AVG(pg.def_reb) as def_reb,
             AVG(pg.pf) as pf
@@ -316,8 +527,10 @@ def get_players(
         opp_totals = get_opponent_season_totals(season_id)
         league_ctx = _build_league_stats(season_id, team_totals)
         standings_ctx = get_team_wins_by_season(season_id)
+        player_plus_minus = _get_season_player_plus_minus_map(season_id)
     else:
         standings_ctx = {}
+        player_plus_minus = {}
 
     with get_connection() as conn:
         rows = conn.execute(query, params).fetchall()
@@ -346,6 +559,15 @@ def get_players(
             )
             result.append(
                 compute_advanced_stats(d, team_stats=ts, league_stats=league_ctx)
+            )
+
+        for player in result:
+            pm = player_plus_minus.get(player.get("id", ""))
+            _apply_plus_minus_fields(
+                player,
+                pm,
+                team_totals,
+                fallback_total=float(player.get("plus_minus_total") or 0.0),
             )
 
         if include_no_games and season_id:
@@ -378,9 +600,16 @@ def get_players(
                         "total_tpa": 0,
                         "total_ftm": 0,
                         "total_fta": 0,
+                        "plus_minus_total": 0,
+                        "plus_minus_per_game": 0.0,
+                        "plus_minus_per100": None,
                     }
                 )
-                result.append(compute_advanced_stats(d))
+                row = compute_advanced_stats(d)
+                row["plus_minus_total"] = 0
+                row["plus_minus_per_game"] = 0.0
+                row["plus_minus_per100"] = None
+                result.append(row)
 
         return result
 
@@ -518,6 +747,13 @@ def get_player_detail(player_id: str) -> Optional[dict]:
                 SUM(pg.off_reb) as total_off_reb,
                 SUM(pg.def_reb) as total_def_reb,
                 SUM(pg.pf) as total_pf,
+                SUM(
+                    CASE
+                        WHEN g.home_team_id = pg.team_id
+                            THEN COALESCE(g.home_score, 0) - COALESCE(g.away_score, 0)
+                        ELSE COALESCE(g.away_score, 0) - COALESCE(g.home_score, 0)
+                    END
+                ) as plus_minus_total,
                 AVG(pg.off_reb) as off_reb,
                 AVG(pg.def_reb) as def_reb,
                 AVG(pg.pf) as pf
@@ -533,6 +769,7 @@ def get_player_detail(player_id: str) -> Optional[dict]:
 
         # Pre-fetch team context per season
         season_contexts: dict[str, tuple] = {}
+        season_plus_minus: dict[str, dict] = {}
         for row in seasons:
             sid = dict(row)["season_id"]
             if sid not in season_contexts:
@@ -541,6 +778,7 @@ def get_player_detail(player_id: str) -> Optional[dict]:
                 lc = _build_league_stats(sid, tt)
                 sw = get_team_wins_by_season(sid)
                 season_contexts[sid] = (tt, ot, lc, sw)
+                season_plus_minus[sid] = _get_season_player_plus_minus_map(sid)
 
         result["seasons"] = {}
         for row in seasons:
@@ -563,13 +801,11 @@ def get_player_detail(player_id: str) -> Optional[dict]:
             player_team = d.get("team_id") or result.get("team_id", "")
             ts = _build_team_stats(player_team, tt, ot, sw)
             season_stats = compute_advanced_stats(d, team_stats=ts, league_stats=lc)
-            # Inject +/- from lineup_stints:
-            # Keep total as metadata and expose per-game value for display consistency.
-            pm_total = get_player_plus_minus_season(player_id, sid)
-            season_stats["plus_minus_total"] = pm_total
-            gp = season_stats.get("gp", 0) or 0
-            season_stats["plus_minus_per_game"] = (
-                round(pm_total / gp, 1) if gp > 0 else 0.0
+            _apply_plus_minus_fields(
+                season_stats,
+                season_plus_minus.get(sid, {}).get(player_id),
+                tt,
+                fallback_total=float(season_stats.get("plus_minus_total") or 0.0),
             )
             result["seasons"][sid] = season_stats
 
@@ -912,6 +1148,20 @@ def get_game_boxscore(game_id: str) -> Optional[dict]:
         away_stats = []
         for row in players:
             d = dict(row)
+            pts = d.get("pts") or 0
+            fga = d.get("fga") or 0
+            fta = d.get("fta") or 0
+            fgm = d.get("fgm") or 0
+            ftm = d.get("ftm") or 0
+            tsa = 2 * (fga + 0.44 * fta)
+            ts_pct = round(pts / tsa, 3) if tsa > 0 else 0.0
+            reb = d.get("reb") or 0
+            ast = d.get("ast") or 0
+            stl = d.get("stl") or 0
+            blk = d.get("blk") or 0
+            tov = d.get("tov") or 0
+            pir = pts + reb + ast + stl + blk - tov - (fga - fgm) - (fta - ftm)
+
             stat = {
                 "player_id": d["player_id"],
                 "player_name": d["player_name"],
@@ -930,6 +1180,9 @@ def get_game_boxscore(game_id: str) -> Optional[dict]:
                 "tpa": d["tpa"],
                 "ftm": d["ftm"],
                 "fta": d["fta"],
+                "ts_pct": ts_pct,
+                "pir": pir,
+                "plus_minus_game": None,
             }
             if d["team_id"] == result["home_team_id"]:
                 home_stats.append(stat)
@@ -955,9 +1208,9 @@ def get_game_boxscore(game_id: str) -> Optional[dict]:
                     if pid:
                         pm[pid] = pm.get(pid, 0) + diff
             for stat in home_stats:
-                stat["plus_minus_game"] = pm.get(stat["player_id"], 0)
+                stat["plus_minus_game"] = pm.get(stat["player_id"])
             for stat in away_stats:
-                stat["plus_minus_game"] = pm.get(stat["player_id"], 0)
+                stat["plus_minus_game"] = pm.get(stat["player_id"])
 
         result["home_team_stats"] = home_stats
         result["away_team_stats"] = away_stats
@@ -1133,6 +1386,65 @@ def _get_ws_leaders(season_id: str, limit: int = 10) -> list[dict]:
     ]
 
 
+def _get_plus_minus_per_game_leaders(season_id: str, limit: int = 10) -> list[dict]:
+    """Get lineup-based +/- per game leaders."""
+    min_games = 5
+    players = get_players(season_id, active_only=True, include_no_games=False)
+    valid = [
+        p
+        for p in players
+        if (p.get("gp") or 0) >= min_games and p.get("plus_minus_per_game") is not None
+    ]
+    sorted_players = sorted(
+        valid,
+        key=lambda p: p.get("plus_minus_per_game") or 0,
+        reverse=True,
+    )
+    return [
+        {
+            "rank": i,
+            "player_id": p["id"],
+            "player_name": p["name"],
+            "team_name": p.get("team", ""),
+            "team_id": p.get("team_id", ""),
+            "gp": p.get("gp", 0),
+            "value": round(p.get("plus_minus_per_game") or 0, 1),
+        }
+        for i, p in enumerate(sorted_players[:limit], 1)
+    ]
+
+
+def _get_plus_minus_per100_leaders(season_id: str, limit: int = 10) -> list[dict]:
+    """Get lineup-based +/- per 100 possessions leaders."""
+    min_games = 5
+    min_total_minutes = 100
+    players = get_players(season_id, active_only=True, include_no_games=False)
+    valid = [
+        p
+        for p in players
+        if (p.get("gp") or 0) >= min_games
+        and (p.get("min") or 0) * (p.get("gp") or 0) >= min_total_minutes
+        and p.get("plus_minus_per100") is not None
+    ]
+    sorted_players = sorted(
+        valid,
+        key=lambda p: p.get("plus_minus_per100") or 0,
+        reverse=True,
+    )
+    return [
+        {
+            "rank": i,
+            "player_id": p["id"],
+            "player_name": p["name"],
+            "team_name": p.get("team", ""),
+            "team_id": p.get("team_id", ""),
+            "gp": p.get("gp", 0),
+            "value": round(p.get("plus_minus_per100") or 0, 1),
+        }
+        for i, p in enumerate(sorted_players[:limit], 1)
+    ]
+
+
 def get_leaders(season_id: str, category: str = "pts", limit: int = 10) -> list[dict]:
     """Get statistical leaders for a category."""
     valid_categories = {
@@ -1150,6 +1462,8 @@ def get_leaders(season_id: str, category: str = "pts", limit: int = 10) -> list[
         "pir",
         "per",
         "ws",
+        "plus_minus_per_game",
+        "plus_minus_per100",
     }
 
     if category not in valid_categories:
@@ -1159,6 +1473,10 @@ def get_leaders(season_id: str, category: str = "pts", limit: int = 10) -> list[
         return _get_per_leaders(season_id, limit)
     if category == "ws":
         return _get_ws_leaders(season_id, limit)
+    if category == "plus_minus_per_game":
+        return _get_plus_minus_per_game_leaders(season_id, limit)
+    if category == "plus_minus_per100":
+        return _get_plus_minus_per100_leaders(season_id, limit)
 
     query, min_games = _get_leaders_query(category)
 
@@ -1397,7 +1715,10 @@ def api_get_leaders(
     season: str = Query(default=None, description="Season code"),
     category: str = Query(
         default="pts",
-        description="Category: pts, reb, ast, stl, blk, min, fgp, tpp, ftp, ws",
+        description=(
+            "Category: pts, reb, ast, stl, blk, min, fgp, tpp, ftp, "
+            "game_score, ts_pct, pir, per, ws, plus_minus_per_game, plus_minus_per100"
+        ),
     ),
     limit: int = Query(default=10, le=50, description="Number of leaders"),
 ):
@@ -1437,6 +1758,8 @@ def api_get_all_leaders(
         "pir",
         "per",
         "ws",
+        "plus_minus_per_game",
+        "plus_minus_per100",
     ]
 
     categories_data: dict[str, list[dict]] = {}
@@ -1482,6 +1805,13 @@ def _get_comparison_query(player_count: int) -> str:
             SUM(pg.off_reb) as total_off_reb,
             SUM(pg.def_reb) as total_def_reb,
             SUM(pg.pf) as total_pf,
+            SUM(
+                CASE
+                    WHEN g.home_team_id = pg.team_id
+                        THEN COALESCE(g.home_score, 0) - COALESCE(g.away_score, 0)
+                    ELSE COALESCE(g.away_score, 0) - COALESCE(g.home_score, 0)
+                END
+            ) as plus_minus_total,
             AVG(pg.off_reb) as off_reb,
             AVG(pg.def_reb) as def_reb,
             AVG(pg.pf) as pf
@@ -1514,6 +1844,7 @@ def get_player_comparison(player_ids: list[str], season_id: str) -> list[dict]:
     opp_totals = get_opponent_season_totals(season_id)
     league_ctx = _build_league_stats(season_id, team_totals)
     standings_ctx = get_team_wins_by_season(season_id)
+    player_plus_minus = _get_season_player_plus_minus_map(season_id)
 
     with get_connection() as conn:
         rows = conn.execute(query, (*player_ids, season_id)).fetchall()
@@ -1541,6 +1872,12 @@ def get_player_comparison(player_ids: list[str], season_id: str) -> list[dict]:
                 standings_ctx,
             )
             d = compute_advanced_stats(d, team_stats=ts, league_stats=league_ctx)
+            _apply_plus_minus_fields(
+                d,
+                player_plus_minus.get(d.get("id", "")),
+                team_totals,
+                fallback_total=float(d.get("plus_minus_total") or 0.0),
+            )
 
             # Clean up internal fields
             for key in [

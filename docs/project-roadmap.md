@@ -307,7 +307,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
   - `compute_player_on_off()` — 시즌 On/Off Rating 계산
   - `resolve_null_player_ids()` — PBP description에서 이름 추출하여 NULL player_id 해결
 - [x] `lineup_stints` DB 테이블 + CRUD (`save_lineup_stints`, `get_lineup_stints`, `get_player_plus_minus_season`)
-- [x] API 통합: 박스스코어에 경기별 `plus_minus`, 선수 상세에 시즌 `plus_minus`
+- [x] API 통합: 박스스코어 `plus_minus_game`, 시즌 `plus_minus_per_game`/`plus_minus_per100`
 - [x] 인제스트 통합: `--compute-lineups` CLI 옵션, PBP fetch 후 자동 계산
 - [x] 테스트 18개 추가 (총 140개)
 
@@ -331,10 +331,10 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 ### Phase 8: 프론트엔드 고급 지표 표시 ✅ 완료 (2026-02-19)
 
 - [x] 선수 목록 (`#/players`) — Basic/Advanced 탭 토글
-  - Advanced 탭: PER, GmSc, USG%, TOV%, ORtg, DRtg, NetRtg, REB%, AST%, STL%, BLK%, +/-
+  - Advanced 탭: PER, GmSc, USG%, TOV%, ORtg, DRtg, NetRtg, REB%, AST%, STL%, BLK%, +/-/G, +/-/100
   - 선수 카드 사이드바에 "고급 지표" 3번째 섹션 추가
 - [x] 선수 상세 (`#/players/{id}`) — 고급 지표 섹션 추가
-  - 최신 시즌 PER, GmSc, USG%, TOV%, ORtg, DRtg, NetRtg, OREB%~BLK%, +/-
+  - 최신 시즌 PER, GmSc, USG%, TOV%, ORtg, DRtg, NetRtg, OREB%~BLK%, +/-/G, +/-/100
 - [x] 리더보드 (`#/leaders`) — 카테고리 확장
   - 추가: GmSc, TS%, PIR, PER
   - `api.py` + `db.js` 모두 지원

@@ -10,7 +10,7 @@ export function renderCareerSummary({ summaryEl, seasons, courtMargin }) {
   if (courtMargin !== null && courtMargin !== undefined) {
     const marginClass = courtMargin >= 0 ? "positive" : "negative";
     const marginSign = courtMargin >= 0 ? "+" : "";
-    courtMarginHtml = `<div class="career-stat career-stat--${marginClass}"><div class="career-stat-label">코트마진</div><div class="career-stat-value">${marginSign}${courtMargin.toFixed(1)}</div></div>`;
+    courtMarginHtml = `<div class="career-stat career-stat--${marginClass}"><div class="career-stat-label">코트마진(근사)</div><div class="career-stat-value">${marginSign}${courtMargin.toFixed(1)}</div></div>`;
   }
 
   summaryEl.innerHTML = `
@@ -151,6 +151,12 @@ export function renderPlayerAdvancedStats({
       key: "plus_minus_per_game",
       label: "+/-/G",
       desc: "출전 시간 기준 경기당 평균 득실점 차. +일수록 팀에 유리한 결과입니다.",
+      signed: true,
+    },
+    {
+      key: "plus_minus_per100",
+      label: "+/-/100",
+      desc: "100포제션당 온코트 득실점 차. 팀 템포 차이를 보정한 비교 지표입니다.",
       signed: true,
     },
     {

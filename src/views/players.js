@@ -17,7 +17,7 @@ const BASIC_THEAD_HTML = `<tr>
   <th data-key="efg_pct" class="hide-mobile" title="Effective FG%">eFG%</th>
   <th data-key="ast_to" class="hide-tablet" title="Assist/Turnover Ratio">AST/TO</th>
   <th data-key="pir" class="hide-tablet" title="Performance Index Rating">PIR</th>
-  <th data-key="court_margin" class="hide-tablet" title="코트마진">코트마진</th>
+  <th data-key="court_margin" class="hide-tablet" title="코트마진 (출전시간 가중 근사치)">코트마진(근사)</th>
   <th data-key="pts36" class="hide-tablet" title="Points per 36 min">PTS/36</th>
   <th data-key="reb36" class="hide-tablet" title="Rebounds per 36 min">REB/36</th>
   <th data-key="ast36" class="hide-tablet" title="Assists per 36 min">AST/36</th>
@@ -42,6 +42,7 @@ const ADVANCED_THEAD_HTML = `<tr>
   <th data-key="blk_pct" class="hide-mobile" title="Block %">BLK%</th>
   <th data-key="ws" title="Win Shares">WS</th>
   <th data-key="plus_minus_per_game" title="Plus/Minus per Game">+/-/G</th>
+  <th data-key="plus_minus_per100" title="Plus/Minus per 100 possessions">+/-/100</th>
 </tr>`;
 
 /** Render helpers for players list and stat tables. */
@@ -80,6 +81,7 @@ export function renderPlayersTable({
           <td class="hide-mobile">${formatNumber(player.blk_pct)}</td>
           <td>${formatNumber(player.ws)}</td>
           <td>${formatSigned(player.plus_minus_per_game)}</td>
+          <td>${formatSigned(player.plus_minus_per100)}</td>
         </tr>
       `,
       )

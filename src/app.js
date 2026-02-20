@@ -74,6 +74,8 @@ import {
     { key: "pir", label: "PIR", unit: "per game" },
     { key: "per", label: "PER", unit: "" },
     { key: "ws", label: "WS", unit: "" },
+    { key: "plus_minus_per_game", label: "+/-/G", unit: "" },
+    { key: "plus_minus_per100", label: "+/-/100", unit: "" },
   ];
 
   // =============================================================================
@@ -779,9 +781,9 @@ import {
     },
     {
       key: "court_margin",
-      label: "코트마진",
+      label: "코트마진(근사)",
       format: "signed",
-      desc: "코트마진(출전 시간 가중 득실차). +는 팀이 이긴 시간, -는 밀린 시간을 의미합니다.",
+      desc: "코트마진(출전 시간 가중 근사치). 라인업 스틴트 기반 +/-와 다른 보조 지표입니다.",
     },
   ];
 
@@ -857,6 +859,12 @@ import {
       label: "+/-/G",
       format: "signed",
       desc: "출전 시간 기준 경기당 평균 득실점 차. +일수록 팀에 유리한 결과입니다.",
+    },
+    {
+      key: "plus_minus_per100",
+      label: "+/-/100",
+      format: "signed",
+      desc: "100포제션당 온코트 득실점 차. 팀 템포 차이를 보정한 비교 지표입니다.",
     },
     {
       key: "ws",
@@ -1910,6 +1918,7 @@ import {
         getPredStyle,
         formatNumber,
         formatPct,
+        formatSigned,
       });
       $("boxscoreAwayBody").innerHTML = awayRows;
       $("boxscoreHomeBody").innerHTML = homeRows;
@@ -1967,7 +1976,9 @@ import {
     { key: "ts_pct", label: "TS%", format: "pct" },
     { key: "efg_pct", label: "eFG%", format: "pct" },
     { key: "pir", label: "PIR", format: "number" },
-    { key: "court_margin", label: "코트마진", format: "signed" },
+    { key: "court_margin", label: "코트마진(근사)", format: "signed" },
+    { key: "plus_minus_per_game", label: "+/-/G", format: "signed" },
+    { key: "plus_minus_per100", label: "+/-/100", format: "signed" },
   ];
 
   const COMPARE_BAR_STATS = [

@@ -26,7 +26,7 @@ describe("game-detail view", () => {
           fta: 2,
           ts_pct: 0.6,
           pir: 12,
-          court_margin: 2,
+          plus_minus_game: 2,
         },
       ],
       home_team_stats: [],
@@ -52,6 +52,8 @@ describe("game-detail view", () => {
       getPredStyle: () => ({ cls: "", title: "" }),
       formatNumber: (v) => String(v),
       formatPct: (v) => `${Math.round((v ?? 0) * 100)}%`,
+      formatSigned: (v, decimals = 1) =>
+        `${v >= 0 ? "+" : ""}${Number(v).toFixed(decimals)}`,
     });
 
     expect(awayRows).toContain("선수1");

@@ -6,17 +6,17 @@ export function renderBoxscoreRows({
   getPredStyle,
   formatNumber,
   formatPct,
+  formatSigned,
 }) {
   function renderPlayerRow(p) {
     const pred = predictionMap[p.player_id];
-    const cmSign =
-      p.court_margin !== null ? (p.court_margin >= 0 ? "+" : "") : "";
-    const cmClass =
-      p.court_margin !== null
-        ? p.court_margin >= 0
+    const pm = p.plus_minus_game;
+    const pmClass =
+      pm === null || pm === undefined
+        ? ""
+        : pm >= 0
           ? "stat-positive"
-          : "stat-negative"
-        : "";
+          : "stat-negative";
 
     const ptsPred = getPredStyle(pred, p.pts, "pts");
     const rebPred = getPredStyle(pred, p.reb, "reb");
@@ -40,7 +40,7 @@ export function renderBoxscoreRows({
         <td class="hide-tablet">${p.ftm}/${p.fta}</td>
         <td class="hide-tablet">${formatPct(p.ts_pct)}</td>
         <td class="hide-tablet">${p.pir}</td>
-        <td class="hide-tablet ${cmClass}">${p.court_margin !== null ? cmSign + p.court_margin : "-"}</td>
+        <td class="hide-tablet ${pmClass}">${pm === null || pm === undefined ? "-" : formatSigned(pm, 0)}</td>
       </tr>
     `;
   }

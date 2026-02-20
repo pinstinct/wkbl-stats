@@ -13,7 +13,7 @@ WKBL(한국여자농구연맹) 통계를 Basketball Reference 스타일로 보�
 - 선수 상세 페이지 (커리어 스탯, 시즌별 기록, 트렌드 차트, 레이더 차트)
 - 팀 순위표 (승률 차트, 홈/원정 기록)
 - 경기 박스스코어 (예측 vs 실제 비교)
-- 부문별 리더보드 (득점/리바운드/어시스트/스틸/블록/PER/GmSc/TS%/PIR)
+- 부문별 리더보드 (득점/리바운드/어시스트/스틸/블록/PER/GmSc/TS%/PIR/WS/+/-/G/+/-/100)
 - **선수 비교 도구** (최대 4명 비교, 레이더/바 차트)
 - **전역 검색** (Ctrl+K 단축키, 선수/팀 통합 검색)
 - 반응형 디자인 (모바일/태블릿/데스크톱)
@@ -56,41 +56,44 @@ WKBL(한국여자농구연맹) 통계를 Basketball Reference 스타일로 보�
 
 ### 2차 지표
 
-| 지표     | 설명                      | 계산식                                                                                                   |
-| -------- | ------------------------- | -------------------------------------------------------------------------------------------------------- |
-| TS%      | True Shooting %           | `PTS / (2 × (FGA + 0.44 × FTA))`                                                                         |
-| eFG%     | Effective FG%             | `(FGM + 0.5 × 3PM) / FGA`                                                                                |
-| AST/TO   | 어시스트/턴오버 비율      | `AST / TO`                                                                                               |
-| PIR      | Performance Index Rating  | `(PTS + REB + AST + STL + BLK - TOV - (FGA - FGM) - (FTA - FTM)) / GP`                                   |
-| PTS/36   | 36분당 환산 득점          | `PTS × (36 / MIN)`                                                                                       |
-| GmSc     | Game Score (Hollinger)    | `PTS + 0.4×FGM - 0.7×FGA - 0.4×(FTA-FTM) + 0.7×OREB + 0.3×DREB + STL + 0.7×AST + 0.7×BLK - 0.4×PF - TOV` |
-| 코트마진 | 출전시간 가중 득실차 평균 | 경기별 `(팀 득실차 × 출전시간/40)`의 시즌 평균                                                           |
+| 지표           | 설명                      | 계산식                                                                                                   |
+| -------------- | ------------------------- | -------------------------------------------------------------------------------------------------------- |
+| TS%            | True Shooting %           | `PTS / (2 × (FGA + 0.44 × FTA))`                                                                         |
+| eFG%           | Effective FG%             | `(FGM + 0.5 × 3PM) / FGA`                                                                                |
+| AST/TO         | 어시스트/턴오버 비율      | `AST / TO`                                                                                               |
+| PIR            | Performance Index Rating  | `(PTS + REB + AST + STL + BLK - TOV - (FGA - FGM) - (FTA - FTM)) / GP`                                   |
+| PTS/36         | 36분당 환산 득점          | `PTS × (36 / MIN)`                                                                                       |
+| GmSc           | Game Score (Hollinger)    | `PTS + 0.4×FGM - 0.7×FGA - 0.4×(FTA-FTM) + 0.7×OREB + 0.3×DREB + STL + 0.7×AST + 0.7×BLK - 0.4×PF - TOV` |
+| 코트마진(근사) | 출전시간 가중 득실차 근사 | 경기별 `(팀 득실차 × 출전시간/40)`의 시즌 평균 (라인업 기반 +/-와 별개 보조 지표)                        |
 
 ### 고급 지표
 
-| 지표      | 설명                             | 계산식/정의                                                                                                   |
-| --------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| PER       | Player Efficiency Rating         | Hollinger uPER 기반 `aPER = pace_adj × uPER`, `PER = aPER × (15 / lg_aPER)`                                   |
-| USG%      | Usage Rate (사용률)              | `100 × (FGA + 0.44×FTA + TOV) × (Team_MIN/5) / (MIN × (Team_FGA + 0.44×Team_FTA + Team_TOV))`                 |
-| ORtg      | Individual Offensive Rating      | 박스스코어 기반 개인 공격 생산 추정치 (`Points Produced`, `Total Possessions`)를 이용한 100포제션당 득점 지표 |
-| DRtg      | Individual Defensive Rating      | 박스스코어 기반 스탑(Stop) 추정치를 이용한 100포제션당 실점 지표 (낮을수록 좋음)                              |
-| NetRtg    | Net Rating                       | `ORtg - DRtg`                                                                                                 |
-| Pace      | 팀 경기 템포                     | `40 × (Team_Poss + Opp_Poss) / (2 × Team_MIN/5)`                                                              |
-| TOV%      | Turnover Percentage              | `100 × TOV / (FGA + 0.44×FTA + TOV)`                                                                          |
-| OREB%     | Offensive Rebound Rate           | `100 × OREB × (Team_MIN/5) / (MIN × (Team_OREB + Opp_DREB))`                                                  |
-| DREB%     | Defensive Rebound Rate           | `100 × DREB × (Team_MIN/5) / (MIN × (Team_DREB + Opp_OREB))`                                                  |
-| REB%      | Total Rebound Rate               | `100 × REB × (Team_MIN/5) / (MIN × (Team_REB + Opp_REB))`                                                     |
-| AST%      | Assist Percentage                | `100 × AST / (((MIN/(Team_MIN/5)) × Team_FGM) - FGM)`                                                         |
-| STL%      | Steal Percentage                 | `100 × STL × (Team_MIN/5) / (MIN × Opp_Poss)`                                                                 |
-| BLK%      | Block Percentage                 | `100 × BLK × (Team_MIN/5) / (MIN × (Opp_FGA - Opp_3PA))`                                                      |
-| WS        | Win Shares                       | `WS = OWS + DWS` (팀 승리에 대한 공격/수비 기여도 승수 환산)                                                  |
-| OWS / DWS | Offensive / Defensive Win Shares | 공격/수비 기여를 각각 승수로 환산 (현재 API/계산에 포함)                                                      |
-| WS/40     | 40분당 Win Shares                | `WS / Total_MIN × 40` (WKBL 40분 경기 기준)                                                                   |
-| +/-       | Plus/Minus (라인업 기반)         | 라인업 스틴트 기반 온코트 득실차                                                                              |
+| 지표       | 설명                             | 계산식/정의                                                                                                   |
+| ---------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| PER        | Player Efficiency Rating         | Hollinger uPER 기반 `aPER = pace_adj × uPER`, `PER = aPER × (15 / lg_aPER)`                                   |
+| USG%       | Usage Rate (사용률)              | `100 × (FGA + 0.44×FTA + TOV) × (Team_MIN/5) / (MIN × (Team_FGA + 0.44×Team_FTA + Team_TOV))`                 |
+| ORtg       | Individual Offensive Rating      | 박스스코어 기반 개인 공격 생산 추정치 (`Points Produced`, `Total Possessions`)를 이용한 100포제션당 득점 지표 |
+| DRtg       | Individual Defensive Rating      | 박스스코어 기반 스탑(Stop) 추정치를 이용한 100포제션당 실점 지표 (낮을수록 좋음)                              |
+| NetRtg     | Net Rating                       | `ORtg - DRtg`                                                                                                 |
+| Pace       | 팀 경기 템포                     | `40 × (Team_Poss + Opp_Poss) / (2 × Team_MIN/5)`                                                              |
+| TOV%       | Turnover Percentage              | `100 × TOV / (FGA + 0.44×FTA + TOV)`                                                                          |
+| OREB%      | Offensive Rebound Rate           | `100 × OREB × (Team_MIN/5) / (MIN × (Team_OREB + Opp_DREB))`                                                  |
+| DREB%      | Defensive Rebound Rate           | `100 × DREB × (Team_MIN/5) / (MIN × (Team_DREB + Opp_OREB))`                                                  |
+| REB%       | Total Rebound Rate               | `100 × REB × (Team_MIN/5) / (MIN × (Team_REB + Opp_REB))`                                                     |
+| AST%       | Assist Percentage                | `100 × AST / (((MIN/(Team_MIN/5)) × Team_FGM) - FGM)`                                                         |
+| STL%       | Steal Percentage                 | `100 × STL × (Team_MIN/5) / (MIN × Opp_Poss)`                                                                 |
+| BLK%       | Block Percentage                 | `100 × BLK × (Team_MIN/5) / (MIN × (Opp_FGA - Opp_3PA))`                                                      |
+| WS         | Win Shares                       | `WS = OWS + DWS` (팀 승리에 대한 공격/수비 기여도 승수 환산)                                                  |
+| OWS / DWS  | Offensive / Defensive Win Shares | 공격/수비 기여를 각각 승수로 환산 (현재 API/계산에 포함)                                                      |
+| WS/40      | 40분당 Win Shares                | `WS / Total_MIN × 40` (WKBL 40분 경기 기준)                                                                   |
+| +/- (Game) | 경기 박스스코어 온코트 +/-       | `plus_minus_game`: 라인업 스틴트에서 경기 단위 온코트 득실차 합계                                             |
+| +/-/G      | 시즌 경기당 온코트 득실차        | `plus_minus_per_game = plus_minus_total / GP` (라인업 스틴트 기반)                                            |
+| +/-/100    | 100포제션당 온코트 득실차        | `plus_minus_per100 = 100 × plus_minus_total / 추정 온코트 포제션` (팀 템포 차이 보정)                         |
 
 참고:
 
 - ORtg/DRtg/PER/WS는 Basketball Reference 방법론을 참고한 구현이며, 일부 항목은 WKBL 데이터 구조(40분 경기, 리그 규모)에 맞춘 근사/보정이 적용되어 있다.
+- Plus/Minus 해석: 시즌 간/팀 간 비교 정확성은 `+/-/100`이 높고, 직관적 경기 평균 영향은 `+/-/G`가 읽기 쉽다.
 
 ## 로컬 실행
 

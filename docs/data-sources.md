@@ -116,7 +116,10 @@
 | Pace             | `40 × (Team_Poss + Opp_Poss) / (2 × Team_MIN/5)`                                              | 팀/상대 포제션 + 팀 분수                         | `tools/stats.py`, `src/db.js`                                          |
 | PER              | Hollinger uPER + pace 보정 + 리그 평균 15 정규화                                              | 선수/팀/리그 시즌 합계                           | `tools/stats.py:_compute_per`, `src/db.js:computePER`                  |
 | OWS/DWS/WS/WS40  | 공격/수비 기여 승수 환산 (`WS = OWS + DWS`)                                                   | ORtg 파생값 + DRtg + 팀/리그 시즌 합계 + 팀 승패 | `tools/stats.py:_compute_ws_components`, `src/db.js:computeWinShares`  |
-| +/-              | 라인업 스틴트 기반 온코트 득실차                                                              | PBP + 교체 이벤트 기반 lineup 추적               | `tools/lineup.py`, `tools/api.py`, `src/db.js`                         |
+| +/- (Game)       | `plus_minus_game`: 경기 단위 라인업 스틴트 기반 온코트 득실차                                 | PBP + 교체 이벤트 기반 lineup 추적               | `tools/lineup.py`, `tools/api.py`, `src/db.js`                         |
+| +/-/G            | `plus_minus_per_game = plus_minus_total / GP`                                                 | 시즌별 lineup_stints + 경기 수                   | `tools/api.py`, `src/db.js`                                            |
+| +/-/100          | `plus_minus_per100 = 100 × plus_minus_total / 추정 온코트 포제션`                             | 시즌별 lineup_stints + 팀 포제션/분수 집계       | `tools/api.py`, `src/db.js`                                            |
+| 코트마진(근사)   | 출전시간 가중 팀 득실차 근사 (`팀 득실차 × 출전시간/40`)                                      | 경기별 팀 점수 + 선수 출전시간                   | `src/db.js:getPlayersCourtMargin`, `src/app.js`, `src/views/*`         |
 
 주의:
 

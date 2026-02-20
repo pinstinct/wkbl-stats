@@ -58,6 +58,19 @@ class TestPlayersEndpoint:
         data = response.json()
         assert "players" in data
 
+    def test_get_players_includes_plus_minus_fields(self, client, sample_season):
+        """Players endpoint should always include explicit plus-minus fields."""
+        response = client.get(
+            f"/players?season={sample_season['season_id']}&active_only=true&include_no_games=false"
+        )
+        assert response.status_code == 200
+        rows = response.json()["players"]
+        assert len(rows) >= 1
+        row = rows[0]
+        assert "plus_minus_total" in row
+        assert "plus_minus_per_game" in row
+        assert "plus_minus_per100" in row
+
     def test_get_players_all_seasons(self, client):
         """Test getting players for all seasons."""
         response = client.get("/players?season=all")
@@ -424,6 +437,77 @@ class TestGameBoxscoreEndpoint:
         response = client.get("/games/nonexistent")
         assert response.status_code == 404
 
+    def test_get_game_boxscore_plus_minus_game(
+        self, client, sample_game, sample_player
+    ):
+        """Game boxscore should expose lineup-based plus_minus_game."""
+        import database
+
+        # Add away side player game row so both teams appear in boxscore.
+        database.insert_player_game(
+            game_id=sample_game["game_id"],
+            player_id="095002",
+            team_id="kb",
+            stats={
+                "minutes": 30,
+                "pts": 12,
+                "reb": 4,
+                "ast": 3,
+                "stl": 1,
+                "blk": 0,
+                "tov": 2,
+                "pf": 2,
+                "off_reb": 1,
+                "def_reb": 3,
+                "fgm": 5,
+                "fga": 10,
+                "tpm": 1,
+                "tpa": 3,
+                "ftm": 1,
+                "fta": 2,
+                "two_pm": 4,
+                "two_pa": 7,
+            },
+        )
+
+        database.save_lineup_stints(
+            sample_game["game_id"],
+            [
+                {
+                    "stint_order": 1,
+                    "quarter": "Q1",
+                    "team_id": "samsung",
+                    "players": [sample_player["player_id"]],
+                    "start_score_for": 0,
+                    "start_score_against": 0,
+                    "end_score_for": 5,
+                    "end_score_against": 2,
+                    "duration_seconds": 120,
+                },
+                {
+                    "stint_order": 2,
+                    "quarter": "Q1",
+                    "team_id": "kb",
+                    "players": ["095002"],
+                    "start_score_for": 0,
+                    "start_score_against": 0,
+                    "end_score_for": 2,
+                    "end_score_against": 5,
+                    "duration_seconds": 120,
+                },
+            ],
+        )
+
+        response = client.get(f"/games/{sample_game['game_id']}")
+        assert response.status_code == 200
+        data = response.json()
+
+        home_by_id = {p["player_id"]: p for p in data["home_team_stats"]}
+        away_by_id = {p["player_id"]: p for p in data["away_team_stats"]}
+
+        assert home_by_id[sample_player["player_id"]]["plus_minus_game"] == 3
+        assert away_by_id["095002"]["plus_minus_game"] == -3
+
 
 class TestSeasonsEndpoint:
     """Tests for /seasons endpoint."""
@@ -515,12 +599,31 @@ class TestLeadersEndpoint:
             assert "leaders" in data, f"Missing 'leaders' key for category: {category}"
             assert isinstance(data["leaders"], list)
 
+    def test_get_leaders_plus_minus_categories(self, client, sample_season):
+        """Leaders should support lineup-based plus-minus categories."""
+        for category in ["plus_minus_per_game", "plus_minus_per100"]:
+            response = client.get(
+                f"/leaders?season={sample_season['season_id']}&category={category}"
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["category"] == category
+            assert "leaders" in data
+            assert isinstance(data["leaders"], list)
+
     def test_get_leaders_all_includes_advanced_categories(self, client, sample_season):
         """leaders/all should include game_score, ts_pct, pir, per."""
         response = client.get(f"/leaders/all?season={sample_season['season_id']}")
         assert response.status_code == 200
         categories = response.json()["categories"]
-        for key in ["game_score", "ts_pct", "pir", "per"]:
+        for key in [
+            "game_score",
+            "ts_pct",
+            "pir",
+            "per",
+            "plus_minus_per_game",
+            "plus_minus_per100",
+        ]:
             assert key in categories, f"Missing advanced category: {key}"
             assert isinstance(categories[key], list)
 
