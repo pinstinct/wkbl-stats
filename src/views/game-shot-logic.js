@@ -143,6 +143,21 @@ export function buildZoneSeries(shots) {
   return { labels, attempts, fgPct };
 }
 
+export function buildZoneTableRows(shots) {
+  const series = buildZoneSeries(shots);
+  return series.labels.map((zone, idx) => {
+    const attempts = series.attempts[idx] || 0;
+    const pct = series.fgPct[idx] || 0;
+    const made = Math.round((attempts * pct) / 100);
+    return {
+      zone,
+      made,
+      attempts,
+      fgPct: pct,
+    };
+  });
+}
+
 /**
  * Build quarter series for stacked made/missed chart.
  */

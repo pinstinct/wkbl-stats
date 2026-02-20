@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseQuarterCode,
+  buildZoneTableRows,
   buildShotChartExportName,
   buildQuarterSeries,
   buildQuarterSelectOptions,
@@ -170,5 +171,18 @@ describe("game shot logic", () => {
         },
       }),
     ).toBe("shotchart_G20260220-001_home_p1_made_q5.png");
+  });
+
+  it("builds shot zone table rows", () => {
+    const normalized = normalizeGameShots(rawShots, {
+      p1: "선수1",
+      p2: "선수2",
+    });
+
+    expect(buildZoneTableRows(normalized)).toEqual([
+      { zone: "PAINT", made: 1, attempts: 2, fgPct: 50 },
+      { zone: "MID", made: 1, attempts: 1, fgPct: 100 },
+      { zone: "3PT", made: 0, attempts: 1, fgPct: 0 },
+    ]);
   });
 });

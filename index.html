@@ -701,25 +701,64 @@
               </div>
             </div>
 
-            <div class="chart-card">
-              <div class="game-shot-court">
-                <canvas id="gameShotScatterChart"></canvas>
-              </div>
-              <p
-                id="gameShotEmptyMsg"
-                class="game-shot-empty"
-                style="display: none"
+            <div class="game-shot-tabs">
+              <button
+                id="gameShotTabCharts"
+                type="button"
+                class="game-shot-tab active"
+                data-shot-tab="charts"
               >
-                선택한 조건에 해당하는 슛 데이터가 없습니다.
-              </p>
+                Shotcharts
+              </button>
+              <button
+                id="gameShotTabZones"
+                type="button"
+                class="game-shot-tab"
+                data-shot-tab="zones"
+              >
+                Shotzones
+              </button>
             </div>
 
-            <div class="game-shot-grid">
+            <div id="gameShotPaneCharts" class="game-shot-pane active">
+              <div class="chart-card">
+                <div class="game-shot-court">
+                  <canvas id="gameShotScatterChart"></canvas>
+                </div>
+                <p
+                  id="gameShotEmptyMsg"
+                  class="game-shot-empty"
+                  style="display: none"
+                >
+                  선택한 조건에 해당하는 슛 데이터가 없습니다.
+                </p>
+              </div>
+
+              <div class="game-shot-grid">
+                <div class="chart-card">
+                  <canvas id="gameShotQuarterChart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <div id="gameShotPaneZones" class="game-shot-pane">
               <div class="chart-card">
                 <canvas id="gameShotZoneChart"></canvas>
               </div>
               <div class="chart-card">
-                <canvas id="gameShotQuarterChart"></canvas>
+                <div class="table-wrap">
+                  <table class="detail-table game-zone-table">
+                    <thead>
+                      <tr>
+                        <th>Zone</th>
+                        <th>FGM</th>
+                        <th>FGA</th>
+                        <th>FG%</th>
+                      </tr>
+                    </thead>
+                    <tbody id="gameShotZoneTableBody"></tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>

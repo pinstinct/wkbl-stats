@@ -1,4 +1,5 @@
 import {
+  buildZoneTableRows,
   buildShotChartExportName,
   buildQuarterSelectOptions,
   buildPredictionCompareState,
@@ -2097,6 +2098,18 @@ import {
     });
   }
 
+  function renderGameShotZoneTable(shots) {
+    const body = $("gameShotZoneTableBody");
+    if (!body) return;
+    const rows = buildZoneTableRows(shots);
+    body.innerHTML = rows
+      .map(
+        (row) =>
+          `<tr><td>${row.zone}</td><td>${row.made}</td><td>${row.attempts}</td><td>${row.fgPct.toFixed(1)}%</td></tr>`,
+      )
+      .join("");
+  }
+
   function renderGameShotSection(game, rawShots) {
     const section = $("gameShotSection");
     if (!section) return;
@@ -2127,13 +2140,21 @@ import {
     const quarterSelect = $("gameShotQuarterSelect");
     const exportBtn = $("gameShotExportBtn");
     const emptyMsg = $("gameShotEmptyMsg");
+    const tabCharts = $("gameShotTabCharts");
+    const tabZones = $("gameShotTabZones");
+    const paneCharts = $("gameShotPaneCharts");
+    const paneZones = $("gameShotPaneZones");
     if (
       !playerSelect ||
       !teamSelect ||
       !resultSelect ||
       !quarterSelect ||
       !exportBtn ||
-      !emptyMsg
+      !emptyMsg ||
+      !tabCharts ||
+      !tabZones ||
+      !paneCharts ||
+      !paneZones
     ) {
       section.style.display = "none";
       return;
@@ -2183,7 +2204,16 @@ import {
       result: "all",
       quarter: "all",
     };
+    let activeTab = "charts";
     const getCurrentFilters = () => ({ ...filters });
+
+    const activateTab = (tab) => {
+      activeTab = tab;
+      tabCharts.classList.toggle("active", tab === "charts");
+      tabZones.classList.toggle("active", tab === "zones");
+      paneCharts.classList.toggle("active", tab === "charts");
+      paneZones.classList.toggle("active", tab === "zones");
+    };
 
     const exportCurrentShotChart = () => {
       if (!gameShotScatterChart) return;
@@ -2209,11 +2239,13 @@ import {
       if (!hasData) {
         destroyGameShotCharts();
         exportBtn.disabled = true;
+        renderGameShotZoneTable([]);
         return;
       }
       renderGameShotScatterChart(filtered);
       renderGameShotZoneChart(filtered);
       renderGameShotQuarterChart(filtered);
+      renderGameShotZoneTable(filtered);
       exportBtn.disabled = false;
     };
 
@@ -2236,20 +2268,27 @@ import {
     const onExportClick = () => {
       exportCurrentShotChart();
     };
+    const onTabChartsClick = () => activateTab("charts");
+    const onTabZonesClick = () => activateTab("zones");
 
     playerSelect.addEventListener("change", onPlayerChange);
     teamSelect.addEventListener("change", onTeamChange);
     resultSelect.addEventListener("change", onResultChange);
     quarterSelect.addEventListener("change", onQuarterChange);
     exportBtn.addEventListener("click", onExportClick);
+    tabCharts.addEventListener("click", onTabChartsClick);
+    tabZones.addEventListener("click", onTabZonesClick);
     unmountGameShotFilters = () => {
       playerSelect.removeEventListener("change", onPlayerChange);
       teamSelect.removeEventListener("change", onTeamChange);
       resultSelect.removeEventListener("change", onResultChange);
       quarterSelect.removeEventListener("change", onQuarterChange);
       exportBtn.removeEventListener("click", onExportClick);
+      tabCharts.removeEventListener("click", onTabChartsClick);
+      tabZones.removeEventListener("click", onTabZonesClick);
     };
 
+    activateTab(activeTab);
     applyFilters();
   }
 
