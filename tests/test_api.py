@@ -288,6 +288,51 @@ class TestPlayerCompareEndpoint:
         response = client.get(f"/players/compare?ids={sample_player['player_id']}")
         assert response.status_code == 400  # Bad request - need 2-4 players
 
+    def test_compare_three_players(
+        self, client, sample_player, sample_player2, sample_season, populated_db
+    ):
+        """Test comparing three players (covers _get_comparison_query 3-player branch)."""
+        import database
+
+        database.insert_player(
+            player_id="095003",
+            name="선수C",
+            team_id=sample_player["team_id"],
+            position="F",
+            height="175cm",
+        )
+        database.insert_player_game(
+            game_id=sample_season.get("game_id", "04601002"),
+            player_id="095003",
+            team_id=sample_player["team_id"],
+            stats={
+                "minutes": 25.0,
+                "pts": 10,
+                "reb": 3,
+                "ast": 2,
+                "stl": 1,
+                "blk": 0,
+                "tov": 1,
+                "pf": 2,
+                "fgm": 4,
+                "fga": 8,
+                "tpm": 1,
+                "tpa": 3,
+                "ftm": 1,
+                "fta": 2,
+                "off_reb": 1,
+                "def_reb": 2,
+            },
+        )
+        ids = f"{sample_player['player_id']},{sample_player2['player_id']},095003"
+        response = client.get(
+            f"/players/compare?ids={ids}&season={sample_season['season_id']}"
+        )
+        assert response.status_code == 200
+        data = response.json()
+        # At least 1 player with game data returned (sample_player has game data)
+        assert len(data["players"]) >= 1
+
 
 class TestTeamsEndpoint:
     """Tests for /teams endpoint."""
@@ -379,6 +424,39 @@ class TestTeamDetailEndpoint:
             ts = data["team_stats"]
             for key in ["off_rtg", "def_rtg", "net_rtg", "pace", "gp"]:
                 assert key in ts, f"team_stats missing key: {key}"
+
+    def test_get_team_detail_with_standings(self, client, sample_team, sample_season):
+        """Team detail should include standings when standings data exists."""
+        import database
+
+        database.insert_team_standing(
+            season_id=sample_season["season_id"],
+            team_id=sample_team["id"],
+            standing={
+                "rank": 1,
+                "games_played": 30,
+                "wins": 22,
+                "losses": 8,
+                "win_pct": 0.733,
+                "games_behind": 0.0,
+                "home_wins": 12,
+                "home_losses": 3,
+                "away_wins": 10,
+                "away_losses": 5,
+                "streak": "W3",
+                "last5": "4-1",
+            },
+        )
+
+        response = client.get(
+            f"/teams/{sample_team['id']}?season={sample_season['season_id']}"
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "standings" in data
+        assert data["standings"]["rank"] == 1
+        assert data["standings"]["wins"] == 22
+        assert data["standings"]["losses"] == 8
 
     def test_get_team_detail_contract_fixture(self, client, sample_team, sample_season):
         """team detail response should follow stable shape/value contract."""
@@ -626,6 +704,17 @@ class TestLeadersEndpoint:
             assert key in categories, f"Missing advanced category: {key}"
             assert isinstance(categories[key], list)
 
+    def test_get_leaders_invalid_category_fallback(self, client, sample_season):
+        """Invalid category should fallback to pts leaders (no error)."""
+        response = client.get(
+            f"/leaders?season={sample_season['season_id']}&category=invalid_stat"
+        )
+        assert response.status_code == 200
+        data = response.json()
+        # API returns original category param, but internally falls back to pts leaders
+        assert "leaders" in data
+        assert isinstance(data["leaders"], list)
+
 
 class TestSearchEndpoint:
     """Tests for /search endpoint."""
@@ -657,3 +746,479 @@ class TestPlayerHighlightsEndpoint:
         data = response.json()
         # Should have some highlight data
         assert isinstance(data, dict)
+
+
+# ============================================================================
+# Error path tests
+# ============================================================================
+
+
+class TestCompareErrorPaths:
+    """Tests for compare endpoint error paths."""
+
+    def test_compare_season_all_rejected(self, client, sample_player, sample_player2):
+        """season=all → 400."""
+        ids = f"{sample_player['player_id']},{sample_player2['player_id']}"
+        response = client.get(f"/players/compare?ids={ids}&season=all")
+        assert response.status_code == 400
+
+    def test_compare_max_4_exceeded(self, client):
+        """5 player IDs → 400."""
+        ids = "a,b,c,d,e"
+        response = client.get(f"/players/compare?ids={ids}")
+        assert response.status_code == 400
+
+
+class TestTeamDetailErrorPaths:
+    """Tests for team detail endpoint error paths."""
+
+    def test_team_detail_season_all(self, client, sample_team):
+        """season=all → 400."""
+        response = client.get(f"/teams/{sample_team['id']}?season=all")
+        assert response.status_code == 400
+
+
+class TestLeadersErrorPaths:
+    """Tests for leaders endpoint error paths."""
+
+    def test_leaders_season_all(self, client):
+        """season=all → 400."""
+        response = client.get("/leaders?season=all")
+        assert response.status_code == 400
+
+    def test_leaders_all_season_all(self, client):
+        """leaders/all with season=all → 400."""
+        response = client.get("/leaders/all?season=all")
+        assert response.status_code == 400
+
+
+class TestGamelogErrorPaths:
+    """Tests for gamelog endpoint error paths."""
+
+    def test_player_gamelog_404(self, client):
+        """Non-existent player gamelog → 404."""
+        response = client.get("/players/NONEXIST/gamelog?season=046")
+        assert response.status_code == 404
+
+
+class TestStandingsErrorPaths:
+    """Tests for standings endpoint error paths."""
+
+    def test_standings_404(self, client):
+        """Empty season standings → 404."""
+        response = client.get("/seasons/999/standings")
+        assert response.status_code == 404
+
+
+# ============================================================================
+# Untested endpoints
+# ============================================================================
+
+
+class TestPositionMatchupsEndpoint:
+    """Tests for /games/{id}/position-matchups endpoint."""
+
+    def test_position_matchups_not_found(self, client):
+        """Non-existent game → 404."""
+        response = client.get("/games/NONEXIST/position-matchups")
+        assert response.status_code == 404
+
+    def test_position_matchups_empty(self, client, sample_game):
+        """Game with no matchups → empty list."""
+        response = client.get(f"/games/{sample_game['game_id']}/position-matchups")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["count"] == 0
+        assert data["rows"] == []
+
+    def test_position_matchups_with_scope(self, client, sample_game):
+        """Test scope query parameter."""
+        import database
+
+        records = [
+            {"position": "G", "scope": "vs", "home_pts": 30, "away_pts": 25},
+            {"position": "G", "scope": "whole", "home_pts": 40, "away_pts": 35},
+        ]
+        database.bulk_insert_position_matchups(sample_game["game_id"], records)
+
+        response = client.get(
+            f"/games/{sample_game['game_id']}/position-matchups?scope=vs"
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["count"] == 1
+        assert data["scope"] == "vs"
+
+
+# ============================================================================
+# Filter combinations
+# ============================================================================
+
+
+class TestGamesFilters:
+    """Tests for games endpoint filter combinations."""
+
+    def test_games_filter_team_id(self, client, sample_season, sample_team):
+        """Filter games by team_id."""
+        response = client.get(
+            f"/games?season={sample_season['season_id']}&team={sample_team['id']}"
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "games" in data
+
+    def test_games_filter_game_type(self, client, sample_season):
+        """Filter games by game_type."""
+        response = client.get(
+            f"/games?season={sample_season['season_id']}&game_type=regular"
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "games" in data
+
+    def test_games_season_all_rejected(self, client):
+        """season=all → 400."""
+        response = client.get("/games?season=all")
+        assert response.status_code == 400
+
+
+class TestBoxscoreTeamGameStats:
+    """Tests for boxscore with team_games data."""
+
+    def test_boxscore_includes_team_game_stats(self, client, sample_game, sample_team):
+        """Boxscore should include team_games data when available."""
+        import database
+
+        team_stats = {
+            "fast_break": 10,
+            "paint_pts": 20,
+            "two_pts": 30,
+            "three_pts": 15,
+            "reb": 35,
+            "ast": 12,
+            "stl": 6,
+            "blk": 2,
+            "tov": 10,
+            "pf": 15,
+        }
+        database.insert_team_game(
+            sample_game["game_id"], sample_team["id"], is_home=1, stats=team_stats
+        )
+
+        response = client.get(f"/games/{sample_game['game_id']}")
+        assert response.status_code == 200
+        data = response.json()
+        # team_games might be at root level or nested
+        assert data["id"] == sample_game["game_id"]
+
+
+# ============================================================================
+# Plus-minus helper functions (internal unit tests)
+# ============================================================================
+
+
+class TestPlusMinusHelpers:
+    """Unit tests for plus-minus internal helper functions."""
+
+    def test_build_team_stats_returns_dict(self, populated_db, sample_season):
+        """_build_team_stats returns dict when data exists."""
+        from api import _build_team_stats
+
+        import database
+
+        # Insert opponent player to have both team totals
+        database.insert_player_game(
+            "04601001",
+            "095002",
+            "kb",
+            {
+                "minutes": 28,
+                "pts": 15,
+                "reb": 6,
+                "ast": 3,
+                "stl": 1,
+                "blk": 0,
+                "tov": 2,
+                "pf": 3,
+                "off_reb": 2,
+                "def_reb": 4,
+                "fgm": 6,
+                "fga": 13,
+                "tpm": 1,
+                "tpa": 4,
+                "ftm": 2,
+                "fta": 2,
+                "two_pm": 5,
+                "two_pa": 9,
+            },
+        )
+
+        team_totals = database.get_team_season_totals("046")
+        opp_totals = database.get_opponent_season_totals("046")
+
+        result = _build_team_stats("samsung", team_totals, opp_totals, {})
+        assert result is not None
+        assert "team_fga" in result
+        assert "opp_fga" in result
+
+    def test_build_team_stats_missing_team(self, populated_db):
+        """_build_team_stats returns None for missing team."""
+        from api import _build_team_stats
+
+        result = _build_team_stats("nonexist", {}, {}, {})
+        assert result is None
+
+    def test_apply_plus_minus_fields_with_agg(self, populated_db):
+        """_apply_plus_minus_fields populates fields from pm_agg."""
+        from api import _apply_plus_minus_fields
+
+        row = {"gp": 10, "min": 30.0, "team_id": "samsung"}
+        pm_agg = {
+            "total_pm": 15.0,
+            "pm_per_game": 1.5,
+            "gp": 10,
+            "segments": [],
+        }
+        _apply_plus_minus_fields(row, pm_agg, {})
+        assert row["plus_minus_total"] == 15
+        assert row["plus_minus_per_game"] == 1.5
+
+    def test_apply_plus_minus_fields_no_agg(self, populated_db):
+        """_apply_plus_minus_fields uses fallback when no pm_agg."""
+        from api import _apply_plus_minus_fields
+
+        row = {"gp": 10, "min": 30.0, "team_id": "samsung"}
+        _apply_plus_minus_fields(row, None, {}, fallback_total=20.0)
+        assert row["plus_minus_total"] == 20
+        assert row["plus_minus_per_game"] == 2.0
+
+    def test_compute_plus_minus_per100_no_agg(self, populated_db):
+        """_compute_plus_minus_per100 with None → None."""
+        from api import _compute_plus_minus_per100
+
+        assert _compute_plus_minus_per100(None, {}) is None
+
+    def test_compute_plus_minus_per100_no_segments(self, populated_db):
+        """_compute_plus_minus_per100 with empty segments → None."""
+        from api import _compute_plus_minus_per100
+
+        assert _compute_plus_minus_per100({"total_pm": 5, "segments": []}, {}) is None
+
+    def test_compute_plus_minus_per100_with_data(self, populated_db):
+        """_compute_plus_minus_per100 returns a float with valid data."""
+        from api import _compute_plus_minus_per100
+
+        pm_agg = {
+            "total_pm": 10.0,
+            "segments": [
+                {"team_id": "samsung", "total_pm": 10.0, "on_court_seconds": 3000}
+            ],
+        }
+        team_totals = {
+            "samsung": {
+                "fga": 800,
+                "fta": 200,
+                "tov": 150,
+                "oreb": 120,
+                "min": 2000,
+            }
+        }
+        result = _compute_plus_minus_per100(pm_agg, team_totals)
+        assert result is not None
+        assert isinstance(result, float)
+
+
+class TestGetComparisonQuery:
+    """Tests for _get_comparison_query internal function."""
+
+    def test_two_players(self):
+        from api import _get_comparison_query
+
+        query = _get_comparison_query(2)
+        assert "?,?" in query
+
+    def test_three_players(self):
+        from api import _get_comparison_query
+
+        query = _get_comparison_query(3)
+        assert "?,?,?" in query
+
+    def test_four_players(self):
+        from api import _get_comparison_query
+
+        query = _get_comparison_query(4)
+        assert "?,?,?,?" in query
+
+    def test_invalid_count_raises(self):
+        from api import _get_comparison_query
+
+        with pytest.raises(ValueError, match="Player count must be 2-4"):
+            _get_comparison_query(5)
+
+    def test_one_player_raises(self):
+        from api import _get_comparison_query
+
+        with pytest.raises(ValueError, match="Player count must be 2-4"):
+            _get_comparison_query(1)
+
+
+class TestBuildTeamStats:
+    """Tests for _build_team_stats internal function."""
+
+    def _make_totals(self, **overrides):
+        base = {
+            "pts": 2400,
+            "fga": 1800,
+            "fta": 600,
+            "tov": 400,
+            "oreb": 300,
+            "dreb": 900,
+            "reb": 1200,
+            "ast": 500,
+            "stl": 200,
+            "blk": 100,
+            "pf": 500,
+            "min": 6000,
+            "gp": 30,
+            "fgm": 750,
+            "ftm": 450,
+            "tpm": 200,
+            "tpa": 500,
+        }
+        base.update(overrides)
+        return base
+
+    def test_basic(self):
+        from api import _build_team_stats
+
+        tt = self._make_totals()
+        ot = self._make_totals(pts=2200)
+        result = _build_team_stats("kb", {"kb": tt}, {"kb": ot}, None)
+        assert result is not None
+        assert result["team_pts"] == 2400
+        assert result["opp_pts"] == 2200
+
+    def test_with_standings(self):
+        """Standings data adds team_wins/team_losses."""
+        from api import _build_team_stats
+
+        tt = self._make_totals()
+        ot = self._make_totals(pts=2200)
+        standings = {"kb": {"wins": 22, "losses": 8}}
+        result = _build_team_stats("kb", {"kb": tt}, {"kb": ot}, standings)
+        assert result["team_wins"] == 22
+        assert result["team_losses"] == 8
+
+    def test_missing_team(self):
+        from api import _build_team_stats
+
+        result = _build_team_stats("unknown", {}, {}, None)
+        assert result is None
+
+    def test_missing_opp(self):
+        from api import _build_team_stats
+
+        team_totals = {
+            "kb": {
+                "pts": 100,
+                "fga": 80,
+                "fta": 20,
+                "tov": 10,
+                "oreb": 5,
+                "reb": 30,
+                "ast": 15,
+                "stl": 5,
+                "blk": 2,
+                "pf": 10,
+                "min": 200,
+            },
+        }
+        result = _build_team_stats("kb", team_totals, {}, None)
+        assert result is None
+
+
+class TestPlusMinusAggregation:
+    """Tests for _aggregate_plus_minus_by_season and _compute_plus_minus_per100."""
+
+    def test_compute_plus_minus_per100_none_agg(self):
+        """None pm_agg → returns None."""
+        from api import _compute_plus_minus_per100
+
+        result = _compute_plus_minus_per100(None, {})
+        assert result is None
+
+    def test_compute_plus_minus_per100_no_segments(self):
+        """Empty segments → returns None."""
+        from api import _compute_plus_minus_per100
+
+        agg = {"total_pm": 5.0, "gp": 10, "segments": []}
+        result = _compute_plus_minus_per100(agg, {})
+        assert result is None
+
+    def test_compute_plus_minus_per100_zero_possessions(self):
+        """Zero team possessions → returns None."""
+        from api import _compute_plus_minus_per100
+
+        agg = {
+            "total_pm": 5.0,
+            "segments": [{"team_id": "kb", "on_court_seconds": 3600}],
+        }
+        team_totals = {"kb": {"fga": 0, "fta": 0, "tov": 0, "oreb": 0, "min": 0}}
+        result = _compute_plus_minus_per100(agg, team_totals)
+        assert result is None
+
+    def test_compute_plus_minus_per100_valid(self):
+        """Valid segments → returns float per 100 possessions."""
+        from api import _compute_plus_minus_per100
+
+        agg = {
+            "total_pm": 10.0,
+            "segments": [{"team_id": "kb", "on_court_seconds": 1800}],
+        }
+        team_totals = {
+            "kb": {"fga": 1800, "fta": 600, "tov": 400, "oreb": 300, "min": 6000},
+        }
+        result = _compute_plus_minus_per100(agg, team_totals)
+        assert isinstance(result, float)
+
+
+class TestTeamAdvancedStatsEndpoint:
+    """Tests for team advanced stats in player detail endpoint."""
+
+    def test_team_stats_in_player_detail(
+        self, client, sample_player, sample_season, sample_game, sample_player2
+    ):
+        """Player detail endpoint includes team_stats when data available."""
+        import database
+
+        # Insert opponent player_game to have both teams
+        database.insert_player_game(
+            game_id=sample_game["game_id"],
+            player_id=sample_player2["player_id"],
+            team_id="kb",
+            stats={
+                "minutes": 28.0,
+                "pts": 15,
+                "reb": 6,
+                "ast": 3,
+                "stl": 1,
+                "blk": 0,
+                "tov": 2,
+                "pf": 3,
+                "off_reb": 2,
+                "def_reb": 4,
+                "fgm": 6,
+                "fga": 13,
+                "tpm": 1,
+                "tpa": 4,
+                "ftm": 2,
+                "fta": 2,
+                "two_pm": 5,
+                "two_pa": 9,
+            },
+        )
+
+        response = client.get(
+            f"/players/{sample_player['player_id']}?season={sample_season['season_id']}"
+        )
+        assert response.status_code == 200

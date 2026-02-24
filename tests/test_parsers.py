@@ -5,6 +5,8 @@ Tests for parser functions in ingest_wkbl.py.
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "tools"))
 
 
@@ -479,3 +481,838 @@ class TestEventTypeMap:
         codes = {row["code"] for row in rows}
         for code in EVENT_TYPE_MAP.values():
             assert code in codes
+
+
+# =========================================================================
+# Helper function tests
+# =========================================================================
+
+
+class TestStripTags:
+    """Tests for strip_tags()."""
+
+    def test_basic(self):
+        from ingest_wkbl import strip_tags
+
+        assert strip_tags("<b>hello</b>") == "hello"
+
+    def test_nested(self):
+        from ingest_wkbl import strip_tags
+
+        assert strip_tags("<div><span>text</span></div>") == "text"
+
+    def test_entities(self):
+        from ingest_wkbl import strip_tags
+
+        assert strip_tags("A &amp; B") == "A & B"
+
+    def test_empty(self):
+        from ingest_wkbl import strip_tags
+
+        assert strip_tags("") == ""
+
+
+class TestParseMinutes:
+    """Tests for parse_minutes()."""
+
+    def test_basic(self):
+        from ingest_wkbl import parse_minutes
+
+        assert parse_minutes("35:20") == 35 + 20 / 60.0
+
+    def test_zero(self):
+        from ingest_wkbl import parse_minutes
+
+        assert parse_minutes("00:00") == 0.0
+
+    def test_none(self):
+        from ingest_wkbl import parse_minutes
+
+        assert parse_minutes(None) == 0.0
+
+    def test_empty(self):
+        from ingest_wkbl import parse_minutes
+
+        assert parse_minutes("") == 0.0
+
+    def test_no_colon(self):
+        from ingest_wkbl import parse_minutes
+
+        assert parse_minutes("35") == 0.0
+
+    def test_bad_values(self):
+        from ingest_wkbl import parse_minutes
+
+        assert parse_minutes("ab:cd") == 0.0
+
+
+class TestParseMadeAttempt:
+    """Tests for parse_made_attempt()."""
+
+    def test_basic(self):
+        from ingest_wkbl import parse_made_attempt
+
+        assert parse_made_attempt("8-15") == (8, 15)
+
+    def test_zero(self):
+        from ingest_wkbl import parse_made_attempt
+
+        assert parse_made_attempt("0-0") == (0, 0)
+
+    def test_none(self):
+        from ingest_wkbl import parse_made_attempt
+
+        assert parse_made_attempt(None) == (0, 0)
+
+    def test_empty(self):
+        from ingest_wkbl import parse_made_attempt
+
+        assert parse_made_attempt("") == (0, 0)
+
+    def test_no_dash(self):
+        from ingest_wkbl import parse_made_attempt
+
+        assert parse_made_attempt("15") == (0, 0)
+
+    def test_bad_values(self):
+        from ingest_wkbl import parse_made_attempt
+
+        assert parse_made_attempt("a-b") == (0, 0)
+
+
+class TestParseGameIds:
+    """Tests for parse_game_ids()."""
+
+    def test_basic(self):
+        from ingest_wkbl import parse_game_ids
+
+        from tests.fixtures.html_samples import GAME_IDS_BASIC
+
+        ids = parse_game_ids(GAME_IDS_BASIC)
+        assert ids == ["04601010", "04601011", "04601012"]
+
+    def test_dedup(self):
+        from ingest_wkbl import parse_game_ids
+
+        from tests.fixtures.html_samples import GAME_IDS_DUPLICATES
+
+        ids = parse_game_ids(GAME_IDS_DUPLICATES)
+        assert ids == ["04601010", "04601011"]
+
+    def test_empty(self):
+        from ingest_wkbl import parse_game_ids
+
+        from tests.fixtures.html_samples import GAME_IDS_EMPTY
+
+        assert parse_game_ids(GAME_IDS_EMPTY) == []
+
+
+class TestParseIframeSrc:
+    """Tests for parse_iframe_src() and parse_team_iframe_src()."""
+
+    def test_player_iframe(self):
+        from ingest_wkbl import parse_iframe_src
+
+        from tests.fixtures.html_samples import IFRAME_PLAYER
+
+        url = parse_iframe_src(IFRAME_PLAYER)
+        assert url is not None
+        assert "record_player.asp" in url
+        assert "gameId=04601010" in url
+
+    def test_team_iframe(self):
+        from ingest_wkbl import parse_team_iframe_src
+
+        from tests.fixtures.html_samples import IFRAME_TEAM
+
+        url = parse_team_iframe_src(IFRAME_TEAM)
+        assert url is not None
+        assert "record_team.asp" in url
+
+    def test_no_iframe(self):
+        from ingest_wkbl import parse_iframe_src, parse_team_iframe_src
+
+        from tests.fixtures.html_samples import IFRAME_NONE
+
+        assert parse_iframe_src(IFRAME_NONE) is None
+        assert parse_team_iframe_src(IFRAME_NONE) is None
+
+
+class TestParseGameType:
+    """Tests for parse_game_type()."""
+
+    def test_regular(self):
+        from ingest_wkbl import parse_game_type
+
+        assert parse_game_type("04601055") == "regular"
+
+    def test_playoff(self):
+        from ingest_wkbl import parse_game_type
+
+        assert parse_game_type("04604010") == "playoff"
+
+    def test_allstar(self):
+        from ingest_wkbl import parse_game_type
+
+        assert parse_game_type("04601001") == "allstar"
+
+    def test_short_id(self):
+        from ingest_wkbl import parse_game_type
+
+        assert parse_game_type("046") == "regular"
+
+
+class TestNormalizeTeam:
+    """Tests for normalize_team()."""
+
+    def test_basic(self):
+        from ingest_wkbl import normalize_team
+
+        assert normalize_team("  KB스타즈  ") == "KB스타즈"
+
+    def test_double_spaces(self):
+        from ingest_wkbl import normalize_team
+
+        assert normalize_team("우리은행  위비") == "우리은행 위비"
+
+
+class TestGetTeamId:
+    """Tests for get_team_id()."""
+
+    def test_known_teams(self):
+        from ingest_wkbl import get_team_id
+
+        assert get_team_id("KB스타즈") == "kb"
+        assert get_team_id("삼성생명") == "samsung"
+        assert get_team_id("우리은행") == "woori"
+        assert get_team_id("하나은행") == "hana"
+        assert get_team_id("BNK썸") == "bnk"
+        assert get_team_id("신한은행") == "shinhan"
+
+    def test_alias(self):
+        from ingest_wkbl import get_team_id
+
+        assert get_team_id("삼성") == "samsung"
+        assert get_team_id("KB") == "kb"
+
+    def test_unknown(self):
+        from ingest_wkbl import get_team_id
+
+        result = get_team_id("Unknown Team")
+        assert isinstance(result, str)
+
+
+# =========================================================================
+# Parser function tests (with HTML fixtures)
+# =========================================================================
+
+
+class TestParseTeamRecord:
+    """Tests for parse_team_record()."""
+
+    def test_basic(self):
+        from ingest_wkbl import parse_team_record
+
+        from tests.fixtures.html_samples import TEAM_RECORD_BASIC
+
+        results = parse_team_record(TEAM_RECORD_BASIC)
+        assert len(results) == 2
+
+        team1 = results[0]
+        assert team1["team"] == "KB스타즈"
+        assert team1["fast_break"] == 12
+        assert team1["paint_pts"] == 28
+        assert team1["two_pts"] == 18
+        assert team1["three_pts"] == 15
+        assert team1["reb"] == 35
+        assert team1["ast"] == 20
+        assert team1["stl"] == 5
+        assert team1["blk"] == 3
+        assert team1["pf"] == 15
+        assert team1["tov"] == 10
+
+        team2 = results[1]
+        assert team2["team"] == "우리은행 위비"
+        assert team2["reb"] == 30
+
+    def test_empty(self):
+        from ingest_wkbl import parse_team_record
+
+        from tests.fixtures.html_samples import TEAM_RECORD_EMPTY
+
+        assert parse_team_record(TEAM_RECORD_EMPTY) == []
+
+    def test_bad_values(self):
+        """Non-numeric stat values are skipped, but valid ones pass through."""
+        from ingest_wkbl import parse_team_record
+
+        from tests.fixtures.html_samples import TEAM_RECORD_BAD_VALUES
+
+        results = parse_team_record(TEAM_RECORD_BAD_VALUES)
+        assert len(results) == 2
+        # reb was skipped (ValueError), but ast was parsed
+        assert results[0].get("ast") == 10
+        assert "reb" not in results[0]
+
+    def test_no_stats_returns_empty(self):
+        """Only 굿디펜스 (no reb/ast/fast_break) → empty output."""
+        from ingest_wkbl import parse_team_record
+
+        from tests.fixtures.html_samples import TEAM_RECORD_NO_STATS
+
+        results = parse_team_record(TEAM_RECORD_NO_STATS)
+        assert results == []
+
+
+class TestParsePlayerTables:
+    """Tests for parse_player_tables()."""
+
+    def test_basic(self):
+        from ingest_wkbl import parse_player_tables
+
+        from tests.fixtures.html_samples import PLAYER_TABLES_BASIC
+
+        results = parse_player_tables(PLAYER_TABLES_BASIC)
+        assert len(results) == 1  # 합계 row is excluded
+        p = results[0]
+        assert p["team"] == "KB스타즈"
+        assert p["name"] == "박지수"
+        assert p["pos"] == "C"
+        assert p["min"] > 35
+        assert p["pts"] == "20"
+
+    def test_two_teams(self):
+        from ingest_wkbl import parse_player_tables
+
+        from tests.fixtures.html_samples import PLAYER_TABLES_TWO_TEAMS
+
+        results = parse_player_tables(PLAYER_TABLES_TWO_TEAMS)
+        assert len(results) == 2
+        teams = {r["team"] for r in results}
+        assert "삼성생명" in teams
+        assert "우리은행" in teams
+
+    def test_empty_tbody(self):
+        from ingest_wkbl import parse_player_tables
+
+        from tests.fixtures.html_samples import PLAYER_TABLES_EMPTY
+
+        results = parse_player_tables(PLAYER_TABLES_EMPTY)
+        assert results == []
+
+    def test_no_header(self):
+        from ingest_wkbl import parse_player_tables
+
+        from tests.fixtures.html_samples import PLAYER_TABLES_NO_HEADER
+
+        results = parse_player_tables(PLAYER_TABLES_NO_HEADER)
+        assert results == []
+
+    def test_short_row_skipped(self):
+        from ingest_wkbl import parse_player_tables
+
+        from tests.fixtures.html_samples import PLAYER_TABLES_SHORT_ROW
+
+        results = parse_player_tables(PLAYER_TABLES_SHORT_ROW)
+        assert results == []
+
+
+class TestParseActivePlayerLinks:
+    """Tests for parse_active_player_links()."""
+
+    def test_basic(self):
+        from ingest_wkbl import parse_active_player_links
+
+        from tests.fixtures.html_samples import ACTIVE_LINKS_BASIC
+
+        players = parse_active_player_links(ACTIVE_LINKS_BASIC)
+        assert len(players) == 2
+        assert players[0]["name"] == "박지수"
+        assert players[0]["pno"] == "095830"
+        assert players[0]["team"] == "KB스타즈"
+
+    def test_bracket_team(self):
+        from ingest_wkbl import parse_active_player_links
+
+        from tests.fixtures.html_samples import ACTIVE_LINKS_BRACKET_TEAM
+
+        players = parse_active_player_links(ACTIVE_LINKS_BRACKET_TEAM)
+        assert len(players) == 1
+        assert players[0]["name"] == "고아라"
+        assert players[0]["team"] == "우리은행"
+
+    def test_dedup(self):
+        from ingest_wkbl import parse_active_player_links
+
+        from tests.fixtures.html_samples import ACTIVE_LINKS_DEDUP
+
+        players = parse_active_player_links(ACTIVE_LINKS_DEDUP)
+        assert len(players) == 1
+
+    def test_no_team_skipped(self):
+        from ingest_wkbl import parse_active_player_links
+
+        from tests.fixtures.html_samples import ACTIVE_LINKS_NO_TEAM
+
+        players = parse_active_player_links(ACTIVE_LINKS_NO_TEAM)
+        assert len(players) == 0
+
+    def test_absolute_url(self):
+        from ingest_wkbl import parse_active_player_links
+
+        from tests.fixtures.html_samples import ACTIVE_LINKS_ABSOLUTE_URL
+
+        players = parse_active_player_links(ACTIVE_LINKS_ABSOLUTE_URL)
+        assert len(players) == 1
+        assert players[0]["url"].startswith("https://")
+
+    def test_slash_url(self):
+        from ingest_wkbl import parse_active_player_links
+
+        from tests.fixtures.html_samples import ACTIVE_LINKS_SLASH_URL
+
+        players = parse_active_player_links(ACTIVE_LINKS_SLASH_URL)
+        assert len(players) == 1
+        assert "wkbl.or.kr" in players[0]["url"]
+
+
+class TestParseTeamCategoryStats:
+    """Tests for parse_team_category_stats()."""
+
+    def test_basic(self):
+        from ingest_wkbl import parse_team_category_stats
+
+        from tests.fixtures.html_samples import CATEGORY_STATS_BASIC
+
+        stats = parse_team_category_stats(CATEGORY_STATS_BASIC, "pts")
+        assert len(stats) == 3
+        assert stats[0]["rank"] == 1
+        assert stats[0]["team_id"] == "kb"
+        assert stats[0]["value"] == 78.5
+        assert stats[0]["games_played"] == 30
+        assert stats[1]["rank"] == 2
+
+    def test_tied_ranks(self):
+        from ingest_wkbl import parse_team_category_stats
+
+        from tests.fixtures.html_samples import CATEGORY_STATS_TIED
+
+        stats = parse_team_category_stats(CATEGORY_STATS_TIED, "reb")
+        assert len(stats) == 2
+        # Both share rank 1
+        assert stats[0]["rank"] == 1
+        assert stats[1]["rank"] == 1
+
+    def test_no_on_class(self):
+        """Falls back to cell[3] when no class='on' cell found."""
+        from ingest_wkbl import parse_team_category_stats
+
+        from tests.fixtures.html_samples import CATEGORY_STATS_NO_ON_CLASS
+
+        stats = parse_team_category_stats(CATEGORY_STATS_NO_ON_CLASS, "ast")
+        assert len(stats) == 1
+        assert stats[0]["value"] == 15.2
+
+    def test_empty(self):
+        from ingest_wkbl import parse_team_category_stats
+
+        from tests.fixtures.html_samples import CATEGORY_STATS_EMPTY
+
+        assert parse_team_category_stats(CATEGORY_STATS_EMPTY, "pts") == []
+
+
+class TestParseGameMvp:
+    """Tests for parse_game_mvp()."""
+
+    def test_basic(self):
+        from ingest_wkbl import parse_game_mvp
+
+        from tests.fixtures.html_samples import GAME_MVP_BASIC
+
+        records = parse_game_mvp(GAME_MVP_BASIC)
+        assert len(records) == 2
+
+        r1 = records[0]
+        assert r1["player_id"] == "095830"
+        assert r1["player_name"] == "박지수"
+        assert r1["team_id"] == "kb"
+        assert r1["game_date"] == "2025-11-19"
+        assert r1["pts"] == 20
+        assert r1["reb"] == 12
+        assert r1["ast"] == 3
+        assert r1["evaluation_score"] == 28.5
+        assert r1["minutes"] > 35
+
+        r2 = records[1]
+        assert r2["player_id"] == "096030"
+        assert r2["team_id"] == "samsung"
+        assert r2["game_date"] == "2025-12-01"
+
+    def test_too_few_tables(self):
+        from ingest_wkbl import parse_game_mvp
+
+        from tests.fixtures.html_samples import GAME_MVP_TOO_FEW_TABLES
+
+        assert parse_game_mvp(GAME_MVP_TOO_FEW_TABLES) == []
+
+    def test_no_pno(self):
+        """Player without pno link uses fallback name extraction."""
+        from ingest_wkbl import parse_game_mvp
+
+        from tests.fixtures.html_samples import GAME_MVP_NO_PNO
+
+        records = parse_game_mvp(GAME_MVP_NO_PNO)
+        assert len(records) == 1
+        assert records[0]["player_id"] is None
+        assert records[0]["team_id"] == "bnk"
+
+    def test_short_row_skipped(self):
+        from ingest_wkbl import parse_game_mvp
+
+        from tests.fixtures.html_samples import GAME_MVP_SHORT_ROW
+
+        assert parse_game_mvp(GAME_MVP_SHORT_ROW) == []
+
+
+class TestParseTeamAnalysisJson:
+    """Tests for parse_team_analysis_json()."""
+
+    def test_basic(self):
+        from ingest_wkbl import parse_team_analysis_json
+
+        from tests.fixtures.html_samples import TEAM_ANALYSIS_BASIC
+
+        result = parse_team_analysis_json(TEAM_ANALYSIS_BASIC)
+        assert "matchRecordList" in result
+        assert len(result["matchRecordList"]) == 1
+        assert result["matchRecordList"][0]["courtName"] == "청주체육관"
+
+    def test_with_versus(self):
+        from ingest_wkbl import parse_team_analysis_json
+
+        from tests.fixtures.html_samples import TEAM_ANALYSIS_WITH_VERSUS
+
+        result = parse_team_analysis_json(TEAM_ANALYSIS_WITH_VERSUS)
+        assert "matchRecordList" in result
+        assert "versusList" in result
+
+    def test_invalid_json(self):
+        from ingest_wkbl import parse_team_analysis_json
+
+        from tests.fixtures.html_samples import TEAM_ANALYSIS_INVALID_JSON
+
+        result = parse_team_analysis_json(TEAM_ANALYSIS_INVALID_JSON)
+        assert result == {}
+
+    def test_empty(self):
+        from ingest_wkbl import parse_team_analysis_json
+
+        from tests.fixtures.html_samples import TEAM_ANALYSIS_EMPTY
+
+        result = parse_team_analysis_json(TEAM_ANALYSIS_EMPTY)
+        assert result == {}
+
+
+class TestWkblTeamCodeToId:
+    """Tests for _wkbl_team_code_to_id()."""
+
+    def test_known_codes(self):
+        from ingest_wkbl import _wkbl_team_code_to_id
+
+        assert _wkbl_team_code_to_id("01") == "kb"
+        assert _wkbl_team_code_to_id("03") == "samsung"
+        assert _wkbl_team_code_to_id("05") == "woori"
+
+    def test_unknown_code(self):
+        from ingest_wkbl import _wkbl_team_code_to_id
+
+        assert _wkbl_team_code_to_id("99") is None
+
+
+class TestNormalizeSeasonLabel:
+    """Tests for normalize_season_label()."""
+
+    def test_short_format(self):
+        from ingest_wkbl import normalize_season_label
+
+        assert normalize_season_label("2025-26") == "2025-2026"
+
+    def test_already_full(self):
+        from ingest_wkbl import normalize_season_label
+
+        assert normalize_season_label("2025-2026") == "2025-2026"
+
+    def test_no_match(self):
+        from ingest_wkbl import normalize_season_label
+
+        assert normalize_season_label("invalid") == "invalid"
+
+
+# ===========================================================================
+# _parse_record tests
+# ===========================================================================
+
+
+class TestParseRecord:
+    """Tests for _parse_record() helper."""
+
+    def test_dash_format(self):
+        from ingest_wkbl import _parse_record
+
+        assert _parse_record("6-3") == (6, 3)
+
+    def test_korean_format(self):
+        from ingest_wkbl import _parse_record
+
+        assert _parse_record("13승 5패") == (13, 5)
+
+    def test_korean_no_space(self):
+        from ingest_wkbl import _parse_record
+
+        assert _parse_record("13승5패") == (13, 5)
+
+    def test_invalid(self):
+        from ingest_wkbl import _parse_record
+
+        assert _parse_record("abc") == (0, 0)
+
+    def test_empty(self):
+        from ingest_wkbl import _parse_record
+
+        assert _parse_record("") == (0, 0)
+
+    def test_dash_non_numeric(self):
+        from ingest_wkbl import _parse_record
+
+        assert _parse_record("abc-xyz") == (0, 0)
+
+
+# ===========================================================================
+# parse_standings_html tests
+# ===========================================================================
+
+
+class TestParseStandingsHtml:
+    """Tests for parse_standings_html()."""
+
+    def test_basic(self):
+        from ingest_wkbl import parse_standings_html
+
+        html = """
+        <table>
+        <tr><th>순위</th><th>팀</th><th>경기수</th><th>전적</th><th>승률</th>
+            <th>차이</th><th>홈</th><th>원정</th><th>중립</th><th>최근5</th><th>연속</th></tr>
+        <tr>
+            <td>1</td><td>KB스타즈</td><td>30</td><td>22승 8패</td><td>73.3</td>
+            <td>-</td><td>12-3</td><td>10-5</td><td>0-0</td><td>4-1</td><td>연3승</td>
+        </tr>
+        <tr>
+            <td>2</td><td>우리은행</td><td>30</td><td>20승 10패</td><td>66.7</td>
+            <td>2</td><td>11-4</td><td>9-6</td><td>0-0</td><td>3-2</td><td>연1패</td>
+        </tr>
+        </table>
+        """
+        result = parse_standings_html(html, "046")
+        assert len(result) == 2
+        assert result[0]["rank"] == 1
+        assert result[0]["team_name"] == "KB스타즈"
+        assert result[0]["wins"] == 22
+        assert result[0]["losses"] == 8
+        assert result[0]["win_pct"] == 0.733
+        assert result[0]["home_wins"] == 12
+        assert result[0]["home_losses"] == 3
+        assert result[0]["away_wins"] == 10
+        assert result[0]["away_losses"] == 5
+        assert result[0]["last5"] == "4-1"
+        assert result[0]["streak"] == "연3승"
+        assert result[1]["rank"] == 2
+        assert result[1]["games_behind"] == 2.0
+
+    def test_header_rows_skipped(self):
+        from ingest_wkbl import parse_standings_html
+
+        html = """
+        <tr><th>순위</th><th>팀</th><th>경기수</th><th>전적</th><th>승률</th>
+            <th>차이</th><th>홈</th><th>원정</th><th>중립</th><th>최근5</th><th>연속</th></tr>
+        """
+        result = parse_standings_html(html, "046")
+        assert result == []
+
+    def test_short_rows_skipped(self):
+        from ingest_wkbl import parse_standings_html
+
+        html = "<tr><td>1</td><td>KB</td><td>10</td></tr>"
+        result = parse_standings_html(html, "046")
+        assert result == []
+
+    def test_non_numeric_rank_skipped(self):
+        from ingest_wkbl import parse_standings_html
+
+        html = """
+        <tr><td>-</td><td>합계</td><td>30</td><td>22승 8패</td><td>73.3</td>
+            <td>-</td><td>12-3</td><td>10-5</td><td>0-0</td><td>4-1</td><td>연3승</td></tr>
+        """
+        result = parse_standings_html(html, "046")
+        assert result == []
+
+    def test_games_behind_dash(self):
+        """Games behind '-' (leader) parsed as 0.0."""
+        from ingest_wkbl import parse_standings_html
+
+        html = """
+        <tr><td>1</td><td>KB스타즈</td><td>30</td><td>22승 8패</td><td>73.3</td>
+            <td>-</td><td>12-3</td><td>10-5</td><td>0-0</td><td>4-1</td><td>연3승</td></tr>
+        """
+        result = parse_standings_html(html, "046")
+        assert result[0]["games_behind"] == 0.0
+
+    def test_win_pct_fallback(self):
+        """Non-numeric win_pct falls back to wins/games_played."""
+        from ingest_wkbl import parse_standings_html
+
+        html = """
+        <tr><td>1</td><td>KB스타즈</td><td>30</td><td>22승 8패</td><td>abc</td>
+            <td>-</td><td>12-3</td><td>10-5</td><td>0-0</td><td>4-1</td><td>연3승</td></tr>
+        """
+        result = parse_standings_html(html, "046")
+        assert result[0]["win_pct"] == pytest.approx(22 / 30, abs=0.001)
+
+
+# ===========================================================================
+# parse_game_list_items tests
+# ===========================================================================
+
+
+class TestParseGameListItems:
+    """Tests for parse_game_list_items()."""
+
+    def test_basic(self):
+        from ingest_wkbl import parse_game_list_items
+
+        html = """
+        <li class="game-item" data-id="04601010">
+            <span class="game-date">11.05</span>
+        </li>
+        <li class="game-item" data-id="04601011">
+            <span class="game-date">11.06</span>
+        </li>
+        """
+        result = parse_game_list_items(html, "20251027")
+        assert len(result) == 2
+        assert result[0] == ("04601010", "20251105")
+        assert result[1] == ("04601011", "20251106")
+
+    def test_cross_year(self):
+        """Months before season start month get next year."""
+        from ingest_wkbl import parse_game_list_items
+
+        html = """
+        <li class="game-item" data-id="04601050">
+            <span class="game-date">1.15</span>
+        </li>
+        """
+        result = parse_game_list_items(html, "20251027")
+        assert result[0] == ("04601050", "20260115")
+
+    def test_no_date(self):
+        """Items without game-date class are skipped."""
+        from ingest_wkbl import parse_game_list_items
+
+        html = '<li class="game-item" data-id="04601010"><span>no date</span></li>'
+        result = parse_game_list_items(html, "20251027")
+        assert result == []
+
+    def test_empty(self):
+        from ingest_wkbl import parse_game_list_items
+
+        assert parse_game_list_items("<div>empty</div>", "20251027") == []
+
+
+# ===========================================================================
+# parse_available_months tests
+# ===========================================================================
+
+
+class TestParseAvailableMonths:
+    """Tests for parse_available_months()."""
+
+    def test_basic(self):
+        from ingest_wkbl import parse_available_months
+
+        html = """
+        <a onclick="selectSeasonOrMonth('20251101', '04601002', '20251101')">11월</a>
+        <a onclick="selectSeasonOrMonth('20251201', '04601020', '20251201')">12월</a>
+        <a onclick="selectSeasonOrMonth('20260101', '04601040', '20260101')">1월</a>
+        """
+        result = parse_available_months(html, "20251027")
+        assert len(result) == 3
+        assert result[0][0] == "20251101"
+        assert result[2][0] == "20260101"
+
+    def test_filters_old_months(self):
+        """Months before season start are excluded."""
+        from ingest_wkbl import parse_available_months
+
+        html = """
+        <a onclick="selectSeasonOrMonth('20250301', '04501080', '20250301')">3월</a>
+        <a onclick="selectSeasonOrMonth('20251101', '04601002', '20251101')">11월</a>
+        """
+        result = parse_available_months(html, "20251027")
+        assert len(result) == 1
+        assert result[0][0] == "20251101"
+
+    def test_deduplicates(self):
+        from ingest_wkbl import parse_available_months
+
+        html = """
+        <a onclick="selectSeasonOrMonth('20251101', '04601002', '20251101')">11월</a>
+        <a onclick="selectSeasonOrMonth('20251101', '04601003', '20251105')">11월</a>
+        """
+        result = parse_available_months(html, "20251027")
+        assert len(result) == 1
+
+    def test_sorted(self):
+        from ingest_wkbl import parse_available_months
+
+        html = """
+        <a onclick="selectSeasonOrMonth('20260101', '04601040', '20260101')">1월</a>
+        <a onclick="selectSeasonOrMonth('20251101', '04601002', '20251101')">11월</a>
+        """
+        result = parse_available_months(html, "20251027")
+        assert result[0][0] == "20251101"
+        assert result[1][0] == "20260101"
+
+    def test_empty(self):
+        from ingest_wkbl import parse_available_months
+
+        assert parse_available_months("<div>no months</div>", "20251027") == []
+
+
+# ===========================================================================
+# get_season_meta_by_code tests
+# ===========================================================================
+
+
+class TestGetSeasonMetaByCode:
+    """Tests for get_season_meta_by_code()."""
+
+    def test_valid_code(self):
+        from ingest_wkbl import get_season_meta_by_code
+
+        result = get_season_meta_by_code("046")
+        assert result["label"] == "2025-26"
+        assert result["firstGameDate"] == "20251027"
+        assert result["selectedId"] == "04601001"
+
+    def test_older_season(self):
+        from ingest_wkbl import get_season_meta_by_code
+
+        result = get_season_meta_by_code("044")
+        assert result["label"] == "2023-24"
+        assert result["firstGameDate"] == "20231027"
+
+    def test_unknown_code_raises(self):
+        from ingest_wkbl import get_season_meta_by_code
+
+        with pytest.raises(ValueError, match="Unknown season code"):
+            get_season_meta_by_code("999")

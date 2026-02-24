@@ -508,6 +508,20 @@ class TestStintDuration:
         assert _parse_game_clock("05:30") == 330
         assert _parse_game_clock("00:00") == 0
 
+    def test_parse_game_clock_invalid_format(self):
+        """Invalid format (no colon) → 0."""
+        from lineup import _parse_game_clock
+
+        assert _parse_game_clock("invalid") == 0
+        assert _parse_game_clock("") == 0
+        assert _parse_game_clock("1000") == 0
+
+    def test_parse_game_clock_type_error(self):
+        """Non-numeric parts → 0."""
+        from lineup import _parse_game_clock
+
+        assert _parse_game_clock("ab:cd") == 0
+
     def test_stint_has_duration(self, temp_db_path, monkeypatch):
         """Stints should have duration_seconds >= 0."""
         _setup_lineup_test_db(temp_db_path, monkeypatch)
@@ -517,3 +531,215 @@ class TestStintDuration:
         for s in stints:
             assert "duration_seconds" in s
             assert s["duration_seconds"] >= 0
+
+
+# ────────────────────────────────────────────────────────────────────
+# Tests: _extract_name_from_description
+# ────────────────────────────────────────────────────────────────────
+
+
+class TestExtractName:
+    """Tests for _extract_name_from_description()."""
+
+    def test_extract_name_sub_out(self):
+        from lineup import _extract_name_from_description
+
+        assert _extract_name_from_description("홍길동  교체(OUT)") == "홍길동"
+
+    def test_extract_name_sub_in(self):
+        from lineup import _extract_name_from_description
+
+        assert _extract_name_from_description("김선수A  교체(IN)") == "김선수A"
+
+    def test_extract_name_no_match(self):
+        """Non-matching description → None."""
+        from lineup import _extract_name_from_description
+
+        assert _extract_name_from_description("그냥 이벤트") is None
+        assert _extract_name_from_description("") is None
+        assert _extract_name_from_description(None) is None
+
+
+# ────────────────────────────────────────────────────────────────────
+# Tests: resolve_null_player_ids edge cases
+# ────────────────────────────────────────────────────────────────────
+
+
+class TestResolveNullEdgeCases:
+    """Edge case tests for resolve_null_player_ids()."""
+
+    def test_no_nulls(self, temp_db_path, monkeypatch):
+        """No NULL player_ids → 0 resolved."""
+        _setup_lineup_test_db(temp_db_path, monkeypatch)
+        from lineup import resolve_null_player_ids
+
+        # All PBP events in the setup have player_ids set
+        resolved = resolve_null_player_ids("04601002")
+        assert resolved == 0
+
+    def test_unresolved_name(self, temp_db_path, monkeypatch):
+        """Name not matching any player → not resolved."""
+        import database
+
+        monkeypatch.setattr(database, "DB_PATH", temp_db_path)
+        database.init_db()
+
+        database.insert_season("046", "2025-26")
+        database.insert_player("P01", "홍길동", team_id="samsung", is_active=1)
+        database.insert_game("04601099", "046", "2025-12-01", "samsung", "kb", 70, 60)
+        database.insert_player_game(
+            "04601099", "P01", "samsung", {"minutes": 30, "pts": 10}
+        )
+
+        events = [
+            _make_pbp_event(
+                "04601099",
+                1,
+                "Q1",
+                "05:00",
+                "samsung",
+                None,
+                "sub_out",
+                0,
+                0,
+                "알수없는선수  교체(OUT)",
+            ),
+        ]
+        database.bulk_insert_play_by_play("04601099", events)
+
+        from lineup import resolve_null_player_ids
+
+        resolved = resolve_null_player_ids("04601099")
+        assert resolved == 0
+
+
+# ────────────────────────────────────────────────────────────────────
+# Tests: track_game_lineups edge cases
+# ────────────────────────────────────────────────────────────────────
+
+
+class TestTrackGameLineupsEdge:
+    """Edge case tests for track_game_lineups()."""
+
+    def test_game_not_found(self, temp_db_path, monkeypatch):
+        """Non-existent game_id → empty list."""
+        _setup_lineup_test_db(temp_db_path, monkeypatch)
+        from lineup import track_game_lineups
+
+        assert track_game_lineups("NONEXIST") == []
+
+    def test_no_events(self, temp_db_path, monkeypatch):
+        """Game with no PBP events → empty list."""
+        import database
+
+        monkeypatch.setattr(database, "DB_PATH", temp_db_path)
+        database.init_db()
+
+        database.insert_season("046", "2025-26")
+        database.insert_game("04601098", "046", "2025-12-01", "samsung", "kb", 70, 60)
+
+        from lineup import track_game_lineups
+
+        assert track_game_lineups("04601098") == []
+
+
+class TestInferStartersEdge:
+    """Edge case tests for infer_starters()."""
+
+    def test_empty_quarter_events(self, temp_db_path, monkeypatch):
+        """Quarter with no events → empty starters set."""
+        _setup_lineup_test_db(temp_db_path, monkeypatch)
+        from lineup import infer_starters
+
+        # Q4 likely has no events in test fixtures
+        starters = infer_starters("04601002", "samsung", "Q4")
+        # Should return whatever it can (possibly less than 5 or empty)
+        assert isinstance(starters, set)
+
+    def test_incomplete_starters_handled(self, temp_db_path, monkeypatch):
+        """<5 starters inferred → track_game_lineups skips quarter."""
+        import database
+
+        monkeypatch.setattr(database, "DB_PATH", temp_db_path)
+        database.init_db()
+
+        database.insert_season("046", "2025-26")
+        with database.get_connection() as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO teams (id, name) VALUES ('t1', 'Team1')"
+            )
+            conn.execute(
+                "INSERT OR IGNORE INTO teams (id, name) VALUES ('t2', 'Team2')"
+            )
+            for i in range(3):  # Only 3 players (< 5)
+                conn.execute(
+                    "INSERT OR IGNORE INTO players (id, name, team_id) VALUES (?, ?, ?)",
+                    (f"X{i}", f"Player{i}", "t1"),
+                )
+            conn.commit()
+
+        database.insert_game(
+            "04601099",
+            "046",
+            "2025-12-15",
+            "t1",
+            "t2",
+            60,
+            55,
+        )
+
+        # Insert minimal PBP with <5 unique players per team
+        events = [
+            {
+                "quarter": "Q1",
+                "game_clock": "10:00",
+                "event_order": 1,
+                "event_type": "two_pt_made",
+                "team_id": "t1",
+                "player_id": "X0",
+                "home_score": 2,
+                "away_score": 0,
+                "description": "점프슛 성공",
+            },
+        ]
+        database.bulk_insert_play_by_play("04601099", events)
+
+        from lineup import track_game_lineups
+
+        # Should not crash; quarters with <5 starters are skipped
+        stints = track_game_lineups("04601099")
+        assert isinstance(stints, list)
+
+
+# ────────────────────────────────────────────────────────────────────
+# Tests: compute_player_on_off with actual stint data
+# ────────────────────────────────────────────────────────────────────
+
+
+class TestComputeOnOffWithStints:
+    """Tests for compute_player_on_off() using saved lineup_stints."""
+
+    def test_on_off_with_saved_stints(self, temp_db_path, monkeypatch):
+        """On/Off computed from saved lineup_stints in DB."""
+        _setup_lineup_test_db(temp_db_path, monkeypatch)
+        import database
+        from lineup import compute_player_on_off, track_game_lineups
+
+        stints = track_game_lineups("04601002")
+        database.save_lineup_stints("04601002", stints)
+
+        result = compute_player_on_off("P01", "046")
+        assert result["on_court_pts_for"] >= 0
+        assert result["on_court_pts_against"] >= 0
+        assert isinstance(result["on_off_diff"], float)
+        assert isinstance(result["plus_minus"], int)
+
+    def test_on_off_no_stints(self, temp_db_path, monkeypatch):
+        """No stints in DB → default zeroes."""
+        _setup_lineup_test_db(temp_db_path, monkeypatch)
+        from lineup import compute_player_on_off
+
+        # P01 has games but no saved stints
+        result = compute_player_on_off("P01", "046")
+        assert result["plus_minus"] == 0
+        assert result["on_off_diff"] == 0.0

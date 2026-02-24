@@ -1511,6 +1511,379 @@ class TestGameMVP:
         assert result[0]["pts"] == 25
 
 
+class TestMetadataDescriptions:
+    """Tests for _meta_descriptions queries."""
+
+    def test_get_table_description(self, populated_db):
+        """Test getting table description."""
+        import database
+
+        # _meta_descriptions is populated by init_db
+        desc = database.get_table_description("players")
+        # May or may not have a description depending on init_db
+        assert desc is None or isinstance(desc, str)
+
+    def test_get_table_description_nonexistent(self, populated_db):
+        """Test getting description for nonexistent table."""
+        import database
+
+        desc = database.get_table_description("nonexistent_table")
+        assert desc is None
+
+    def test_get_column_descriptions(self, populated_db):
+        """Test getting column descriptions."""
+        import database
+
+        descs = database.get_column_descriptions("players")
+        assert isinstance(descs, dict)
+
+    def test_get_column_descriptions_empty(self, populated_db):
+        """Test getting column descriptions for table with none."""
+        import database
+
+        descs = database.get_column_descriptions("nonexistent_table")
+        assert descs == {}
+
+    def test_get_all_descriptions(self, populated_db):
+        """Test getting all metadata descriptions."""
+        import database
+
+        result = database.get_all_descriptions()
+        assert isinstance(result, dict)
+
+
+class TestPositionMatchups:
+    """Tests for position matchup operations."""
+
+    def test_bulk_insert_position_matchups(self, populated_db, sample_game):
+        """Test inserting position matchup records."""
+        import database
+
+        records = [
+            {"position": "G", "scope": "vs", "home_pts": 30, "away_pts": 25},
+            {"position": "F", "scope": "vs", "home_pts": 28, "away_pts": 22},
+            {"position": "C", "scope": "vs", "home_pts": 15, "away_pts": 12},
+        ]
+        database.bulk_insert_position_matchups(sample_game["game_id"], records)
+
+        result = database.get_position_matchups(sample_game["game_id"])
+        assert len(result) == 3
+
+    def test_get_position_matchups_with_scope(self, populated_db, sample_game):
+        """Test filtering matchups by scope."""
+        import database
+
+        records = [
+            {"position": "G", "scope": "vs", "home_pts": 30, "away_pts": 25},
+            {"position": "G", "scope": "season", "home_pts": 40, "away_pts": 35},
+        ]
+        database.bulk_insert_position_matchups(sample_game["game_id"], records)
+
+        result = database.get_position_matchups(sample_game["game_id"], scope="vs")
+        assert len(result) == 1
+        assert result[0]["scope"] == "vs"
+
+    def test_get_position_matchups_empty(self, populated_db):
+        """Test getting matchups for game with none."""
+        import database
+
+        result = database.get_position_matchups("NONEXIST")
+        assert result == []
+
+
+class TestPlayerPlusMinusSeason:
+    """Tests for get_player_plus_minus_season()."""
+
+    def test_basic(self, temp_db_path, monkeypatch):
+        """Test season +/- from lineup stints."""
+        import database
+
+        monkeypatch.setattr(database, "DB_PATH", temp_db_path)
+        database.init_db()
+
+        database.insert_season("046", "2025-26")
+        database.insert_player("P01", "선수A", team_id="samsung", is_active=1)
+        database.insert_game("04601002", "046", "2025-10-19", "samsung", "kb", 70, 65)
+        database.insert_player_game(
+            "04601002", "P01", "samsung", {"minutes": 30, "pts": 10}
+        )
+
+        # Insert a stint with P01 on court
+        stints = [
+            {
+                "game_id": "04601002",
+                "stint_order": 1,
+                "quarter": "Q1",
+                "team_id": "samsung",
+                "players": ["P01", "P02", "P03", "P04", "P05"],
+                "start_event_order": 1,
+                "end_event_order": 10,
+                "start_score_for": 0,
+                "start_score_against": 0,
+                "end_score_for": 12,
+                "end_score_against": 8,
+                "duration_seconds": 300,
+            }
+        ]
+        database.save_lineup_stints("04601002", stints)
+
+        pm = database.get_player_plus_minus_season("P01", "046")
+        assert pm == 4  # 12-8 - (0-0) = 4
+
+    def test_no_team(self, populated_db):
+        """Test +/- for player with no team → 0."""
+        import database
+
+        pm = database.get_player_plus_minus_season("NONEXIST", "046")
+        assert pm == 0
+
+
+class TestGetAllSeasonStatsInactive:
+    """Test get_all_season_stats with active_only=False."""
+
+    def test_inactive_players(self, populated_db, sample_season, sample_player):
+        """active_only=False should include inactive players."""
+        import database
+
+        # Mark player as inactive
+        with database.get_connection() as conn:
+            conn.execute(
+                "UPDATE players SET is_active = 0 WHERE id = ?",
+                (sample_player["player_id"],),
+            )
+            conn.commit()
+
+        # active_only=True should exclude
+        active_stats = database.get_all_season_stats(
+            sample_season["season_id"], active_only=True
+        )
+        active_ids = [s["id"] for s in active_stats]
+        assert sample_player["player_id"] not in active_ids
+
+        # active_only=False should include
+        all_stats = database.get_all_season_stats(
+            sample_season["season_id"], active_only=False
+        )
+        all_ids = [s["id"] for s in all_stats]
+        assert sample_player["player_id"] in all_ids
+
+
+class TestGetPlayerSeasonStatsNone:
+    """Test get_player_season_stats returns None."""
+
+    def test_no_season_record(self, populated_db, sample_player):
+        """Player with no games in season → None."""
+        import database
+
+        stats = database.get_player_season_stats(sample_player["player_id"], "999")
+        assert stats is None
+
+
+class TestHeadToHeadFilters:
+    """Tests for get_head_to_head filter variations."""
+
+    def test_single_team_filter(
+        self, populated_db, sample_season, sample_team, sample_team2
+    ):
+        """Test H2H with only team1_id (no team2)."""
+        import database
+
+        records = [
+            {
+                "team1_id": sample_team["id"],
+                "team2_id": sample_team2["id"],
+                "game_date": "2025-11-01",
+                "total_score": "75-68",
+                "winner_id": sample_team["id"],
+            }
+        ]
+        database.bulk_insert_head_to_head(sample_season["season_id"], records)
+
+        result = database.get_head_to_head(
+            sample_season["season_id"], team1_id=sample_team["id"]
+        )
+        assert len(result) == 1
+
+    def test_all_h2h(self, populated_db, sample_season, sample_team, sample_team2):
+        """Test H2H with no team filter."""
+        import database
+
+        records = [
+            {
+                "team1_id": sample_team["id"],
+                "team2_id": sample_team2["id"],
+                "game_date": "2025-11-01",
+                "total_score": "75-68",
+                "winner_id": sample_team["id"],
+            }
+        ]
+        database.bulk_insert_head_to_head(sample_season["season_id"], records)
+
+        result = database.get_head_to_head(sample_season["season_id"])
+        assert len(result) == 1
+
+
+class TestPopulateQuarterScoresEdge:
+    """Edge case tests for populate_quarter_scores_from_h2h."""
+
+    def test_missing_scores_data(self, populated_db, sample_game, sample_season):
+        """H2H with missing/empty scores should be skipped."""
+        import database
+
+        database.bulk_insert_head_to_head(
+            sample_season["season_id"],
+            [
+                {
+                    "team1_id": "samsung",
+                    "team2_id": "kb",
+                    "game_date": "2025-10-18",
+                    "game_number": "1",
+                    "venue": "수원",
+                    "team1_scores": None,  # Missing scores
+                    "team2_scores": "17-15-19-17-0",
+                    "total_score": "75-68",
+                    "winner_id": "samsung",
+                }
+            ],
+        )
+
+        updated = database.populate_quarter_scores_from_h2h(sample_season["season_id"])
+        assert updated == 0
+
+
+class TestResolveOrphanEdge:
+    """Edge case for resolve_orphan_players."""
+
+    def test_no_orphans(self, populated_db):
+        """No orphan players → 0 resolved."""
+        import database
+
+        resolved = database.resolve_orphan_players()
+        assert resolved == 0
+
+    def test_orphan_tied_minutes(self, test_db):
+        """Two candidates with identical gap and identical avg minutes → tied, not resolved."""
+        import database
+
+        database.insert_season(season_id="041", label="2020-21")
+        database.insert_season(season_id="043", label="2022-23")
+
+        with database.get_connection() as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO teams (id, name) VALUES ('hana', '하나은행')"
+            )
+            conn.execute(
+                "INSERT OR IGNORE INTO teams (id, name) VALUES ('woori', '우리은행')"
+            )
+            conn.execute(
+                "INSERT OR IGNORE INTO teams (id, name) VALUES ('bnk', 'BNK썸')"
+            )
+            conn.commit()
+
+        # Orphan in season 041
+        database.insert_player(
+            player_id="동명이_하나은행", name="동명이", team_id="hana"
+        )
+        # Two candidates with same gap and same avg minutes
+        database.insert_player(player_id="099001", name="동명이", team_id="woori")
+        database.insert_player(player_id="099002", name="동명이", team_id="bnk")
+
+        database.insert_game(
+            game_id="04101030",
+            season_id="041",
+            game_date="2020-12-01",
+            home_team_id="hana",
+            away_team_id="woori",
+        )
+        database.insert_game(
+            game_id="04301030",
+            season_id="043",
+            game_date="2023-01-01",
+            home_team_id="woori",
+            away_team_id="bnk",
+        )
+
+        database.insert_player_game(
+            game_id="04101030",
+            player_id="동명이_하나은행",
+            team_id="hana",
+            stats={
+                "pts": 10,
+                "reb": 3,
+                "ast": 2,
+                "minutes": 25,
+                "stl": 0,
+                "blk": 0,
+                "tov": 0,
+                "pf": 0,
+                "off_reb": 0,
+                "def_reb": 3,
+                "fgm": 4,
+                "fga": 8,
+                "tpm": 0,
+                "tpa": 0,
+                "ftm": 2,
+                "fta": 2,
+                "two_pm": 4,
+                "two_pa": 8,
+            },
+        )
+        database.insert_player_game(
+            game_id="04301030",
+            player_id="099001",
+            team_id="woori",
+            stats={
+                "pts": 8,
+                "reb": 2,
+                "ast": 1,
+                "minutes": 25,
+                "stl": 0,
+                "blk": 0,
+                "tov": 0,
+                "pf": 0,
+                "off_reb": 0,
+                "def_reb": 2,
+                "fgm": 3,
+                "fga": 7,
+                "tpm": 0,
+                "tpa": 0,
+                "ftm": 2,
+                "fta": 2,
+                "two_pm": 3,
+                "two_pa": 7,
+            },
+        )
+        database.insert_player_game(
+            game_id="04301030",
+            player_id="099002",
+            team_id="bnk",
+            stats={
+                "pts": 6,
+                "reb": 1,
+                "ast": 0,
+                "minutes": 25,
+                "stl": 0,
+                "blk": 0,
+                "tov": 0,
+                "pf": 0,
+                "off_reb": 0,
+                "def_reb": 1,
+                "fgm": 2,
+                "fga": 5,
+                "tpm": 0,
+                "tpa": 0,
+                "ftm": 2,
+                "fta": 2,
+                "two_pm": 2,
+                "two_pa": 5,
+            },
+        )
+
+        resolved = database.resolve_orphan_players()
+        # Both candidates have gap=2, same avg_minutes=25 → tied
+        assert resolved == 0
+
+
 class TestTeamSeasonTotals:
     """Tests for team/opponent/league season aggregate functions."""
 

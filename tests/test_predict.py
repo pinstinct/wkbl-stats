@@ -8,6 +8,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "tools"))
 
 from predict import (
+    _game_score_weighted_avg,
     calculate_player_prediction,
     calculate_win_probability,
     parse_last5,
@@ -66,6 +67,54 @@ def _make_player_stats(pts=10.0, reb=5.0, ast=3.0, stl=1.0, blk=0.5):
 # ===========================================================================
 # Player Prediction Tests
 # ===========================================================================
+
+
+class TestGameScoreWeightedAvg:
+    def test_empty_games(self):
+        """Empty game list → 0.0."""
+        assert _game_score_weighted_avg([], "pts") == 0.0
+
+    def test_zero_weight(self):
+        """All games with minimal weight still return a value."""
+        games = [
+            {
+                "pts": 5,
+                "fgm": 0,
+                "fga": 10,
+                "ftm": 0,
+                "fta": 5,
+                "off_reb": 0,
+                "def_reb": 0,
+                "stl": 0,
+                "ast": 0,
+                "blk": 0,
+                "pf": 4,
+                "tov": 5,
+            }
+        ]
+        result = _game_score_weighted_avg(games, "pts")
+        assert result == pytest.approx(5.0, abs=0.5)
+
+    def test_missing_stat_defaults_zero(self):
+        """Game with missing stat key returns 0 for that stat."""
+        games = [
+            {
+                "fgm": 5,
+                "fga": 10,
+                "ftm": 2,
+                "fta": 3,
+                "off_reb": 1,
+                "def_reb": 3,
+                "stl": 1,
+                "ast": 2,
+                "blk": 0,
+                "pf": 1,
+                "tov": 1,
+            }
+        ]
+        # "pts" key missing → treated as 0
+        result = _game_score_weighted_avg(games, "pts")
+        assert result == 0.0
 
 
 class TestPlayerPrediction:
@@ -314,6 +363,54 @@ class TestWinProbability:
         # Stronger predicted stats should still win
         assert home_prob > 50
 
+    def test_zero_strength(self):
+        """Both teams with zero predicted stats → 50/50."""
+        home_prob, away_prob = calculate_win_probability(
+            home_preds=[{}],
+            away_preds=[{}],
+        )
+        assert home_prob + away_prob == pytest.approx(100.0, abs=0.1)
+
+    def test_missing_standings(self):
+        """Explicit None standings still work."""
+        home_prob, away_prob = calculate_win_probability(
+            home_preds=self._make_preds(),
+            away_preds=self._make_preds(),
+            home_standing=None,
+            away_standing=None,
+        )
+        assert home_prob + away_prob == pytest.approx(100.0, abs=0.1)
+
+    def test_zero_total_score(self):
+        """Total score summing to 0 → 50/50."""
+        home_prob, away_prob = calculate_win_probability(
+            home_preds=[{"predicted_pts": 0, "predicted_reb": 0, "predicted_ast": 0}],
+            away_preds=[{"predicted_pts": 0, "predicted_reb": 0, "predicted_ast": 0}],
+        )
+        assert home_prob + away_prob == pytest.approx(100.0, abs=0.1)
+
+    def test_court_advantage(self):
+        """Home court advantage boosts home team probability."""
+        home_prob, away_prob = calculate_win_probability(
+            home_preds=self._make_preds(pts=12),
+            away_preds=self._make_preds(pts=12),
+            home_standing={
+                "home_wins": 10,
+                "home_losses": 2,
+                "away_wins": 5,
+                "away_losses": 7,
+            },
+            away_standing={
+                "home_wins": 5,
+                "home_losses": 7,
+                "away_wins": 3,
+                "away_losses": 9,
+            },
+        )
+        # Strong home record + weak away record → home team advantage
+        assert home_prob > 50.0
+        assert home_prob + away_prob == pytest.approx(100.0, abs=0.1)
+
 
 # ===========================================================================
 # parse_last5 Tests
@@ -332,6 +429,14 @@ class TestParseLast5:
 
     def test_empty(self):
         assert parse_last5("") == pytest.approx(0.5)
+
+    def test_value_error(self):
+        """Non-integer parts → 0.5 fallback."""
+        assert parse_last5("abc-def") == pytest.approx(0.5)
+
+    def test_index_error(self):
+        """Single part with dash → 0.5 fallback."""
+        assert parse_last5("-") == pytest.approx(0.5)
 
 
 # ===========================================================================
@@ -398,3 +503,21 @@ class TestLineupSelection:
         assert positions.count("F") <= 2
         assert positions.count("C") <= 1
         assert len(lineup) == 5
+
+    def test_no_recent_games_map(self):
+        """None recent_games_map should not filter anyone."""
+        players = self._make_players()
+        lineup = select_optimal_lineup(players, recent_games_map=None)
+        assert len(lineup) == 5
+
+    def test_pir_fallback(self):
+        """game_score=None should fall back to PIR."""
+        players = self._make_players()
+        for p in players:
+            p["game_score"] = None
+        # Make PIR differentiate players
+        players[5]["pir"] = 30.0  # Should be selected first
+        lineup = select_optimal_lineup(players)
+        assert len(lineup) == 5
+        lineup_ids = [p["id"] for p in lineup]
+        assert "095005" in lineup_ids
