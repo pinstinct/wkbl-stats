@@ -108,37 +108,54 @@ uv run pytest tests/test_database.py -v
 uv run pytest tests/test_api.py -v
 ```
 
-**Test coverage (169 tests total):**
+**Test coverage (501 tests, 95% line coverage):**
 
-- `test_database.py`: Database operations (49 tests)
+- `test_parsers.py`: Parser functions (108 tests)
+  - Play-by-play, head-to-head, shot chart, player profile, event type mapping
+  - Ambiguous player resolution (season adjacency, overlap exclusion, minutes tiebreak, tie detection)
+  - Game list items, schedule month parsing, season meta
+- `test_api.py`: REST API endpoints (74 tests)
+  - Health, players, teams, games, seasons, standings, leaders, search, compare
+  - Plus/minus aggregation, team advanced stats
+- `test_ingest_helpers.py`: Ingest helper functions (71 tests)
+  - Player loading, record aggregation, future game saving, prediction generation
+- `test_database.py`: Database operations (66 tests)
   - Database init, CRUD operations, season stats, boxscore, standings, predictions
   - Team game operations, game queries, bulk operations, future game predictions
   - Quarter scores, H2H quarter score population, play-by-play, shot charts, team category stats, head-to-head, game MVP
-  - Orphan player resolution (cross-season transfer, minutes tiebreak)
+  - Orphan player resolution (cross-season transfer, minutes tiebreak, tied minutes)
   - Team/opponent/league season totals for advanced stats
-- `test_api.py`: REST API endpoints (30 tests)
-  - Health, players, teams, games, seasons, standings, leaders, search, compare
-- `test_parsers.py`: Parser functions (21 tests)
-  - Play-by-play, head-to-head, shot chart, player profile, event type mapping
-  - Ambiguous player resolution (season adjacency, overlap exclusion, minutes tiebreak, tie detection)
-- `test_ingest_predictions.py`: Ingest prediction backfill (3 tests)
-- `test_refactor_p0.py`: Advanced stats and season resolver (22 tests)
+- `test_refactor_p0.py`: Advanced stats and season resolver (38 tests)
   - Basic stats (TS%, eFG%, PIR, Per-36), Game Score, TOV%
   - Team-context stats (USG%, ORtg, DRtg, Net Rating, Pace)
   - Rate stats (OREB%, DREB%, AST%, STL%, BLK%)
-  - PER (Player Efficiency Rating)
+  - PER (Player Efficiency Rating), zero-denominator edge cases
   - Individual ORtg/DRtg (points produced, scoring possessions)
-- `test_predict.py`: Prediction system (18 tests)
-  - Player stat prediction (basic, STL/BLK, Game Score weighting, opponent adjustment)
-  - Minutes stability confidence interval widening
-  - Win probability (basic, net rating, H2H, momentum, graceful degradation)
-  - Lineup selection (Game Score priority, minutes filter, position diversity)
-- `test_lineup.py`: Lineup tracking engine (18 tests)
-  - Starter inference (events, minutes backfill, per-quarter)
+  - Win Shares zero-denominator guards
+- `test_ingest_orchestration.py`: Ingest orchestration (32 tests)
+  - Single season flow (basic, incremental, force refresh, future games, standings, H2H, MVP, quarter scores, PBP/shot charts)
+  - Multi-season flow (all seasons, specific codes, error handling, orphan resolution)
+  - main() entry point (backfill, multi-season, single season, active-only, DB aggregation, all fetch flags)
+  - Lineup computation (basic, no PBP skip)
+- `test_lineup.py`: Lineup tracking engine (31 tests)
+  - Starter inference (events, minutes backfill, per-quarter, edge cases)
   - Stint tracking (substitutions, quarter transitions, scores)
   - Plus/minus calculation, On/Off rating
   - NULL player_id resolution from PBP descriptions
   - Lineup stints DB CRUD, duration calculation
+- `test_predict.py`: Prediction system (29 tests)
+  - Player stat prediction (basic, STL/BLK, Game Score weighting, opponent adjustment)
+  - Minutes stability confidence interval widening
+  - Win probability (basic, net rating, H2H, momentum, graceful degradation, court advantage)
+  - Lineup selection (Game Score priority, minutes filter, position diversity)
+- `test_ingest_fetch_functions.py`: Ingest fetch functions (18 tests)
+  - PBP, shot chart, team category stats, H2H, MVP, quarter scores, standings, season meta
+- `test_ingest_save_to_db.py`: DB save orchestration (15 tests)
+  - Season/team insertion, player ID mapping, game insertion, score calculation
+- `test_ingest_schedule.py`: Schedule parsing (15 tests)
+  - Schedule fetch, cross-year dates, future games, dedup, game record fetch
+- `test_ingest_predictions.py`: Ingest prediction backfill (3 tests)
+- `test_ingest_db_init.py`: DB initialization (1 test)
 
 ## Frontend Pages (SPA)
 
