@@ -72,6 +72,7 @@ def run_ingest_if_needed():
         "--compute-lineups",
         "--load-all-players",
         "--active-only",
+        "--no-cache",
         "--output",
         OUTPUT_PATH,
     ]
