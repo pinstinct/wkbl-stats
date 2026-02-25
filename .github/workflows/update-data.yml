@@ -21,10 +21,27 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Compute current season label (KST)
+        run: |
+          now_year=$(TZ=Asia/Seoul date +%Y)
+          now_month=$(TZ=Asia/Seoul date +%-m)
+          if [ "$now_month" -ge 10 ]; then
+            start_year=$now_year
+          else
+            start_year=$((now_year - 1))
+          fi
+          end_year_short=$(((start_year + 1) % 100))
+          printf -v season_label "%d-%02d" "$start_year" "$end_year_short"
+          end_date=$(TZ=Asia/Seoul date +%Y%m%d)
+          echo "SEASON_LABEL=$season_label" >> "$GITHUB_ENV"
+          echo "END_DATE=$end_date" >> "$GITHUB_ENV"
+          echo "Using season label: $season_label"
+          echo "Using end date (KST): $end_date"
+
       - name: Run data ingest
         run: |
           python3 tools/ingest_wkbl.py \
-            --season-label 2025-26 \
+            --season-label "$SEASON_LABEL" \
             --auto \
             --no-cache \
             --save-db \
@@ -40,7 +57,7 @@ jobs:
             --fetch-head-to-head \
             --fetch-game-mvp \
             --fetch-quarter-scores \
-            --end-date $(date +%Y%m%d) \
+            --end-date "$END_DATE" \
             --active-only \
             --output data/wkbl-active.json
 
