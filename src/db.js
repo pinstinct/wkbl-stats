@@ -1704,7 +1704,14 @@ const WKBLDatabase = (function () {
     if (!seasonId || seasonId === "all") return map;
 
     try {
-      const rows = query(
+      // Get season game IDs from core DB, then query lineup_stints from detail DB
+      const seasonGames = query("SELECT id FROM games WHERE season_id = ?", [
+        seasonId,
+      ]);
+      if (seasonGames.length === 0) return map;
+      const gameIds = seasonGames.map((g) => g.id);
+      const ph = gameIds.map(() => "?").join(",");
+      const rows = detailQuery(
         `
         WITH stint_diff AS (
           SELECT
@@ -1715,8 +1722,7 @@ const WKBLDatabase = (function () {
               - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff,
             COALESCE(ls.duration_seconds, 0) AS duration_seconds
           FROM lineup_stints ls
-          JOIN games g ON g.id = ls.game_id
-          WHERE g.season_id = ?
+          WHERE ls.game_id IN (${ph})
           UNION ALL
           SELECT
             ls.game_id,
@@ -1726,8 +1732,7 @@ const WKBLDatabase = (function () {
               - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff,
             COALESCE(ls.duration_seconds, 0) AS duration_seconds
           FROM lineup_stints ls
-          JOIN games g ON g.id = ls.game_id
-          WHERE g.season_id = ?
+          WHERE ls.game_id IN (${ph})
           UNION ALL
           SELECT
             ls.game_id,
@@ -1737,8 +1742,7 @@ const WKBLDatabase = (function () {
               - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff,
             COALESCE(ls.duration_seconds, 0) AS duration_seconds
           FROM lineup_stints ls
-          JOIN games g ON g.id = ls.game_id
-          WHERE g.season_id = ?
+          WHERE ls.game_id IN (${ph})
           UNION ALL
           SELECT
             ls.game_id,
@@ -1748,8 +1752,7 @@ const WKBLDatabase = (function () {
               - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff,
             COALESCE(ls.duration_seconds, 0) AS duration_seconds
           FROM lineup_stints ls
-          JOIN games g ON g.id = ls.game_id
-          WHERE g.season_id = ?
+          WHERE ls.game_id IN (${ph})
           UNION ALL
           SELECT
             ls.game_id,
@@ -1759,8 +1762,7 @@ const WKBLDatabase = (function () {
               - (COALESCE(ls.end_score_against, 0) - COALESCE(ls.start_score_against, 0)) AS diff,
             COALESCE(ls.duration_seconds, 0) AS duration_seconds
           FROM lineup_stints ls
-          JOIN games g ON g.id = ls.game_id
-          WHERE g.season_id = ?
+          WHERE ls.game_id IN (${ph})
         ),
         grouped AS (
           SELECT
@@ -1781,7 +1783,7 @@ const WKBLDatabase = (function () {
           gp_team
         FROM grouped
         `,
-        [seasonId, seasonId, seasonId, seasonId, seasonId],
+        [...gameIds, ...gameIds, ...gameIds, ...gameIds, ...gameIds],
       );
 
       for (const row of rows) {
@@ -2615,31 +2617,25 @@ const WKBLDatabase = (function () {
    * @returns {Array} List of shot records with game context
    */
   function getPlayerShotChart(playerId, seasonId = null) {
-    const whereSeason = seasonId ? " AND g.season_id = ? " : "";
-    const params = seasonId ? [playerId, seasonId] : [playerId];
-    const joinedSql = `SELECT sc.*,
-              g.game_date,
-              CASE
-                WHEN sc.team_id = g.home_team_id THEN at.name
-                ELSE ht.name
-              END AS opponent_name
-       FROM shot_charts sc
-       JOIN games g ON g.id = sc.game_id
-       LEFT JOIN teams ht ON ht.id = g.home_team_id
-       LEFT JOIN teams at ON at.id = g.away_team_id
-       WHERE sc.player_id = ? ${whereSeason}
-       ORDER BY g.game_date DESC, sc.quarter, sc.game_minute, sc.game_second`;
-
-    // If unsplit DB (no detail DB), query main db directly
-    if (!detailDb && db) {
-      return query(joinedSql, params);
+    // Get raw shots from detail DB, enrich from core
+    // Note: detail DB has no games table, so season filter uses core DB game IDs
+    let rawShots;
+    if (seasonId) {
+      const seasonGames = query("SELECT id FROM games WHERE season_id = ?", [
+        seasonId,
+      ]);
+      if (seasonGames.length === 0) return [];
+      const ids = seasonGames.map((g) => g.id);
+      const ph = ids.map(() => "?").join(",");
+      rawShots = detailQuery(
+        `SELECT * FROM shot_charts WHERE player_id = ? AND game_id IN (${ph})`,
+        [playerId, ...ids],
+      );
+    } else {
+      rawShots = detailQuery("SELECT * FROM shot_charts WHERE player_id = ?", [
+        playerId,
+      ]);
     }
-
-    // Split DB: get raw shots from detail, enrich from core
-    const rawSql = seasonId
-      ? "SELECT * FROM shot_charts WHERE player_id = ? AND game_id IN (SELECT id FROM games WHERE season_id = ?)"
-      : "SELECT * FROM shot_charts WHERE player_id = ?";
-    const rawShots = detailQuery(rawSql, params);
     if (rawShots.length === 0) return rawShots;
 
     // Build game info lookup from core DB

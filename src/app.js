@@ -1339,7 +1339,11 @@ import { hideSkeleton } from "./ui/skeleton.js";
         formatNumber,
       });
 
-      await renderPlayerShotSection(playerId, sortedSeasons);
+      try {
+        await renderPlayerShotSection(playerId, sortedSeasons);
+      } catch (e) {
+        console.warn("Failed to load shot chart:", e);
+      }
     } catch (error) {
       console.error("Failed to load player:", error);
       $("detailPlayerName").textContent = "선수를 찾을 수 없습니다";

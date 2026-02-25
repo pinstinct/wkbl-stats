@@ -108,7 +108,7 @@ uv run pytest tests/test_database.py -v
 uv run pytest tests/test_api.py -v
 ```
 
-**Test coverage (512 tests, 95% line coverage):**
+**Test coverage (523 tests, 95% line coverage):**
 
 - `test_parsers.py`: Parser functions (108 tests)
   - Play-by-play, head-to-head, shot chart, player profile, event type mapping
@@ -158,6 +158,9 @@ uv run pytest tests/test_api.py -v
 - `test_ingest_db_init.py`: DB initialization (1 test)
 - `test_split_db.py`: DB splitting (11 tests)
   - Core/detail table separation, row counts, source unmodified, edge cases
+- `test_split_db_queries.py`: Split DB cross-DB query contract (11 tests)
+  - Shot chart cross-DB subquery failure repro, two-step season filter, enrichment from core
+  - Lineup stints cross-DB JOIN failure repro, two-step plus/minus aggregation, season isolation
 
 ## Frontend Pages (SPA)
 
@@ -490,7 +493,7 @@ The browser fetches split database files and runs all queries client-side.
 **Local testing (simulates GitHub Pages):**
 
 ```bash
-python3 -m http.server 8000
+uv run python3 -m http.server 8000
 # Open http://localhost:8000
 ```
 
@@ -543,6 +546,7 @@ uv run pre-commit run --all-files
 - HTTP responses are cached in `data/cache/` to avoid redundant network requests
 - **Static hosting**: Uses sql.js (WebAssembly) to run SQLite queries in browser
 - **DB split**: `wkbl-core.db` (essential tables) loads first, `wkbl-detail.db` (PBP, shots, lineups) lazy-loaded in background
+- **Split DB query rule**: Detail tables (`shot_charts`, `lineup_stints`, `play_by_play`, `position_matchups`)은 반드시 `detailQuery()`로 조회. Core tables (`games`, `teams`, `players` 등)과 JOIN이 필요할 경우, core DB에서 먼저 ID 목록을 가져온 뒤 `WHERE ... IN (ids)` 패턴으로 detail DB를 별도 조회해야 함 (cross-DB JOIN 불가)
 - **IndexedDB caching**: Database files cached in browser with ETag revalidation for instant revisits
 - **Skeleton UI**: Pulse-animated placeholder shown during initial DB download
 - **Fallback chain**: IndexedDB cache → core.db fetch → wkbl.db fallback → JSON file
