@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  split-db-contract:
-    name: Split DB Contract Test
+  backend-coverage:
+    name: Backend Coverage
     runs-on: ubuntu-latest
 
     steps:
@@ -26,5 +26,25 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev
 
-      - name: Run split DB query contract tests
-        run: uv run pytest tests/test_split_db_queries.py -v
+      - name: Run backend tests with coverage gate
+        run: uv run pytest
+
+  frontend-coverage:
+    name: Frontend Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run frontend tests with coverage gate
+        run: npm run test:front:coverage

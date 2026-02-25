@@ -120,6 +120,12 @@ uv run pytest -q
 # 프론트 단위 테스트 (Vitest)
 npm ci
 npm run test:front
+
+# 백엔드 커버리지 게이트 (95%)
+uv run pytest --cov=tools --cov=server --cov-report=term-missing --cov-fail-under=95
+
+# 프론트 커버리지 게이트 (95%, src/**/*.js 엄격 분모)
+npm run test:front:coverage
 ```
 
 ## 코드 품질 (pre-commit)

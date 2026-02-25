@@ -1222,3 +1222,106 @@ class TestTeamAdvancedStatsEndpoint:
             f"/players/{sample_player['player_id']}?season={sample_season['season_id']}"
         )
         assert response.status_code == 200
+
+
+class TestCoverageEdges:
+    """Targeted edge-path tests for coverage and behavior contracts."""
+
+    def test_plus_minus_map_all_season_returns_empty(self):
+        from api import _get_season_player_plus_minus_map
+
+        assert _get_season_player_plus_minus_map("all") == {}
+        assert _get_season_player_plus_minus_map(None) == {}
+
+    def test_plus_minus_per100_fallback_guard_paths(self):
+        from api import _compute_plus_minus_per100_fallback
+
+        # No team id or zero minutes -> None
+        assert (
+            _compute_plus_minus_per100_fallback(
+                5.0,
+                {"team_id": None, "gp": 1, "min": 30},
+                {"kb": {"fga": 10, "fta": 5, "tov": 3, "oreb": 2, "min": 200}},
+            )
+            is None
+        )
+
+        # Zero possessions -> None
+        assert (
+            _compute_plus_minus_per100_fallback(
+                5.0,
+                {"team_id": "kb", "gp": 1, "min": 30},
+                {"kb": {"fga": 0, "fta": 0, "tov": 0, "oreb": 0, "min": 200}},
+            )
+            is None
+        )
+
+        # Zero team minutes -> None
+        assert (
+            _compute_plus_minus_per100_fallback(
+                5.0,
+                {"team_id": "kb", "gp": 1, "min": 30},
+                {"kb": {"fga": 10, "fta": 4, "tov": 2, "oreb": 1, "min": 0}},
+            )
+            is None
+        )
+
+    def test_get_player_comparison_invalid_count_returns_empty(self):
+        from api import get_player_comparison
+
+        assert get_player_comparison(["p1"], "046") == []
+        assert get_player_comparison(["p1", "p2", "p3", "p4", "p5"], "046") == []
+
+    def test_player_highlights_not_found_returns_404(self, client):
+        response = client.get("/players/nonexistent/highlights")
+        assert response.status_code == 404
+
+    @pytest.mark.anyio
+    async def test_lifespan_runs_db_init_and_logs(self, monkeypatch):
+        import api
+
+        init_calls = []
+        logs = []
+
+        monkeypatch.setattr(api, "init_db", lambda: init_calls.append("init"))
+        monkeypatch.setattr(api.logger, "info", lambda msg: logs.append(msg))
+
+        async with api.lifespan(api.app):
+            pass
+
+        assert init_calls == ["init"]
+        assert any("started" in m for m in logs)
+        assert any("stopped" in m for m in logs)
+
+    def test_team_detail_team_stats_branch_executes(
+        self, client, sample_team, sample_season, monkeypatch
+    ):
+        import api
+
+        monkeypatch.setattr(
+            api,
+            "_build_team_stats",
+            lambda *_args, **_kwargs: {
+                "team_fga": 120.0,
+                "team_fta": 40.0,
+                "team_tov": 20.0,
+                "team_oreb": 15.0,
+                "opp_fga": 115.0,
+                "opp_fta": 38.0,
+                "opp_tov": 18.0,
+                "opp_oreb": 12.0,
+                "team_min": 1600.0,
+                "team_pts": 980.0,
+                "opp_pts": 920.0,
+                "team_gp": 10,
+            },
+        )
+
+        response = client.get(
+            f"/teams/{sample_team['id']}?season={sample_season['season_id']}"
+        )
+        assert response.status_code == 200
+        team_stats = response.json().get("team_stats")
+        assert team_stats is not None
+        for key in ["off_rtg", "def_rtg", "net_rtg", "pace", "gp"]:
+            assert key in team_stats

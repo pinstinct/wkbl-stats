@@ -74,6 +74,76 @@ describe("data client", () => {
     );
   });
 
+  it("throws for missing team detail and game boxscore", async () => {
+    const client = createDataClient({
+      initDb: async () => true,
+      getDb: () => ({
+        getTeamDetail: () => null,
+        getGameBoxscore: () => null,
+      }),
+      getSeasonLabel: () => "시즌",
+    });
+
+    await expect(client.getTeamDetail("missing-team", "046")).rejects.toThrow(
+      "Team not found",
+    );
+    await expect(client.getGameBoxscore("missing-game")).rejects.toThrow(
+      "Game not found",
+    );
+  });
+
+  it("returns normalized payload wrappers for teams and standings", async () => {
+    const client = createDataClient({
+      initDb: async () => true,
+      getDb: () => ({
+        getTeams: () => [{ id: "kb" }],
+        getStandings: () => [{ team_id: "kb", rank: 1 }],
+      }),
+      getSeasonLabel: () => "2025-26",
+    });
+
+    await expect(client.getTeams()).resolves.toEqual({ teams: [{ id: "kb" }] });
+    await expect(client.getStandings("046")).resolves.toEqual({
+      season: "046",
+      season_label: "2025-26",
+      standings: [{ team_id: "kb", rank: 1 }],
+    });
+  });
+
+  it("passes through list and search endpoints when db is available", async () => {
+    const db = {
+      getGames: vi.fn(() => [{ id: "g1" }]),
+      getLeaders: vi.fn(() => [{ id: "p1" }]),
+      getLeadersAll: vi.fn(() => ({ pts: [] })),
+      search: vi.fn(() => ({ players: [], teams: [] })),
+      getPlayerComparison: vi.fn(() => [{ id: "p1" }, { id: "p2" }]),
+    };
+    const client = createDataClient({
+      initDb: async () => true,
+      getDb: () => db,
+      getSeasonLabel: () => "시즌",
+    });
+
+    await expect(client.getGames("046")).resolves.toEqual([{ id: "g1" }]);
+    await expect(client.getLeaders("046", "pts", 5)).resolves.toEqual([
+      { id: "p1" },
+    ]);
+    await expect(client.getLeadersAll("046")).resolves.toEqual({ pts: [] });
+    await expect(client.search("kim", 10)).resolves.toEqual({
+      players: [],
+      teams: [],
+    });
+    await expect(
+      client.getPlayerComparison(["p1", "p2"], "046"),
+    ).resolves.toEqual([{ id: "p1" }, { id: "p2" }]);
+
+    expect(db.getGames).toHaveBeenCalledWith("046", null, null, 50, 0, true);
+    expect(db.getLeaders).toHaveBeenCalledWith("046", "pts", 5);
+    expect(db.getLeadersAll).toHaveBeenCalledWith("046", 5);
+    expect(db.search).toHaveBeenCalledWith("kim", 10);
+    expect(db.getPlayerComparison).toHaveBeenCalledWith(["p1", "p2"], "046");
+  });
+
   it("returns game shot chart rows via db", async () => {
     const getShotChart = vi.fn(() => [{ id: 1 }]);
     const client = createDataClient({
