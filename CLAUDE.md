@@ -561,15 +561,11 @@ uv run pre-commit run --all-files
 
 ## Documentation
 
-| Document                            | Description                                      |
-| ----------------------------------- | ------------------------------------------------ |
-| `docs/project-roadmap.md`           | Feature roadmap and completion status            |
-| `docs/project-structure.md`         | Directory responsibilities and structure rules   |
-| `docs/data-sources.md`              | WKBL Data Lab API endpoints and database schemas |
-| `docs/sql-query-contract.md`        | SQL query contracts between api.py and db.js     |
-| `docs/regression-checklist.md`      | Mobile/responsive QA checklist                   |
-| `docs/game-shotchart-plan.md`       | Game shot chart implementation plan              |
-| `docs/player-shotchart-plan.md`     | Player shot chart implementation plan            |
-| `docs/loading-optimization-plan.md` | Loading optimization plan                        |
-| `docs/win-shares-plan.md`           | Win Shares implementation plan                   |
-| `docs/complete/`                    | Archived completed plan documents                |
+| Document                       | Description                                      |
+| ------------------------------ | ------------------------------------------------ |
+| `docs/project-roadmap.md`      | Feature roadmap and completion status            |
+| `docs/project-structure.md`    | Directory responsibilities and structure rules   |
+| `docs/data-sources.md`         | WKBL Data Lab API endpoints and database schemas |
+| `docs/sql-query-contract.md`   | SQL query contracts between api.py and db.js     |
+| `docs/regression-checklist.md` | Mobile/responsive QA checklist                   |
+| `docs/complete/`               | Archived completed plan documents                |

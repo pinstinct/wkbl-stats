@@ -40,17 +40,13 @@
 
 활성 참조 문서만 `docs/` 루트에 유지한다.
 
-| 파일                           | 역할                               |
-| ------------------------------ | ---------------------------------- |
-| `project-roadmap.md`           | 프로젝트 전체 로드맵 + 진행 상태   |
-| `project-structure.md`         | 디렉터리 책임/규칙 (이 파일)       |
-| `data-sources.md`              | WKBL 데이터 수집 엔드포인트/스키마 |
-| `sql-query-contract.md`        | API ↔ db.js SQL 쿼리 계약          |
-| `regression-checklist.md`      | 모바일/테이블 반응형 QA 체크리스트 |
-| `game-shotchart-plan.md`       | 경기 샷차트 구현 계획              |
-| `player-shotchart-plan.md`     | 선수 샷차트 구현 계획              |
-| `loading-optimization-plan.md` | 로딩 최적화 계획                   |
-| `win-shares-plan.md`           | Win Shares 구현 계획               |
+| 파일                      | 역할                               |
+| ------------------------- | ---------------------------------- |
+| `project-roadmap.md`      | 프로젝트 전체 로드맵 + 진행 상태   |
+| `project-structure.md`    | 디렉터리 책임/규칙 (이 파일)       |
+| `data-sources.md`         | WKBL 데이터 수집 엔드포인트/스키마 |
+| `sql-query-contract.md`   | API ↔ db.js SQL 쿼리 계약          |
+| `regression-checklist.md` | 모바일/테이블 반응형 QA 체크리스트 |
 
 완료된 계획 문서는 `docs/complete/`에 보관:
 
@@ -65,6 +61,10 @@
 | `complete/remaining-features.md`             | 미완 기능 통합 목록                  |
 | `complete/static-hosting-troubleshooting.md` | GitHub Pages 정적 호스팅 트러블슈팅  |
 | `complete/test-coverage-95-plan.md`          | 테스트 커버리지 95% 달성 계획        |
+| `complete/game-shotchart-plan.md`            | 경기 샷차트 구현 계획                |
+| `complete/player-shotchart-plan.md`          | 선수 샷차트 구현 계획                |
+| `complete/loading-optimization-plan.md`      | 로딩 최적화 계획                     |
+| `complete/win-shares-plan.md`                | Win Shares 구현 계획                 |
 
 ## Structure Rules
 
