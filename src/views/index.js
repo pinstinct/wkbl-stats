@@ -25,6 +25,7 @@ export {
   buildZoneTableRows,
   buildPlayerSelectOptions,
   getCourtArcRadii,
+  getCourtOverlayGeometry,
   getCourtAspectRatio,
   getShotChartScaleBounds,
   buildShotChartExportName,

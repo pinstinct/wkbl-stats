@@ -6,6 +6,7 @@ import {
   reconcileShotTeams,
   getCourtAspectRatio,
   getCourtArcRadii,
+  getCourtOverlayGeometry,
   buildPlayerSelectOptions,
   getShotChartScaleBounds,
   buildZoneTableRows,
@@ -228,6 +229,23 @@ describe("game shot logic", () => {
 
   it("returns axis-aware arc radii", () => {
     expect(getCourtArcRadii(1, 0.6, 20)).toEqual({ rx: 20, ry: 12 });
+  });
+
+  it("returns refined court overlay geometry", () => {
+    expect(getCourtOverlayGeometry()).toEqual({
+      paint: { x1: 97.5, x2: 193.5, y1: 18, y2: 90.5 },
+      key: { x1: 116.5, x2: 174.5, y1: 18, y2: 56.5 },
+      freeThrow: { cx: 145.5, cy: 90.5, radius: 20 },
+      backboard: { x1: 130.5, x2: 160.5, y: 24.5 },
+      rim: { cx: 145.5, cy: 18, radius: 6.75 },
+      restrictedArea: {
+        cx: 145.5,
+        cy: 18,
+        radius: 21.75,
+        startAngle: Math.PI * 0.12,
+        endAngle: Math.PI * 0.88,
+      },
+    });
   });
 
   it("returns connected three-point geometry", () => {

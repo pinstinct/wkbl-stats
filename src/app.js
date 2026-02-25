@@ -3,6 +3,7 @@ import {
   reconcileShotTeams,
   buildPlayerSelectOptions,
   getCourtArcRadii,
+  getCourtOverlayGeometry,
   getCourtAspectRatio,
   buildZoneTableRows,
   getShotChartScaleBounds,
@@ -2228,6 +2229,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
         const sx = (v) => Math.round(v) + 0.5;
         const sy = (v) => Math.round(v) + 0.5;
         const three = buildThreePointGeometry();
+        const court = getCourtOverlayGeometry();
 
         ctx.save();
         ctx.strokeStyle = options.lineColor || "rgba(27, 28, 31, 0.25)";
@@ -2237,36 +2239,62 @@ import { hideSkeleton } from "./ui/skeleton.js";
 
         // WKBL half-court guide based on shot chart px coordinates.
         // Court extents: x≈0~291, y≈18~176. Rim center around (145.5, 18).
-        ctx.strokeRect(x(98), y(18), x(193) - x(98), y(90) - y(18)); // paint
-        ctx.strokeRect(x(117), y(18), x(174) - x(117), y(56) - y(18)); // key
+        ctx.strokeRect(
+          x(court.paint.x1),
+          y(court.paint.y1),
+          x(court.paint.x2) - x(court.paint.x1),
+          y(court.paint.y2) - y(court.paint.y1),
+        ); // paint
+        ctx.strokeRect(
+          x(court.key.x1),
+          y(court.key.y1),
+          x(court.key.x2) - x(court.key.x1),
+          y(court.key.y2) - y(court.key.y1),
+        ); // key
 
         // Free-throw circle.
-        const ft = radii(20);
+        const ft = radii(court.freeThrow.radius);
         ctx.beginPath();
-        ctx.ellipse(x(145.5), y(90), ft.rx, ft.ry, 0, 0, Math.PI * 2);
+        ctx.ellipse(
+          x(court.freeThrow.cx),
+          y(court.freeThrow.cy),
+          ft.rx,
+          ft.ry,
+          0,
+          0,
+          Math.PI * 2,
+        );
         ctx.stroke();
 
         // Backboard and rim.
         ctx.beginPath();
-        ctx.moveTo(sx(x(131)), sy(y(25)));
-        ctx.lineTo(sx(x(160)), sy(y(25)));
+        ctx.moveTo(sx(x(court.backboard.x1)), sy(y(court.backboard.y)));
+        ctx.lineTo(sx(x(court.backboard.x2)), sy(y(court.backboard.y)));
         ctx.stroke();
-        const rim = radii(7);
+        const rim = radii(court.rim.radius);
         ctx.beginPath();
-        ctx.ellipse(x(145.5), y(18), rim.rx, rim.ry, 0, 0, Math.PI * 2);
+        ctx.ellipse(
+          x(court.rim.cx),
+          y(court.rim.cy),
+          rim.rx,
+          rim.ry,
+          0,
+          0,
+          Math.PI * 2,
+        );
         ctx.stroke();
 
         // Restricted area arc.
-        const ra = radii(22);
+        const ra = radii(court.restrictedArea.radius);
         ctx.beginPath();
         ctx.ellipse(
-          x(145.5),
-          y(18),
+          x(court.restrictedArea.cx),
+          y(court.restrictedArea.cy),
           ra.rx,
           ra.ry,
           0,
-          Math.PI * 0.12,
-          Math.PI * 0.88,
+          court.restrictedArea.startAngle,
+          court.restrictedArea.endAngle,
           false,
         );
         ctx.stroke();

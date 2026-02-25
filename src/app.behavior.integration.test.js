@@ -771,6 +771,20 @@ function createDeps(fixtures) {
       ];
     }),
     getCourtArcRadii: vi.fn((_pxX, _pxY, unit) => ({ rx: unit, ry: unit })),
+    getCourtOverlayGeometry: vi.fn(() => ({
+      paint: { x1: 98, x2: 193, y1: 18, y2: 90 },
+      key: { x1: 117, x2: 174, y1: 18, y2: 56 },
+      freeThrow: { cx: 145.5, cy: 90, radius: 20 },
+      backboard: { x1: 131, x2: 160, y: 25 },
+      rim: { cx: 145.5, cy: 18, radius: 7 },
+      restrictedArea: {
+        cx: 145.5,
+        cy: 18,
+        radius: 22,
+        startAngle: Math.PI * 0.12,
+        endAngle: Math.PI * 0.88,
+      },
+    })),
     getCourtAspectRatio: vi.fn(() => 291 / 176),
     buildZoneTableRows: vi.fn((shots) => {
       if (!shots.length) return [];
