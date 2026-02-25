@@ -66,6 +66,7 @@
 | `complete/player-shotchart-plan.md`          | 선수 샷차트 구현 계획                |
 | `complete/loading-optimization-plan.md`      | 로딩 최적화 계획                     |
 | `complete/win-shares-plan.md`                | Win Shares 구현 계획                 |
+| `complete/e2e-playwright-plan.md`            | E2E Playwright 운영 체계 계획        |
 
 ## Structure Rules
 

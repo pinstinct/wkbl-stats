@@ -109,15 +109,26 @@ uv run pytest tests/ --cov=tools --cov-report=term-missing
 # Run specific test file
 uv run pytest tests/test_database.py -v
 uv run pytest tests/test_api.py -v
+
+# Frontend unit tests (vitest)
+npm test
+
+# E2E tests (Playwright, tiered)
+npm run test:e2e:required
+npm run test:e2e:recommended
+npm run test:e2e:optional
+
+# E2E coverage report
+npm run test:e2e:coverage:required
 ```
 
-**Test coverage (523 tests, 95% line coverage):**
+**Test coverage (539 tests, 95% line coverage):**
 
 - `test_parsers.py`: Parser functions (108 tests)
   - Play-by-play, head-to-head, shot chart, player profile, event type mapping
   - Ambiguous player resolution (season adjacency, overlap exclusion, minutes tiebreak, tie detection)
   - Game list items, schedule month parsing, season meta
-- `test_api.py`: REST API endpoints (74 tests)
+- `test_api.py`: REST API endpoints (80 tests)
   - Health, players, teams, games, seasons, standings, leaders, search, compare
   - Plus/minus aggregation, team advanced stats
 - `test_ingest_helpers.py`: Ingest helper functions (71 tests)
@@ -164,6 +175,10 @@ uv run pytest tests/test_api.py -v
 - `test_split_db_queries.py`: Split DB cross-DB query contract (11 tests)
   - Shot chart cross-DB subquery failure repro, two-step season filter, enrichment from core
   - Lineup stints cross-DB JOIN failure repro, two-step plus/minus aggregation, season isolation
+- `test_e2e_coverage_report.py`: E2E coverage reporter (8 tests)
+  - Tier filtering, scenario-test mapping, coverage calculation, strict ID validation
+- `test_split_db_cli.py`: Split DB CLI (2 tests)
+  - CLI entry point, missing source error
 
 ## Frontend Pages (SPA)
 
@@ -248,6 +263,7 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → split_db.py → core.db + 
 - `tools/season_utils.py` - Season code resolver
 - `tools/config.py` - Centralized configuration (URLs, paths, settings)
 - `tools/split_db.py` - Database splitter (core/detail separation for faster frontend loading)
+- `tools/e2e_coverage_report.py` - E2E scenario coverage calculator (tier-based reporting)
 
 **Data & Config:**
 
@@ -564,11 +580,12 @@ uv run pre-commit run --all-files
 
 ## Documentation
 
-| Document                       | Description                                      |
-| ------------------------------ | ------------------------------------------------ |
-| `docs/project-roadmap.md`      | Feature roadmap and completion status            |
-| `docs/project-structure.md`    | Directory responsibilities and structure rules   |
-| `docs/data-sources.md`         | WKBL Data Lab API endpoints and database schemas |
-| `docs/sql-query-contract.md`   | SQL query contracts between api.py and db.js     |
-| `docs/regression-checklist.md` | Mobile/responsive QA checklist                   |
-| `docs/complete/`               | Archived completed plan documents                |
+| Document                         | Description                                      |
+| -------------------------------- | ------------------------------------------------ |
+| `docs/project-roadmap.md`        | Feature roadmap and completion status            |
+| `docs/project-structure.md`      | Directory responsibilities and structure rules   |
+| `docs/data-sources.md`           | WKBL Data Lab API endpoints and database schemas |
+| `docs/sql-query-contract.md`     | SQL query contracts between api.py and db.js     |
+| `docs/regression-checklist.md`   | Mobile/responsive QA checklist                   |
+| `docs/e2e-coverage-guideline.md` | E2E scenario coverage operation guide            |
+| `docs/complete/`                 | Archived completed plan documents                |
