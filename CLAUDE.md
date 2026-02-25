@@ -32,6 +32,7 @@ python3 tools/ingest_wkbl.py \
   --fetch-profiles \
   --active-only \
   --output data/wkbl-active.json
+python3 tools/split_db.py  # split into core.db + detail.db
 ```
 
 **Full refresh** (re-fetch all games + future schedule):
@@ -49,6 +50,7 @@ python3 tools/ingest_wkbl.py \
   --include-future \
   --active-only \
   --output data/wkbl-active.json
+python3 tools/split_db.py  # split into core.db + detail.db
 ```
 
 **Full historical data** (all seasons, all game types, all players):
@@ -66,6 +68,7 @@ python3 tools/ingest_wkbl.py \
   --fetch-team-stats \
   --fetch-standings \
   --include-future
+python3 tools/split_db.py  # split into core.db + detail.db
 ```
 
 ### Ingest Options
