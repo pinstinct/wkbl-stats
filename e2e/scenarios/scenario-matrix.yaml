@@ -1,0 +1,497 @@
+version: 1
+updated_at: "2026-02-25"
+schema:
+  required_fields:
+    - id
+    - title
+    - tier
+    - area
+    - owner
+    - risk
+    - preconditions
+    - expected
+    - testRefs
+    - enabled
+    - since
+    - notes
+
+scenarios:
+  - id: E2E-CORE-001
+    title: app boot renders main view
+    tier: required
+    area: core
+    owner: frontend
+    risk: high
+    preconditions: app can load root route
+    expected: main view and title are visible
+    testRefs:
+      - spec: e2e/required/core.spec.js
+        title: "[E2E-CORE-001]"
+        tag: "@required"
+    enabled: true
+    since: "2026-02-25"
+    notes: boot smoke
+
+  - id: E2E-CORE-002
+    title: skeleton is hidden after init
+    tier: required
+    area: core
+    owner: frontend
+    risk: high
+    preconditions: app startup completed
+    expected: skeleton ui has hidden class
+    testRefs:
+      - spec: e2e/required/core.spec.js
+        title: "[E2E-CORE-002]"
+        tag: "@required"
+    enabled: true
+    since: "2026-02-25"
+    notes: loading contract
+
+  - id: E2E-NAV-001
+    title: nav route players
+    tier: required
+    area: nav
+    owner: frontend
+    risk: high
+    preconditions: home route loaded
+    expected: players view is visible
+    testRefs:
+      - spec: e2e/required/core.spec.js
+        title: "[E2E-NAV-001]"
+        tag: "@required"
+    enabled: true
+    since: "2026-02-25"
+    notes: top nav
+
+  - id: E2E-NAV-002
+    title: nav route teams
+    tier: required
+    area: nav
+    owner: frontend
+    risk: high
+    preconditions: home route loaded
+    expected: teams view is visible
+    testRefs:
+      - spec: e2e/required/core.spec.js
+        title: "[E2E-NAV-002]"
+        tag: "@required"
+    enabled: true
+    since: "2026-02-25"
+    notes: top nav
+
+  - id: E2E-NAV-003
+    title: nav route games
+    tier: required
+    area: nav
+    owner: frontend
+    risk: high
+    preconditions: home route loaded
+    expected: games view is visible
+    testRefs:
+      - spec: e2e/required/core.spec.js
+        title: "[E2E-NAV-003]"
+        tag: "@required"
+    enabled: true
+    since: "2026-02-25"
+    notes: top nav
+
+  - id: E2E-NAV-004
+    title: nav route schedule
+    tier: required
+    area: nav
+    owner: frontend
+    risk: high
+    preconditions: home route loaded
+    expected: schedule view is visible
+    testRefs:
+      - spec: e2e/required/core.spec.js
+        title: "[E2E-NAV-004]"
+        tag: "@required"
+    enabled: true
+    since: "2026-02-25"
+    notes: top nav
+
+  - id: E2E-NAV-005
+    title: nav route leaders
+    tier: required
+    area: nav
+    owner: frontend
+    risk: high
+    preconditions: home route loaded
+    expected: leaders view is visible
+    testRefs:
+      - spec: e2e/required/core.spec.js
+        title: "[E2E-NAV-005]"
+        tag: "@required"
+    enabled: true
+    since: "2026-02-25"
+    notes: top nav
+
+  - id: E2E-NAV-006
+    title: nav route compare
+    tier: required
+    area: nav
+    owner: frontend
+    risk: high
+    preconditions: home route loaded
+    expected: compare view is visible
+    testRefs:
+      - spec: e2e/required/core.spec.js
+        title: "[E2E-NAV-006]"
+        tag: "@required"
+    enabled: true
+    since: "2026-02-25"
+    notes: top nav
+
+  - id: E2E-NAV-007
+    title: nav route predict
+    tier: required
+    area: nav
+    owner: frontend
+    risk: high
+    preconditions: home route loaded
+    expected: predict view is visible
+    testRefs:
+      - spec: e2e/required/core.spec.js
+        title: "[E2E-NAV-007]"
+        tag: "@required"
+    enabled: true
+    since: "2026-02-25"
+    notes: top nav
+
+  - id: E2E-ROUTE-001
+    title: unknown route falls back to main
+    tier: required
+    area: route
+    owner: frontend
+    risk: high
+    preconditions: invalid hash route entered
+    expected: main view is shown
+    testRefs:
+      - spec: e2e/required/core.spec.js
+        title: "[E2E-ROUTE-001]"
+        tag: "@required"
+    enabled: true
+    since: "2026-02-25"
+    notes: fallback contract
+
+  - id: E2E-PLAYERS-001
+    title: players search input accepts text
+    tier: recommended
+    area: players
+    owner: frontend
+    risk: medium
+    preconditions: players route loaded
+    expected: search input reflects typed text
+    testRefs:
+      - spec: e2e/recommended/interaction.spec.js
+        title: "[E2E-PLAYERS-001]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-25"
+    notes: interaction
+
+  - id: E2E-PLAYERS-002
+    title: players table sort header clickable
+    tier: recommended
+    area: players
+    owner: frontend
+    risk: medium
+    preconditions: players route loaded
+    expected: points column header click is handled
+    testRefs:
+      - spec: e2e/recommended/interaction.spec.js
+        title: "[E2E-PLAYERS-002]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-25"
+    notes: sorting contract
+
+  - id: E2E-TEAMS-001
+    title: standings sort header clickable
+    tier: recommended
+    area: teams
+    owner: frontend
+    risk: medium
+    preconditions: teams route loaded
+    expected: wins column header click is handled
+    testRefs:
+      - spec: e2e/recommended/interaction.spec.js
+        title: "[E2E-TEAMS-001]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-25"
+    notes: sorting contract
+
+  - id: E2E-SCHEDULE-001
+    title: schedule team filter is available
+    tier: recommended
+    area: schedule
+    owner: frontend
+    risk: medium
+    preconditions: schedule route loaded
+    expected: team filter select is visible
+    testRefs:
+      - spec: e2e/recommended/interaction.spec.js
+        title: "[E2E-SCHEDULE-001]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-25"
+    notes: interaction
+
+  - id: E2E-COMPARE-001
+    title: compare button disabled initially
+    tier: recommended
+    area: compare
+    owner: frontend
+    risk: medium
+    preconditions: compare route loaded
+    expected: compare button disabled without selection
+    testRefs:
+      - spec: e2e/recommended/interaction.spec.js
+        title: "[E2E-COMPARE-001]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-25"
+    notes: guard state
+
+  - id: E2E-PREDICT-001
+    title: predict search input accepts text
+    tier: recommended
+    area: predict
+    owner: frontend
+    risk: medium
+    preconditions: predict route loaded
+    expected: predict search input reflects typed text
+    testRefs:
+      - spec: e2e/recommended/interaction.spec.js
+        title: "[E2E-PREDICT-001]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-25"
+    notes: interaction
+
+  - id: E2E-SEARCH-001
+    title: global search opens from button
+    tier: recommended
+    area: search
+    owner: frontend
+    risk: medium
+    preconditions: any top route loaded
+    expected: search modal is visible after click
+    testRefs:
+      - spec: e2e/recommended/interaction.spec.js
+        title: "[E2E-SEARCH-001]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-25"
+    notes: modal open
+
+  - id: E2E-SEARCH-002
+    title: global search closes with backdrop click
+    tier: recommended
+    area: search
+    owner: frontend
+    risk: medium
+    preconditions: search modal opened
+    expected: search modal is hidden after backdrop click
+    testRefs:
+      - spec: e2e/recommended/interaction.spec.js
+        title: "[E2E-SEARCH-002]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-25"
+    notes: modal close
+
+  - id: E2E-DETAIL-001
+    title: direct player detail hash route
+    tier: recommended
+    area: detail
+    owner: frontend
+    risk: medium
+    preconditions: player id is present in hash
+    expected: player detail view container is visible
+    testRefs:
+      - spec: e2e/recommended/interaction.spec.js
+        title: "[E2E-DETAIL-001]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-25"
+    notes: deep link shell
+
+  - id: E2E-DETAIL-002
+    title: direct team detail hash route
+    tier: recommended
+    area: detail
+    owner: frontend
+    risk: medium
+    preconditions: team id is present in hash
+    expected: team detail view container is visible
+    testRefs:
+      - spec: e2e/recommended/interaction.spec.js
+        title: "[E2E-DETAIL-002]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-25"
+    notes: deep link shell
+
+  - id: E2E-MOBILE-001
+    title: mobile nav toggle opens menu
+    tier: optional
+    area: mobile
+    owner: frontend
+    risk: low
+    preconditions: viewport width set to mobile
+    expected: nav root has open class after toggle
+    testRefs:
+      - spec: e2e/optional/resilience.spec.js
+        title: "[E2E-MOBILE-001]"
+        tag: "@optional"
+    enabled: true
+    since: "2026-02-25"
+    notes: responsive nav
+
+  - id: E2E-MOBILE-002
+    title: mobile nav toggle closes menu
+    tier: optional
+    area: mobile
+    owner: frontend
+    risk: low
+    preconditions: viewport width set to mobile and nav opened
+    expected: nav root removes open class after second toggle
+    testRefs:
+      - spec: e2e/optional/resilience.spec.js
+        title: "[E2E-MOBILE-002]"
+        tag: "@optional"
+    enabled: true
+    since: "2026-02-25"
+    notes: responsive nav
+
+  - id: E2E-DETAIL-003
+    title: direct game detail hash route
+    tier: optional
+    area: detail
+    owner: frontend
+    risk: low
+    preconditions: game id is present in hash
+    expected: game detail view container is visible
+    testRefs:
+      - spec: e2e/optional/resilience.spec.js
+        title: "[E2E-DETAIL-003]"
+        tag: "@optional"
+    enabled: true
+    since: "2026-02-25"
+    notes: deep link shell
+
+  - id: E2E-PREDICT-002
+    title: direct predict deep-link hash route
+    tier: optional
+    area: predict
+    owner: frontend
+    risk: low
+    preconditions: player id is present in predict hash
+    expected: predict view container is visible
+    testRefs:
+      - spec: e2e/optional/resilience.spec.js
+        title: "[E2E-PREDICT-002]"
+        tag: "@optional"
+    enabled: true
+    since: "2026-02-25"
+    notes: deep link shell
+
+  - id: E2E-SEARCH-003
+    title: ctrl+k opens global search
+    tier: optional
+    area: search
+    owner: frontend
+    risk: low
+    preconditions: app route loaded
+    expected: modal opens from shortcut
+    testRefs:
+      - spec: e2e/optional/resilience.spec.js
+        title: "[E2E-SEARCH-003]"
+        tag: "@optional"
+    enabled: true
+    since: "2026-02-25"
+    notes: keyboard shortcut
+
+  - id: E2E-SCHEDULE-002
+    title: schedule season selector has fixed options
+    tier: optional
+    area: schedule
+    owner: frontend
+    risk: low
+    preconditions: schedule route loaded
+    expected: season select has expected option count
+    testRefs:
+      - spec: e2e/optional/resilience.spec.js
+        title: "[E2E-SCHEDULE-002]"
+        tag: "@optional"
+    enabled: true
+    since: "2026-02-25"
+    notes: static config guard
+
+  - id: E2E-LEADERS-001
+    title: leaders page shell visible
+    tier: optional
+    area: leaders
+    owner: frontend
+    risk: low
+    preconditions: leaders route loaded
+    expected: leaders grid container is visible
+    testRefs:
+      - spec: e2e/optional/resilience.spec.js
+        title: "[E2E-LEADERS-001]"
+        tag: "@optional"
+    enabled: true
+    since: "2026-02-25"
+    notes: shell availability
+
+  - id: E2E-COMPARE-002
+    title: compare input clear keeps button disabled
+    tier: optional
+    area: compare
+    owner: frontend
+    risk: low
+    preconditions: compare route loaded
+    expected: compare button remains disabled when no selected players
+    testRefs:
+      - spec: e2e/optional/resilience.spec.js
+        title: "[E2E-COMPARE-002]"
+        tag: "@optional"
+    enabled: true
+    since: "2026-02-25"
+    notes: guard state
+
+  - id: E2E-ROUTE-002
+    title: repeated hash transitions keep app responsive
+    tier: optional
+    area: route
+    owner: frontend
+    risk: low
+    preconditions: app route transitions are triggered in sequence
+    expected: final schedule view is visible
+    testRefs:
+      - spec: e2e/optional/resilience.spec.js
+        title: "[E2E-ROUTE-002]"
+        tag: "@optional"
+    enabled: true
+    since: "2026-02-25"
+    notes: transition resilience
+
+  - id: E2E-RESILIENCE-001
+    title: reload preserves bootstrap path
+    tier: optional
+    area: resilience
+    owner: frontend
+    risk: low
+    preconditions: players route loaded before reload
+    expected: players view visible after reload and init
+    testRefs:
+      - spec: e2e/optional/resilience.spec.js
+        title: "[E2E-RESILIENCE-001]"
+        tag: "@optional"
+    enabled: true
+    since: "2026-02-25"
+    notes: reload handling

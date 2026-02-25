@@ -4,6 +4,8 @@ on:
   push:
     branches: ["main"]
   pull_request:
+  schedule:
+    - cron: "0 20 * * *"
   workflow_dispatch:
 
 jobs:
@@ -48,3 +50,170 @@ jobs:
 
       - name: Run frontend tests with coverage gate
         run: npm run test:front:coverage
+
+  e2e-required:
+    name: E2E Required (PR Gate)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Python dependencies
+        run: uv sync --group dev
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run required E2E with coverage gate
+        run: npm run test:e2e:coverage:required
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-required-report
+          path: |
+            playwright-report/
+            test-results/
+            reports/e2e-coverage-required.json
+            reports/e2e-coverage-required.md
+            reports/playwright-required.json
+          if-no-files-found: ignore
+
+      - name: Append coverage summary
+        if: always()
+        run: |
+          if [ -f reports/e2e-coverage-required.md ]; then
+            cat reports/e2e-coverage-required.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  e2e-recommended:
+    name: E2E Recommended (Main Monitor)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Python dependencies
+        run: uv sync --group dev
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run recommended E2E coverage report
+        continue-on-error: true
+        run: npm run test:e2e:coverage:recommended
+
+      - name: Upload recommended report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-recommended-report
+          path: |
+            playwright-report/
+            test-results/
+            reports/e2e-coverage-recommended.json
+            reports/e2e-coverage-recommended.md
+            reports/playwright-recommended.json
+          if-no-files-found: ignore
+
+      - name: Append coverage summary
+        if: always()
+        run: |
+          if [ -f reports/e2e-coverage-recommended.md ]; then
+            cat reports/e2e-coverage-recommended.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  e2e-optional:
+    name: E2E Optional (Nightly Monitor)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Python dependencies
+        run: uv sync --group dev
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run optional E2E coverage report
+        continue-on-error: true
+        run: npm run test:e2e:coverage:optional
+
+      - name: Upload optional report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-optional-report
+          path: |
+            playwright-report/
+            test-results/
+            reports/e2e-coverage-optional.json
+            reports/e2e-coverage-optional.md
+            reports/playwright-optional.json
+          if-no-files-found: ignore
+
+      - name: Append coverage summary
+        if: always()
+        run: |
+          if [ -f reports/e2e-coverage-optional.md ]; then
+            cat reports/e2e-coverage-optional.md >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -40,4 +40,6 @@
 
 - `uv run pytest -q`
 - `npm run test:front`
+- `npm run test:e2e:coverage:required`
+- `reports/e2e-coverage-required.md` 확인 (required tier >= 90%)
 - `uv run pre-commit run --all-files`

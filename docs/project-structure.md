@@ -40,13 +40,14 @@
 
 활성 참조 문서만 `docs/` 루트에 유지한다.
 
-| 파일                      | 역할                               |
-| ------------------------- | ---------------------------------- |
-| `project-roadmap.md`      | 프로젝트 전체 로드맵 + 진행 상태   |
-| `project-structure.md`    | 디렉터리 책임/규칙 (이 파일)       |
-| `data-sources.md`         | WKBL 데이터 수집 엔드포인트/스키마 |
-| `sql-query-contract.md`   | API ↔ db.js SQL 쿼리 계약          |
-| `regression-checklist.md` | 모바일/테이블 반응형 QA 체크리스트 |
+| 파일                        | 역할                               |
+| --------------------------- | ---------------------------------- |
+| `project-roadmap.md`        | 프로젝트 전체 로드맵 + 진행 상태   |
+| `project-structure.md`      | 디렉터리 책임/규칙 (이 파일)       |
+| `data-sources.md`           | WKBL 데이터 수집 엔드포인트/스키마 |
+| `sql-query-contract.md`     | API ↔ db.js SQL 쿼리 계약          |
+| `regression-checklist.md`   | 모바일/테이블 반응형 QA 체크리스트 |
+| `e2e-coverage-guideline.md` | E2E 시나리오/커버리지 운영 가이드  |
 
 완료된 계획 문서는 `docs/complete/`에 보관:
 

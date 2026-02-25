@@ -511,3 +511,10 @@ dist
 .svelte-kit
 
 # End of https://www.toptal.com/developers/gitignore/api/node
+
+# Playwright artifacts
+playwright-report/
+test-results/
+reports/e2e-coverage*.json
+reports/e2e-coverage*.md
+reports/playwright-*.json

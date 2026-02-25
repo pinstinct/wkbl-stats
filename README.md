@@ -121,6 +121,18 @@ uv run pytest -q
 npm ci
 npm run test:front
 
+# 브라우저 E2E (Playwright)
+# (최초 1회 브라우저 설치 필요)
+npx playwright install --with-deps chromium
+npm run test:e2e:required
+npm run test:e2e:recommended
+npm run test:e2e:optional
+
+# 티어별 시나리오 커버리지 리포트
+npm run test:e2e:coverage:required
+npm run test:e2e:coverage:recommended
+npm run test:e2e:coverage:optional
+
 # 백엔드 커버리지 게이트 (95%)
 uv run pytest --cov=tools --cov=server --cov-report=term-missing --cov-fail-under=95
 
@@ -220,10 +232,12 @@ GitHub Pages로 정적 파일 호스팅 (sql.js로 브라우저에서 SQLite 쿼
 ```
 .
 ├── index.html               # SPA 메인 페이지 (모든 뷰 템플릿)
-├── package.json             # 프론트 테스트(vitest) 설정
+├── package.json             # 프론트 테스트(vitest/e2e) 설정
+├── playwright.config.js     # Playwright E2E 설정
 ├── server.py                # FastAPI 서버 (로컬/Render)
 ├── pyproject.toml           # 프로젝트 의존성
 ├── uv.lock                  # 의존성 잠금
+├── e2e/                     # Playwright E2E (required/recommended/optional + scenario matrix)
 ├── src/
 │   ├── app.js               # 프론트엔드 엔트리 (라우팅/페이지 orchestration)
 │   ├── db.js                # 브라우저 SQLite (sql.js 래퍼)

@@ -33,6 +33,9 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] `#/games/{id}` 예정 경기 화면에서 `선발` 배지 선수명 클릭 시 `#/predict/{playerId}`로 이동하도록 링크 라우팅 개선
 - [x] `#/predict/{playerId}` 딥링크 진입 시 해당 선수 예측 결과 자동 로드
 - [x] 회귀 테스트 추가: 예정 경기 선발 링크(`predict`) / 완료 경기 링크(`players`) 분기 검증
+- [x] Playwright E2E를 `required/recommended/optional` 3티어로 확장
+- [x] 시나리오 매트릭스(`e2e/scenarios/scenario-matrix.yaml`) + 커버리지 리포터(`tools/e2e_coverage_report.py`) 도입
+- [x] CI 분리 운영: PR(required >= 90% 게이트), main(recommended 모니터링), schedule(optional 모니터링)
 
 ---
 
