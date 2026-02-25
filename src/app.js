@@ -349,7 +349,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
           await loadSchedulePage();
           break;
         case "loadPredictPage":
-          await loadPredictPage();
+          await loadPredictPage(id);
           break;
         default:
           await loadMainPage();
@@ -3505,7 +3505,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
   let predictTrendChart = null;
   let predictSelectedPlayer = null;
 
-  async function loadPredictPage() {
+  async function loadPredictPage(playerId = null) {
     populateSeasonSelect($("predictSeasonSelect"));
 
     // Reset state
@@ -3513,6 +3513,20 @@ import { hideSkeleton } from "./ui/skeleton.js";
     $("predictResult").style.display = "none";
     $("predictSearchInput").value = "";
     $("predictSuggestions").innerHTML = "";
+
+    if (!playerId) return;
+
+    try {
+      const player = await fetchPlayerDetail(playerId);
+      await selectPredictPlayer(playerId, player.name || "");
+    } catch (error) {
+      console.warn("Failed to load deep-linked prediction:", error);
+      $("predictResult").style.display = "block";
+      $("predictPlayerInfo").innerHTML =
+        '<div class="predict-error">선수 정보를 불러오지 못했습니다</div>';
+      $("predictCards").innerHTML = "";
+      $("predictFactors").innerHTML = "";
+    }
   }
 
   async function handlePredictSearch(query) {

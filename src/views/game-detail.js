@@ -57,6 +57,12 @@ export function renderBoxscoreRows({
   formatPct,
   formatSigned,
 }) {
+  const isUpcomingGame = game.home_score == null || game.away_score == null;
+  const getPlayerHref = (playerId, pred) => {
+    if (isUpcomingGame && pred?.is_starter) return `#/predict/${playerId}`;
+    return `#/players/${playerId}`;
+  };
+
   function renderPlayerRow(p) {
     const pred = predictionMap[p.player_id];
     const pm = p.plus_minus_game;
@@ -76,7 +82,7 @@ export function renderBoxscoreRows({
     return `
       <tr class="${pred?.is_starter ? "starter-row" : ""}">
         <td>
-          <a href="#/players/${p.player_id}">${p.player_name}</a>
+          <a href="${getPlayerHref(p.player_id, pred)}">${p.player_name}</a>
           ${pred?.is_starter ? '<span class="starter-badge">선발</span>' : ""}
         </td>
         <td>${formatNumber(p.minutes, 0)}</td>
@@ -100,7 +106,7 @@ export function renderBoxscoreRows({
     return `
       <tr class="starter-row dnp-row">
         <td>
-          <a href="#/players/${pred.player_id}">${pred.player_name || pred.player_id}</a>
+          <a href="${getPlayerHref(pred.player_id, pred)}">${pred.player_name || pred.player_id}</a>
           <span class="starter-badge">선발</span>
           <span class="dnp-badge">미출장</span>
         </td>
