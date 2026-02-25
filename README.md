@@ -16,7 +16,7 @@ WKBL(한국여자농구연맹) 통계를 Basketball Reference 스타일로 보�
 - 팀 순위표 (승률 차트, 홈/원정 기록)
 - 경기 박스스코어 (예측 vs 실제 비교, 컬럼 클릭 정렬)
 - **게임 슛차트 대시보드** (`#/games/{id}`: Shotcharts/Shotzones 탭, 팀→선수→성공-실패→쿼터(OT 포함) 필터, 팀-선수 reconcile, 존별/쿼터별 차트, PNG 저장, WKBL 좌표계 코트 오버레이/고정 비율 렌더, 3점 라인 조인/코너 위치 보정)
-- 부문별 리더보드 (득점/리바운드/어시스트/스틸/블록/PER/GmSc/TS%/PIR/WS)
+- 부문별 리더보드 (득점/리바운드/어시스트/스틸/블록/GmSc/TS%/3PAr/FTr/PIR/PER/OWS/DWS/WS)
 - **선수 비교 도구** (최대 4명 비교, 레이더/바 차트)
 - **전역 검색** (Ctrl+K 단축키, 선수/팀 통합 검색)
 - 반응형 디자인 (모바일/태블릿/데스크톱)
@@ -63,6 +63,8 @@ WKBL(한국여자농구연맹) 통계를 Basketball Reference 스타일로 보�
 | -------- | ------------------------ | -------------------------------------------------------------------------------------------------------- |
 | TS%      | True Shooting %          | `PTS / (2 × (FGA + 0.44 × FTA))`                                                                         |
 | eFG%     | Effective FG%            | `(FGM + 0.5 × 3PM) / FGA`                                                                                |
+| 3PAr     | 3점 시도 비율            | `3PA / FGA`                                                                                              |
+| FTr      | 자유투 시도 비율         | `FTA / FGA`                                                                                              |
 | AST/TO   | 어시스트/턴오버 비율     | `AST / TO`                                                                                               |
 | PIR      | Performance Index Rating | `(PTS + REB + AST + STL + BLK - TOV - (FGA - FGM) - (FTA - FTM)) / GP`                                   |
 | PTS/36   | 36분당 환산 득점         | `PTS × (36 / MIN)`                                                                                       |
@@ -96,6 +98,7 @@ WKBL(한국여자농구연맹) 통계를 Basketball Reference 스타일로 보�
 참고:
 
 - ORtg/DRtg/PER/WS는 Basketball Reference 방법론을 참고한 구현이며, 일부 항목은 WKBL 데이터 구조(40분 경기, 리그 규모)에 맞춘 근사/보정이 적용되어 있다.
+- Possessions는 `simple`(기본)과 `bbr_standard`(선택) 전략을 지원한다. 현재 기본값은 `simple`이다.
 - Plus/Minus 해석: 시즌 간/팀 간 비교 정확성은 `+/-/100`이 높고, 직관적 경기 평균 영향은 `+/-/G`가 읽기 쉽다.
 
 ## 로컬 실행

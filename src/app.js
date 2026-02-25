@@ -92,8 +92,12 @@ import { hideSkeleton } from "./ui/skeleton.js";
     { key: "blk", label: "블록", unit: "BPG" },
     { key: "game_score", label: "GmSc", unit: "per game" },
     { key: "ts_pct", label: "TS%", unit: "" },
+    { key: "tpar", label: "3PAr", unit: "" },
+    { key: "ftr", label: "FTr", unit: "" },
     { key: "pir", label: "PIR", unit: "per game" },
     { key: "per", label: "PER", unit: "" },
+    { key: "ows", label: "OWS", unit: "" },
+    { key: "dws", label: "DWS", unit: "" },
     { key: "ws", label: "WS", unit: "" },
   ];
 
@@ -994,6 +998,18 @@ import { hideSkeleton } from "./ui/skeleton.js";
       desc: "어시스트/턴오버 비율. 높을수록 실수 대비 플레이메이킹이 좋습니다.",
     },
     {
+      key: "tpar",
+      label: "3PAr",
+      format: "pct",
+      desc: "야투 시도 대비 3점 시도 비율(3PA/FGA). 높을수록 3점 비중이 큽니다.",
+    },
+    {
+      key: "ftr",
+      label: "FTr",
+      format: "pct",
+      desc: "야투 시도 대비 자유투 시도 비율(FTA/FGA). 높을수록 파울 유도 빈도가 높습니다.",
+    },
+    {
       key: "pir",
       label: "PIR",
       format: "number",
@@ -1109,6 +1125,24 @@ import { hideSkeleton } from "./ui/skeleton.js";
       label: "WS",
       format: "number",
       desc: "팀 승리에 대한 선수 기여도를 승수 단위로 환산한 지표입니다.",
+    },
+    {
+      key: "ows",
+      label: "OWS",
+      format: "number",
+      desc: "공격 기여 기반 Win Shares. 높을수록 공격에서의 승리 기여가 큽니다.",
+    },
+    {
+      key: "dws",
+      label: "DWS",
+      format: "number",
+      desc: "수비 기여 기반 Win Shares. 높을수록 수비에서의 승리 기여가 큽니다.",
+    },
+    {
+      key: "ws_40",
+      label: "WS/40",
+      format: "number",
+      desc: "40분 기준 Win Shares 환산값. 출전 시간 차이를 보정해 비교합니다.",
     },
   ];
 
@@ -3058,10 +3092,16 @@ import { hideSkeleton } from "./ui/skeleton.js";
     { key: "ftp", label: "FT%", format: "pct" },
     { key: "ts_pct", label: "TS%", format: "pct" },
     { key: "efg_pct", label: "eFG%", format: "pct" },
+    { key: "tpar", label: "3PAr", format: "pct" },
+    { key: "ftr", label: "FTr", format: "pct" },
     { key: "pir", label: "PIR", format: "number" },
     { key: "court_margin", label: "코트마진", format: "signed" },
     { key: "plus_minus_per_game", label: "+/-/G", format: "signed" },
     { key: "plus_minus_per100", label: "+/-/100", format: "signed" },
+    { key: "ows", label: "OWS", format: "number" },
+    { key: "dws", label: "DWS", format: "number" },
+    { key: "ws", label: "WS", format: "number" },
+    { key: "ws_40", label: "WS/40", format: "number" },
   ];
 
   const COMPARE_BAR_STATS = [
@@ -3395,6 +3435,12 @@ import { hideSkeleton } from "./ui/skeleton.js";
                   const sign = value >= 0 ? "+" : "";
                   formatted = sign + formatNumber(value);
                 }
+              } else if (["ws", "ows", "dws"].includes(stat.key)) {
+                formatted = formatNumber(value, 2);
+              } else if (stat.key === "ws_40") {
+                formatted = formatNumber(value, 3);
+              } else if (stat.key === "ast_to") {
+                formatted = formatNumber(value, 2);
               } else {
                 formatted = formatNumber(value);
               }

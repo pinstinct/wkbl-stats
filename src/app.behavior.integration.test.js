@@ -1519,6 +1519,88 @@ describe("app behavior integration", () => {
     expect(deps.ui.resolveRouteTarget).toHaveBeenCalled();
   });
 
+  it("excludes WS/40 from leaders categories and renders WS-family compare values", async () => {
+    const { hooks, deps } = createHarness();
+    await hooks.initLocalDb();
+
+    // Leaders page should no longer expose WS/40 as a card category.
+    expect(hooks.LEADER_CATEGORIES.some((cat) => cat.key === "ws_40")).toBe(
+      false,
+    );
+
+    // Compare table should render OWS/DWS/WS/WS40 as numeric values (not '-').
+    deps.dataClient.getPlayerComparison.mockResolvedValueOnce([
+      {
+        id: "p1",
+        name: "김가드",
+        pts: 18.3,
+        reb: 4.8,
+        ast: 6.1,
+        stl: 1.4,
+        blk: 0.3,
+        tov: 2.2,
+        min: 31.2,
+        gp: 20,
+        fgp: 0.46,
+        tpp: 0.35,
+        ftp: 0.84,
+        ts_pct: 0.57,
+        efg_pct: 0.52,
+        tpar: 0.31,
+        ftr: 0.24,
+        pir: 19.5,
+        court_margin: 2.4,
+        plus_minus_per_game: 3.1,
+        plus_minus_per100: 5.8,
+        ows: 1.23,
+        dws: 0.98,
+        ws: 2.21,
+        ws_40: 0.087,
+      },
+      {
+        id: "p2",
+        name: "박포워드",
+        pts: 17.1,
+        reb: 7.2,
+        ast: 3.4,
+        stl: 1.0,
+        blk: 0.9,
+        tov: 1.9,
+        min: 30.1,
+        gp: 20,
+        fgp: 0.44,
+        tpp: 0.32,
+        ftp: 0.8,
+        ts_pct: 0.55,
+        efg_pct: 0.5,
+        tpar: 0.29,
+        ftr: 0.22,
+        pir: 18.2,
+        court_margin: -0.4,
+        plus_minus_per_game: -0.8,
+        plus_minus_per100: -1.5,
+        ows: 0.77,
+        dws: 0.65,
+        ws: 1.42,
+        ws_40: 0.063,
+      },
+    ]);
+
+    await hooks.loadComparePage();
+    hooks.addComparePlayer({ id: "p1", name: "김가드" });
+    hooks.addComparePlayer({ id: "p2", name: "박포워드" });
+    await hooks.executeComparison();
+
+    const bodyHtml = document.getElementById("compareTableBody").innerHTML;
+    expect(bodyHtml).toContain("OWS");
+    expect(bodyHtml).toContain("DWS");
+    expect(bodyHtml).toContain("WS/40");
+    expect(bodyHtml).toContain("1.23");
+    expect(bodyHtml).toContain("0.98");
+    expect(bodyHtml).toContain("2.21");
+    expect(bodyHtml).toContain("0.087");
+  });
+
   it("covers fallback/error branches without crashing the app shell", async () => {
     const { hooks, deps, wkblDb } = createHarness();
     await hooks.initLocalDb();

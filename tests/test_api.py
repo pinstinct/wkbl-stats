@@ -668,7 +668,18 @@ class TestLeadersEndpoint:
 
     def test_get_leaders_advanced_categories(self, client, sample_season):
         """Test getting leaders for new advanced stat categories."""
-        for category in ["game_score", "ts_pct", "pir", "per"]:
+        for category in [
+            "game_score",
+            "ts_pct",
+            "tpar",
+            "ftr",
+            "pir",
+            "per",
+            "ows",
+            "dws",
+            "ws",
+            "ws_40",
+        ]:
             response = client.get(
                 f"/leaders?season={sample_season['season_id']}&category={category}"
             )
@@ -697,9 +708,14 @@ class TestLeadersEndpoint:
         for key in [
             "game_score",
             "ts_pct",
+            "tpar",
+            "ftr",
             "pir",
             "per",
+            "ows",
+            "dws",
             "ws",
+            "ws_40",
         ]:
             assert key in categories, f"Missing advanced category: {key}"
             assert isinstance(categories[key], list)

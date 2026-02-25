@@ -336,6 +336,54 @@ scenarios:
     since: "2026-02-25"
     notes: deep link shell
 
+  - id: E2E-LEADERS-002
+    title: leaders excludes WS/40 card
+    tier: recommended
+    area: leaders
+    owner: frontend
+    risk: medium
+    preconditions: leaders route loaded
+    expected: leaders cards do not include WS/40
+    testRefs:
+      - spec: e2e/recommended/metrics-quality.spec.js
+        title: "[E2E-LEADERS-002]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-25"
+    notes: metric-card curation guard
+
+  - id: E2E-COMPARE-003
+    title: compare shows WS family values
+    tier: recommended
+    area: compare
+    owner: frontend
+    risk: high
+    preconditions: compare route loaded and two players selected
+    expected: OWS, DWS, WS, WS/40 rows render numeric values (not '-')
+    testRefs:
+      - spec: e2e/recommended/metrics-quality.spec.js
+        title: "[E2E-COMPARE-003]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-25"
+    notes: regression guard for missing team/league context
+
+  - id: E2E-PLAYERS-003
+    title: advanced stats avoid extreme zero collapse
+    tier: recommended
+    area: players
+    owner: frontend
+    risk: high
+    preconditions: players advanced tab loaded
+    expected: WS family columns are not displayed as >=90% zero values
+    testRefs:
+      - spec: e2e/recommended/metrics-quality.spec.js
+        title: "[E2E-PLAYERS-003]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-25"
+    notes: display precision quality gate
+
   - id: E2E-MOBILE-001
     title: mobile nav toggle opens menu
     tier: optional

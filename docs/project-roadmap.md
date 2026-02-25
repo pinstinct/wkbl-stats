@@ -443,24 +443,32 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 #### 실행 계획
 
 1. P0 (즉시): PER 계산식 단일화 + 프론트/백엔드 값 정합성 복구
-   - [ ] `src/db.js:computePER()`를 `tools/stats.py:_compute_per()`와 동일 수식으로 정렬
-   - [ ] `tools/stats.py:_compute_per()`에서 BBR 공식 대비 차이 항(`PF penalty`, `lg_aPER`) 재검토
-   - [ ] 동일 입력 fixture에 대해 API/정적 계산 `PER` 오차 임계값(`abs <= 0.1`) 회귀 테스트 추가
+   - [x] `src/db.js:computePER()`를 `tools/stats.py:_compute_per()`와 동일 수식으로 정렬
+   - [x] `tools/stats.py:_compute_per()`에서 BBR 공식 대비 차이 항(`PF penalty`, `lg_aPER`) 재검토
+   - [x] 동일 입력 fixture에 대해 API/정적 계산 `PER` 오차 임계값(`abs <= 0.1`) 회귀 테스트 추가
 
 2. P1 (단기): Possessions 공식을 BBR 표준식으로 전환 가능한 구조로 분리
-   - [ ] `estimate_possessions()`를 단순식/표준식 선택 가능한 전략 함수로 분리
+   - [x] `estimate_possessions()`를 단순식/표준식 선택 가능한 전략 함수로 분리
    - [ ] `Pace`, `ORtg/DRtg`, Rate 계열에 미치는 영향 범위 측정(시즌 전체 diff 리포트)
    - [ ] 리그 규모(6팀, 40분) 기준으로 표준식 채택 또는 하이브리드 유지 결정
 
 3. P2 (단기): Win Shares 보정
    - [ ] `marginal_ppw` 계산을 BBR 문서식 기준으로 재검증
-   - [ ] `OWS`, `DWS`, `WS`, `WS/40` 분포(상위/하위/평균) sanity check 및 회귀 테스트 추가
-   - [ ] API/정적 계산 동치성 테스트 추가
+   - [x] `OWS`, `DWS`, `WS`, `WS/40` 분포/표시 sanity check 및 회귀 테스트 추가
+   - [x] API/정적 계산 동치성 테스트 추가 (compare 경로 포함)
 
 4. P3 (중기): BBR 주요 누락 지표 추가
-   - [ ] `3PAr`, `FTr` 계산/노출 (players, detail, compare, leaders)
-   - [ ] `OWS`, `DWS`, `WS/40` UI 및 리더보드 카테고리 확장
-   - [ ] 문서(`README.md`, `docs/data-sources.md`)에 공식/해석/주의사항 동기화
+   - [x] `3PAr`, `FTr` 계산/노출 (players, detail, compare, leaders)
+   - [x] `OWS`, `DWS`, `WS`, `WS/40` UI 노출 확장 (players/detail/compare)
+   - [x] 리더보드에서 `WS/40` 제거 (저표본 과대노출 방지)
+   - [x] 문서(`README.md`, `docs/data-sources.md`)에 공식/해석/주의사항 동기화
+
+#### 후속 품질 보강 (2026-02-25)
+
+- [x] 수치 표현 정밀도 조정: `OWS/DWS/WS` 2자리, `WS/40` 3자리, `AST/TO` 2자리
+- [x] Compare 페이지 `OWS/DWS/WS/WS40` 지표가 `-`로 노출되던 정적 계산 경로 수정
+- [x] Leaders 페이지에서 `WS/40` 카드 제거
+- [x] E2E 추가: `E2E-LEADERS-002`, `E2E-COMPARE-003`, `E2E-PLAYERS-003`
 
 5. P4 (중장기): BPM/VORP 도입 타당성 검토
    - [ ] NBA 계수 직접 이식 대신 WKBL 데이터 기반 보정(또는 비도입) 방침 수립

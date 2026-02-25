@@ -14,7 +14,8 @@ export function filterPlayers(
 
 export function sortPlayers(players, { key, dir = "desc" }) {
   const isPctKey =
-    String(key || "").includes("pct") || ["fgp", "tpp", "ftp"].includes(key);
+    String(key || "").includes("pct") ||
+    ["fgp", "tpp", "ftp", "tpar", "ftr"].includes(key);
   const normalize = (value) => {
     const numeric = Number(value ?? 0);
     if (!isPctKey) return numeric;

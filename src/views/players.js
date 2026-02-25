@@ -15,6 +15,8 @@ const BASIC_THEAD_HTML = `<tr>
   <th data-key="ftp" class="hide-tablet">FT%</th>
   <th data-key="ts_pct" class="hide-mobile" title="True Shooting %">TS%</th>
   <th data-key="efg_pct" class="hide-mobile" title="Effective FG%">eFG%</th>
+  <th data-key="tpar" class="hide-tablet" title="3PA/FGA">3PAr</th>
+  <th data-key="ftr" class="hide-tablet" title="FTA/FGA">FTr</th>
   <th data-key="ast_to" class="hide-tablet" title="Assist/Turnover Ratio">AST/TO</th>
   <th data-key="pir" class="hide-tablet" title="Performance Index Rating">PIR</th>
   <th data-key="pts36" class="hide-tablet" title="Points per 36 min">PTS/36</th>
@@ -40,7 +42,10 @@ const ADVANCED_THEAD_HTML = `<tr>
   <th data-key="ast_pct" title="Assist %">AST%</th>
   <th data-key="stl_pct" class="hide-mobile" title="Steal %">STL%</th>
   <th data-key="blk_pct" class="hide-mobile" title="Block %">BLK%</th>
+  <th data-key="ows" class="hide-mobile" title="Offensive Win Shares">OWS</th>
+  <th data-key="dws" class="hide-mobile" title="Defensive Win Shares">DWS</th>
   <th data-key="ws" title="Win Shares">WS</th>
+  <th data-key="ws_40" class="hide-mobile" title="Win Shares per 40 minutes">WS/40</th>
   <th data-key="plus_minus_per_game" title="Plus/Minus per Game">+/-/G</th>
   <th data-key="plus_minus_per100" title="Plus/Minus per 100 possessions">+/-/100</th>
 </tr>`;
@@ -79,7 +84,10 @@ export function renderPlayersTable({
           <td>${formatNumber(player.ast_pct)}</td>
           <td class="hide-mobile">${formatNumber(player.stl_pct)}</td>
           <td class="hide-mobile">${formatNumber(player.blk_pct)}</td>
-          <td>${formatNumber(player.ws)}</td>
+          <td class="hide-mobile">${formatNumber(player.ows, 2)}</td>
+          <td class="hide-mobile">${formatNumber(player.dws, 2)}</td>
+          <td>${formatNumber(player.ws, 2)}</td>
+          <td class="hide-mobile">${formatNumber(player.ws_40, 3)}</td>
           <td>${formatSigned(player.plus_minus_per_game)}</td>
           <td>${formatSigned(player.plus_minus_per100)}</td>
         </tr>
@@ -108,7 +116,9 @@ export function renderPlayersTable({
           <td class="hide-tablet">${formatPct(player.ftp)}</td>
           <td class="hide-mobile">${formatPct(player.ts_pct)}</td>
           <td class="hide-mobile">${formatPct(player.efg_pct)}</td>
-          <td class="hide-tablet">${formatNumber(player.ast_to)}</td>
+          <td class="hide-tablet">${formatPct(player.tpar)}</td>
+          <td class="hide-tablet">${formatPct(player.ftr)}</td>
+          <td class="hide-tablet">${formatNumber(player.ast_to, 2)}</td>
           <td class="hide-tablet">${formatNumber(player.pir)}</td>
           <td class="hide-tablet">${formatNumber(player.pts36)}</td>
           <td class="hide-tablet">${formatNumber(player.reb36)}</td>
@@ -178,6 +188,8 @@ export function renderPlayerSummaryCard({
       value = formatPct(rawValue);
     } else if (stat.format === "signed") {
       value = formatSigned(rawValue);
+    } else if (stat.key === "ast_to") {
+      value = formatNumber(rawValue, 2);
     } else {
       value = formatNumber(rawValue);
     }
@@ -197,6 +209,10 @@ export function renderPlayerSummaryCard({
         value = "-";
       } else if (stat.format === "signed") {
         value = formatSigned(rawValue);
+      } else if (stat.key === "ws_40") {
+        value = formatNumber(rawValue, 3);
+      } else if (["ws", "ows", "dws"].includes(stat.key)) {
+        value = formatNumber(rawValue, 2);
       } else {
         value = formatNumber(rawValue);
       }

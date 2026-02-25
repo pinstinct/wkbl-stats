@@ -49,7 +49,9 @@ export function renderPlayerSeasonTable({
           <td>${formatPct(s.ftp)}</td>
           <td>${formatPct(s.ts_pct)}</td>
           <td>${formatPct(s.efg_pct)}</td>
-          <td>${formatNumber(s.ast_to)}</td>
+          <td>${formatPct(s.tpar)}</td>
+          <td>${formatPct(s.ftr)}</td>
+          <td>${formatNumber(s.ast_to, 2)}</td>
           <td>${formatNumber(s.pir)}</td>
           <td>${formatNumber(s.pts36)}</td>
           <td>${formatNumber(s.reb36)}</td>
@@ -91,6 +93,18 @@ export function renderPlayerAdvancedStats({
       key: "tov_pct",
       label: "TOV%",
       desc: "공격 점유 대비 턴오버 비율. 낮을수록 좋습니다.",
+      signed: false,
+    },
+    {
+      key: "tpar",
+      label: "3PAr",
+      desc: "야투 시도 대비 3점 시도 비율(3PA/FGA). 높을수록 외곽 비중이 큽니다.",
+      signed: false,
+    },
+    {
+      key: "ftr",
+      label: "FTr",
+      desc: "야투 시도 대비 자유투 시도 비율(FTA/FGA). 높을수록 파울 유도가 많습니다.",
       signed: false,
     },
     {
@@ -165,6 +179,24 @@ export function renderPlayerAdvancedStats({
       desc: "팀 승리에 대한 선수 기여도를 승수 단위로 환산한 지표입니다.",
       signed: false,
     },
+    {
+      key: "ows",
+      label: "OWS",
+      desc: "공격 기여 기반 Win Shares.",
+      signed: false,
+    },
+    {
+      key: "dws",
+      label: "DWS",
+      desc: "수비 기여 기반 Win Shares.",
+      signed: false,
+    },
+    {
+      key: "ws_40",
+      label: "WS/40",
+      desc: "40분 기준 Win Shares 환산값.",
+      signed: false,
+    },
   ];
 
   container.innerHTML = stats
@@ -175,7 +207,13 @@ export function renderPlayerAdvancedStats({
           ? "-"
           : stat.signed
             ? formatSigned(raw)
-            : formatNumber(raw);
+            : stat.key === "ws_40"
+              ? formatNumber(raw, 3)
+              : ["ws", "ows", "dws"].includes(stat.key)
+                ? formatNumber(raw, 2)
+                : stat.key === "ast_to"
+                  ? formatNumber(raw, 2)
+                  : formatNumber(raw);
       return `<div class="stat-card stat-card--advanced" title="${stat.desc}" data-tooltip="${stat.desc}"><span>${stat.label}</span><strong>${value}</strong></div>`;
     })
     .join("");

@@ -374,10 +374,85 @@ const WKBLDatabase = (function () {
   }
 
   /**
-   * Estimate possessions: FGA + 0.44*FTA + TOV - OREB
+   * Estimate possessions with selectable strategy.
+   * - simple: FGA + 0.44*FTA + TOV - OREB
+   * - bbr_standard: BBR-style team possession estimator
    */
-  function estimatePossessions(fga, fta, tov, oreb) {
+  function estimatePossessions(fga, fta, tov, oreb, options = {}) {
+    const { strategy = "simple" } = options;
+    if (strategy === "bbr_standard") {
+      const {
+        fgm,
+        opp_fga,
+        opp_fta,
+        opp_tov,
+        opp_oreb,
+        opp_fgm,
+        opp_dreb,
+        team_dreb,
+      } = options;
+      if (
+        fgm != null &&
+        opp_fga != null &&
+        opp_fta != null &&
+        opp_tov != null &&
+        opp_oreb != null &&
+        opp_fgm != null &&
+        opp_dreb != null &&
+        team_dreb != null
+      ) {
+        const teamOrbPct = safeDiv(oreb, oreb + opp_dreb);
+        const oppOrbPct = safeDiv(opp_oreb, opp_oreb + team_dreb);
+        const teamTerm =
+          fga + 0.4 * fta - 1.07 * teamOrbPct * (fga - fgm) + tov;
+        const oppTerm =
+          opp_fga +
+          0.4 * opp_fta -
+          1.07 * oppOrbPct * (opp_fga - opp_fgm) +
+          opp_tov;
+        return Math.round(0.5 * (teamTerm + oppTerm) * 10) / 10;
+      }
+    }
     return fga + 0.44 * fta + tov - oreb;
+  }
+
+  function estimateTeamAndOppPossessions(ts) {
+    const strategy = ts.poss_strategy || "simple";
+    const teamPoss = estimatePossessions(
+      ts.team_fga,
+      ts.team_fta,
+      ts.team_tov,
+      ts.team_oreb,
+      {
+        strategy,
+        fgm: ts.team_fgm,
+        opp_fga: ts.opp_fga,
+        opp_fta: ts.opp_fta,
+        opp_tov: ts.opp_tov,
+        opp_oreb: ts.opp_oreb,
+        opp_fgm: ts.opp_fgm,
+        opp_dreb: ts.opp_dreb,
+        team_dreb: ts.team_dreb,
+      },
+    );
+    const oppPoss = estimatePossessions(
+      ts.opp_fga,
+      ts.opp_fta,
+      ts.opp_tov,
+      ts.opp_oreb,
+      {
+        strategy,
+        fgm: ts.opp_fgm,
+        opp_fga: ts.team_fga,
+        opp_fta: ts.team_fta,
+        opp_tov: ts.team_tov,
+        opp_oreb: ts.team_oreb,
+        opp_fgm: ts.team_fgm,
+        opp_dreb: ts.team_dreb,
+        team_dreb: ts.opp_dreb,
+      },
+    );
+    return { teamPoss, oppPoss };
   }
 
   function safeDiv(n, d) {
@@ -480,11 +555,23 @@ const WKBLDatabase = (function () {
   }
 
   function computePlayerDefRtg({ totals, ts, totalMin }) {
+    const strategy = ts.poss_strategy || "simple";
     const oppPoss = estimatePossessions(
       ts.opp_fga || 0,
       ts.opp_fta || 0,
       ts.opp_tov || 0,
       ts.opp_oreb || 0,
+      {
+        strategy,
+        fgm: ts.opp_fgm,
+        opp_fga: ts.team_fga,
+        opp_fta: ts.team_fta,
+        opp_tov: ts.team_tov,
+        opp_oreb: ts.team_oreb,
+        opp_fgm: ts.team_fgm,
+        opp_dreb: ts.team_dreb,
+        team_dreb: ts.opp_dreb,
+      },
     );
     if (oppPoss <= 0) return null;
 
@@ -591,9 +678,9 @@ const WKBLDatabase = (function () {
     const stlTotal = (d.stl || 0) * gp;
     const blkTotal = (d.blk || 0) * gp;
     const tovTotal = (d.tov || 0) * gp;
-    const pfTotal = (d.avg_pf || 0) * gp;
-    const orebTotal = (d.avg_off_reb || 0) * gp;
-    const drebTotal = (d.avg_def_reb || 0) * gp;
+    const pfTotal = totalFromRow(d, "total_pf", "avg_pf");
+    const orebTotal = totalFromRow(d, "total_off_reb", "avg_off_reb");
+    const drebTotal = totalFromRow(d, "total_def_reb", "avg_def_reb");
 
     const lgMin = lg.lg_min || 1;
     const lgPts = lg.lg_pts || 1;
@@ -607,15 +694,24 @@ const WKBLDatabase = (function () {
     const lgTov = lg.lg_tov || 0;
     const lgPf = lg.lg_pf || 1;
 
-    const factor = 2 / 3 - (0.5 * (lgAst / lgFgm)) / (2 * (lgFgm / lgFtm));
-    const vop = lgPts / (lgFga - lgOreb + lgTov + 0.44 * lgFta);
-    const drbPct = (lgReb - lgOreb) / lgReb;
+    const factor =
+      lgFtm > 0 && lgFgm > 0 && lgFga > 0
+        ? 2 / 3 - (0.5 * (lgAst / lgFgm)) / (2 * (lgFgm / lgFtm))
+        : 0.44;
+    const lgPossDenom = lgFga - lgOreb + lgTov + 0.44 * lgFta;
+    const vop = lgPossDenom > 0 ? lgPts / lgPossDenom : 1;
+    const drbPct = lgReb > 0 ? (lgReb - lgOreb) / lgReb : 0.7;
+    const teamAstRatio =
+      (ts.team_fgm || 0) > 0 ? (ts.team_ast || 0) / (ts.team_fgm || 0) : 0;
+    const pfPenalty =
+      lgPf > 0 ? pfTotal * (lgFtm / lgPf - 0.44 * (lgFta / lgPf) * vop) : 0;
 
     const uPer =
       (1 / totalMin) *
-      (totalFgm * (2 - factor * (ts.team_fgm / ts.team_pts || 0)) +
+      (totalTpm +
         (2 / 3) * astTotal +
-        0.5 * totalFtm * (2 - (1 / 3) * (ts.team_ast / ts.team_fgm || 0)) -
+        (2 - factor * teamAstRatio) * totalFgm +
+        totalFtm * 0.5 * (1 + (1 - teamAstRatio) + (2 / 3) * teamAstRatio) -
         vop * tovTotal -
         vop * drbPct * (totalFga - totalFgm) -
         vop * 0.44 * (0.44 + 0.56 * drbPct) * (totalFta - totalFtm) +
@@ -623,11 +719,37 @@ const WKBLDatabase = (function () {
         vop * drbPct * (orebTotal || 0) +
         vop * stlTotal +
         vop * drbPct * blkTotal -
-        pfTotal * (lgPts / lgPf - 0.44 * (lgFta / lgPf) * vop));
+        pfPenalty);
 
-    const lgPER = 15;
-    const pace_adj = ts.team_min > 0 ? lgMin / 5 / (ts.team_min / 5) : 1;
-    const per = Math.round(uPer * pace_adj * lgPER * 10) / 10;
+    const lgAper =
+      lg.lg_aper != null && lg.lg_aper > 0
+        ? lg.lg_aper
+        : lgMin > 0
+          ? lgPts / lgMin
+          : 1;
+    const strategy = ts.poss_strategy || "simple";
+    const teamMin5 = ts.team_min > 0 ? ts.team_min / 5 : 1;
+    const teamPoss = estimatePossessions(
+      ts.team_fga || 0,
+      ts.team_fta || 0,
+      ts.team_tov || 0,
+      ts.team_oreb || 0,
+      {
+        strategy,
+        fgm: ts.team_fgm,
+        opp_fga: ts.opp_fga,
+        opp_fta: ts.opp_fta,
+        opp_tov: ts.opp_tov,
+        opp_oreb: ts.opp_oreb,
+        opp_fgm: ts.opp_fgm,
+        opp_dreb: ts.opp_dreb,
+        team_dreb: ts.team_dreb,
+      },
+    );
+    const teamPace = teamMin5 > 0 ? (40 * teamPoss) / teamMin5 : 1;
+    const lgPace = lg.lg_pace || 1;
+    const paceAdj = teamPace > 0 ? lgPace / teamPace : 1;
+    const per = Math.round(paceAdj * uPer * (15 / lgAper) * 10) / 10;
     return isFinite(per) ? per : 0;
   }
 
@@ -658,6 +780,8 @@ const WKBLDatabase = (function () {
     // eFG% = (FGM + 0.5 x 3PM) / FGA
     d.efg_pct =
       fga > 0 ? Math.round(((fgm + 0.5 * tpm) / fga) * 1000) / 1000 : 0;
+    d.tpar = fga > 0 ? Math.round(((d.total_tpa || 0) / fga) * 1000) / 1000 : 0;
+    d.ftr = fga > 0 ? Math.round(((d.total_fta || 0) / fga) * 1000) / 1000 : 0;
 
     // PIR = (PTS + REB + AST + STL + BLK - TO - (FGA-FGM) - (FTA-FTM)) / GP
     const reb = d.reb * d.gp;
@@ -714,18 +838,7 @@ const WKBLDatabase = (function () {
       const fgaAvg2 = d.gp > 0 ? fga / d.gp : 0;
       const ftaAvg2 = d.gp > 0 ? fta / d.gp : 0;
 
-      const teamPoss = estimatePossessions(
-        ts.team_fga,
-        ts.team_fta,
-        ts.team_tov,
-        ts.team_oreb,
-      );
-      const oppPoss = estimatePossessions(
-        ts.opp_fga,
-        ts.opp_fta,
-        ts.opp_tov,
-        ts.opp_oreb,
-      );
+      const { teamPoss, oppPoss } = estimateTeamAndOppPossessions(ts);
 
       // USG% = 100 * (FGA + 0.44*FTA + TOV) * (TmMIN/5) / (MIN * (TmFGA + 0.44*TmFTA + TmTOV))
       const playerUsage = (fgaAvg2 + 0.44 * ftaAvg2 + d.tov) * d.gp;
@@ -1369,6 +1482,9 @@ const WKBLDatabase = (function () {
         SUM(pg.tpa) as total_tpa,
         SUM(pg.ftm) as total_ftm,
         SUM(pg.fta) as total_fta,
+        SUM(pg.off_reb) as total_off_reb,
+        SUM(pg.def_reb) as total_def_reb,
+        SUM(pg.pf) as total_pf,
         SUM(CASE WHEN g.home_team_id = pg.team_id
               THEN g.home_score - g.away_score
               ELSE g.away_score - g.home_score END) as plus_minus_total
@@ -1383,6 +1499,7 @@ const WKBLDatabase = (function () {
     const rows = query(sql, [...playerIds, seasonId]);
     const playerPlusMinusMap = getSeasonPlayerPlusMinusMap(seasonId);
     const teamSeasonStats = getTeamSeasonStats(seasonId);
+    const leagueStats = getLeagueSeasonStats(seasonId);
 
     return rows.map((d) => {
       d.fgp = d.total_fga
@@ -1396,7 +1513,8 @@ const WKBLDatabase = (function () {
         : 0;
 
       roundStats(d);
-      calculateAdvancedStats(d);
+      const teamStats = teamSeasonStats.get(d.team_id) || null;
+      calculateAdvancedStats(d, teamStats, leagueStats);
 
       const pm = playerPlusMinusMap.get(d.id);
       if (pm) {
@@ -1431,6 +1549,9 @@ const WKBLDatabase = (function () {
       delete d.total_tpa;
       delete d.total_ftm;
       delete d.total_fta;
+      delete d.total_off_reb;
+      delete d.total_def_reb;
+      delete d.total_pf;
 
       return d;
     });
@@ -2029,7 +2150,6 @@ const WKBLDatabase = (function () {
       const fga = d.fga || 0;
       const fta = d.fta || 0;
       const fgm = d.fgm || 0;
-      const tpm = d.tpm || 0;
       const ftm = d.ftm || 0;
 
       // TS% = PTS / (2 x (FGA + 0.44 x FTA))
@@ -2147,7 +2267,7 @@ const WKBLDatabase = (function () {
     const leagueStats = getLeagueSeasonStats(seasonId);
 
     const results = rows
-      .map((d, i) => {
+      .map((d) => {
         const teamStats = teamSeasonStats.get(d.team_id) || null;
         const per =
           teamStats && leagueStats
@@ -2171,11 +2291,12 @@ const WKBLDatabase = (function () {
     return results;
   }
 
-  function getLeadersByWS(seasonId, limit = 10) {
+  function getLeadersByWSMetric(seasonId, metric = "ws", limit = 10) {
+    const digits = metric === "ws_40" ? 3 : 2;
     const rows = getPlayers(seasonId, null, true, false);
     return rows
-      .filter((p) => p.gp >= 1 && p.ws != null)
-      .sort((a, b) => (b.ws || 0) - (a.ws || 0))
+      .filter((p) => p.gp >= 1 && p[metric] != null)
+      .sort((a, b) => (b[metric] || 0) - (a[metric] || 0))
       .slice(0, limit)
       .map((p, i) => ({
         rank: i + 1,
@@ -2184,7 +2305,7 @@ const WKBLDatabase = (function () {
         team_name: p.team,
         team_id: p.team_id,
         gp: p.gp,
-        value: Math.round((p.ws || 0) * 100) / 100,
+        value: Math.round((p[metric] || 0) * 10 ** digits) / 10 ** digits,
       }));
   }
 
@@ -2248,8 +2369,13 @@ const WKBLDatabase = (function () {
       "game_score",
       "ts_pct",
       "pir",
+      "tpar",
+      "ftr",
       "per",
+      "ows",
+      "dws",
       "ws",
+      "ws_40",
       "plus_minus_per_game",
       "plus_minus_per100",
     ];
@@ -2261,8 +2387,8 @@ const WKBLDatabase = (function () {
     if (category === "per") {
       return getLeadersByPER(seasonId, limit);
     }
-    if (category === "ws") {
-      return getLeadersByWS(seasonId, limit);
+    if (["ows", "dws", "ws", "ws_40"].includes(category)) {
+      return getLeadersByWSMetric(seasonId, category, limit);
     }
     if (category === "plus_minus_per_game") {
       return getLeadersByPlusMinusPerGame(seasonId, limit);
@@ -2272,7 +2398,9 @@ const WKBLDatabase = (function () {
     }
 
     // Minimum games threshold for percentage categories
-    const minGames = ["fgp", "tpp", "ftp", "ts_pct"].includes(category)
+    const minGames = ["fgp", "tpp", "ftp", "ts_pct", "tpar", "ftr"].includes(
+      category,
+    )
       ? 10
       : 1;
 
@@ -2304,6 +2432,14 @@ const WKBLDatabase = (function () {
           "CASE WHEN SUM(pg.fga + 0.44*pg.fta) > 0" +
           " THEN SUM(pg.pts)*0.5/(SUM(pg.fga)+0.44*SUM(pg.fta)) ELSE 0 END";
         break;
+      case "tpar":
+        valueExpr =
+          "CASE WHEN SUM(pg.fga) > 0 THEN SUM(pg.tpa) * 1.0 / SUM(pg.fga) ELSE 0 END";
+        break;
+      case "ftr":
+        valueExpr =
+          "CASE WHEN SUM(pg.fga) > 0 THEN SUM(pg.fta) * 1.0 / SUM(pg.fga) ELSE 0 END";
+        break;
       case "pir":
         valueExpr =
           "AVG(pg.pts+pg.reb+pg.ast+pg.stl+pg.blk-pg.tov" +
@@ -2331,7 +2467,9 @@ const WKBLDatabase = (function () {
     `;
 
     const rows = query(sql, [seasonId, minGames, limit]);
-    const isPct = ["fgp", "tpp", "ftp", "ts_pct"].includes(category);
+    const isPct = ["fgp", "tpp", "ftp", "ts_pct", "tpar", "ftr"].includes(
+      category,
+    );
 
     return rows.map((d, i) => ({
       rank: i + 1,
@@ -2360,8 +2498,13 @@ const WKBLDatabase = (function () {
       "game_score",
       "ts_pct",
       "pir",
+      "tpar",
+      "ftr",
       "per",
+      "ows",
+      "dws",
       "ws",
+      "ws_40",
     ];
     const result = {};
 
@@ -2798,6 +2941,14 @@ const WKBLDatabase = (function () {
 
     // Prediction helpers
     getTeamSeasonStats,
+
+    // Test hooks (pure helpers only)
+    __test: {
+      estimatePossessions,
+      computePER,
+      calculateAdvancedStats,
+      computeWinShares,
+    },
   };
 })();
 

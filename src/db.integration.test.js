@@ -118,7 +118,16 @@ describe("db integration", () => {
         expect.objectContaining({ game_id: "04601001" }),
       ]),
     );
-    expect(db.getPlayerComparison(["p1", "p2"], "046")).toHaveLength(2);
+    const compareRows = db.getPlayerComparison(["p1", "p2"], "046");
+    expect(compareRows).toHaveLength(2);
+    expect(compareRows[0]).toEqual(
+      expect.objectContaining({
+        ows: expect.any(Number),
+        dws: expect.any(Number),
+        ws: expect.any(Number),
+        ws_40: expect.any(Number),
+      }),
+    );
     const teamDetail = db.getTeamDetail("kb", "046");
     expect(teamDetail.id).toBe("kb");
     expect(Array.isArray(teamDetail.roster)).toBe(true);
@@ -251,6 +260,91 @@ describe("db integration", () => {
     const teamStats = db.getTeamSeasonStats("046");
     expect(typeof teamStats.get).toBe("function");
     expect(teamStats.has("kb")).toBe(true);
+  });
+
+  it("keeps PER/3PAr/FTr deterministic for shared fixture inputs", async () => {
+    const fetchMock = vi.fn(async (url) => {
+      if (String(url).includes("wkbl-core.db")) {
+        return mockFetchResponse({ buffer: fixtures.coreBuffer });
+      }
+      if (String(url).includes("wkbl-detail.db")) {
+        return mockFetchResponse({ buffer: fixtures.detailBuffer });
+      }
+      return mockFetchResponse({ buffer: fixtures.coreBuffer });
+    });
+    const db = await importDatabaseModule({ fetchImpl: fetchMock });
+    const row = {
+      gp: 10,
+      min: 30.0,
+      pts: 18.0,
+      reb: 5.0,
+      ast: 4.0,
+      stl: 2.0,
+      blk: 1.0,
+      tov: 3.0,
+      avg_off_reb: 1.0,
+      avg_def_reb: 4.0,
+      avg_pf: 2.0,
+      total_fgm: 70,
+      total_fga: 140,
+      total_tpm: 20,
+      total_tpa: 50,
+      total_ftm: 20,
+      total_fta: 30,
+    };
+    const teamStats = {
+      team_fga: 800,
+      team_fta: 200,
+      team_tov: 150,
+      team_oreb: 120,
+      team_dreb: 300,
+      team_fgm: 350,
+      team_ast: 200,
+      team_pts: 900,
+      team_min: 2000,
+      team_pf: 180,
+      team_ftm: 100,
+      team_tpm: 80,
+      team_tpa: 250,
+      team_reb: 420,
+      opp_fga: 780,
+      opp_fta: 190,
+      opp_ftm: 130,
+      opp_tov: 140,
+      opp_oreb: 110,
+      opp_dreb: 280,
+      opp_pts: 850,
+      opp_tpa: 230,
+      opp_tpm: 70,
+      opp_fgm: 330,
+      opp_reb: 390,
+      team_wins: 18,
+      team_losses: 12,
+    };
+    const leagueStats = {
+      lg_pts: 5400,
+      lg_fga: 4800,
+      lg_fta: 1200,
+      lg_ftm: 600,
+      lg_oreb: 660,
+      lg_reb: 2520,
+      lg_ast: 1200,
+      lg_fgm: 2100,
+      lg_tov: 900,
+      lg_pf: 1080,
+      lg_min: 12000,
+      lg_pace: 90.0,
+      lg_poss: 5400,
+    };
+
+    const computed = db.__test.calculateAdvancedStats(
+      row,
+      teamStats,
+      leagueStats,
+    );
+    expect(computed.tpar).toBe(0.357);
+    expect(computed.ftr).toBe(0.214);
+    expect(computed.per).toBe(15.2);
   });
 
   it("covers filtered query contracts and leader category branches", async () => {

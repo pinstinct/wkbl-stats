@@ -1389,6 +1389,18 @@ def _get_leaders_query(category: str) -> tuple[str, int]:
             + joins,
             10,
         ),
+        "tpar": (
+            base
+            + "CASE WHEN SUM(pg.fga) > 0 THEN SUM(pg.tpa) * 1.0 / SUM(pg.fga) ELSE 0 END as value"
+            + joins,
+            10,
+        ),
+        "ftr": (
+            base
+            + "CASE WHEN SUM(pg.fga) > 0 THEN SUM(pg.fta) * 1.0 / SUM(pg.fga) ELSE 0 END as value"
+            + joins,
+            10,
+        ),
         "pir": (
             base
             + "AVG(pg.pts+pg.reb+pg.ast+pg.stl+pg.blk-pg.tov"
@@ -1420,11 +1432,14 @@ def _get_per_leaders(season_id: str, limit: int = 10) -> list[dict]:
     ]
 
 
-def _get_ws_leaders(season_id: str, limit: int = 10) -> list[dict]:
-    """Get WS leaders by computing advanced stats for all players."""
+def _get_ws_metric_leaders(
+    season_id: str, metric: str = "ws", limit: int = 10
+) -> list[dict]:
+    """Get Win Shares family leaders by computing advanced stats for all players."""
+    digits = 3 if metric == "ws_40" else 2
     players = get_players(season_id, active_only=True)
-    valid = [p for p in players if p.get("ws") is not None and p.get("gp", 0) >= 1]
-    sorted_players = sorted(valid, key=lambda p: p.get("ws") or 0, reverse=True)
+    valid = [p for p in players if p.get(metric) is not None and p.get("gp", 0) >= 1]
+    sorted_players = sorted(valid, key=lambda p: p.get(metric) or 0, reverse=True)
     return [
         {
             "rank": i,
@@ -1433,7 +1448,7 @@ def _get_ws_leaders(season_id: str, limit: int = 10) -> list[dict]:
             "team_name": p.get("team", ""),
             "team_id": p.get("team_id", ""),
             "gp": p.get("gp", 0),
-            "value": round(p.get("ws") or 0, 2),
+            "value": round(p.get(metric) or 0, digits),
         }
         for i, p in enumerate(sorted_players[:limit], 1)
     ]
@@ -1512,9 +1527,14 @@ def get_leaders(season_id: str, category: str = "pts", limit: int = 10) -> list[
         "ftp",
         "game_score",
         "ts_pct",
+        "tpar",
+        "ftr",
         "pir",
         "per",
+        "ows",
+        "dws",
         "ws",
+        "ws_40",
         "plus_minus_per_game",
         "plus_minus_per100",
     }
@@ -1524,8 +1544,8 @@ def get_leaders(season_id: str, category: str = "pts", limit: int = 10) -> list[
 
     if category == "per":
         return _get_per_leaders(season_id, limit)
-    if category == "ws":
-        return _get_ws_leaders(season_id, limit)
+    if category in {"ows", "dws", "ws", "ws_40"}:
+        return _get_ws_metric_leaders(season_id, category, limit)
     if category == "plus_minus_per_game":
         return _get_plus_minus_per_game_leaders(season_id, limit)
     if category == "plus_minus_per100":
@@ -1547,7 +1567,7 @@ def get_leaders(season_id: str, category: str = "pts", limit: int = 10) -> list[
                     "team_id": d["team_id"],
                     "gp": d["gp"],
                     "value": round(d["value"], 3)
-                    if category in ["fgp", "tpp", "ftp", "ts_pct"]
+                    if category in ["fgp", "tpp", "ftp", "ts_pct", "tpar", "ftr"]
                     else round(d["value"], 1),
                 }
             )
@@ -1770,7 +1790,8 @@ def api_get_leaders(
         default="pts",
         description=(
             "Category: pts, reb, ast, stl, blk, min, fgp, tpp, ftp, "
-            "game_score, ts_pct, pir, per, ws, plus_minus_per_game, plus_minus_per100"
+            "game_score, ts_pct, tpar, ftr, pir, per, ows, dws, ws, ws_40, "
+            "plus_minus_per_game, plus_minus_per100"
         ),
     ),
     limit: int = Query(default=10, le=50, description="Number of leaders"),
@@ -1808,9 +1829,14 @@ def api_get_all_leaders(
         "blk",
         "game_score",
         "ts_pct",
+        "tpar",
+        "ftr",
         "pir",
         "per",
+        "ows",
+        "dws",
         "ws",
+        "ws_40",
     ]
 
     categories_data: dict[str, list[dict]] = {}

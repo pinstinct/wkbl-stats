@@ -232,6 +232,37 @@ def test_estimate_possessions():
     assert result == 918.0
 
 
+def test_estimate_possessions_bbr_standard():
+    """BBR standard strategy should be selectable for possession estimation."""
+    from stats import estimate_possessions
+
+    result = estimate_possessions(
+        fga=800,
+        fta=200,
+        tov=150,
+        oreb=120,
+        strategy="bbr_standard",
+        fgm=350,
+        opp_fga=780,
+        opp_fta=190,
+        opp_tov=140,
+        opp_oreb=110,
+        opp_fgm=330,
+        opp_dreb=280,
+        team_dreb=300,
+    )
+    assert result == 876.2
+
+
+def test_compute_3par_ftr():
+    """3PAr=3PA/FGA, FTr=FTA/FGA."""
+    from stats import compute_advanced_stats
+
+    computed = compute_advanced_stats(dict(_BASE_ROW))
+    assert computed["tpar"] == 0.357
+    assert computed["ftr"] == 0.214
+
+
 def test_compute_usg_pct():
     """USG% = 100 * (FGA + 0.44*FTA + TOV) * (Team_MIN/5)
     / (MIN * (Team_FGA + 0.44*Team_FTA + Team_TOV))"""
@@ -407,6 +438,7 @@ def test_compute_per():
     )
 
     assert "per" in computed
+    assert computed["per"] == 15.2
     # PER should be a positive number for a productive player
     assert computed["per"] > 0
     # This player has 18pts/5reb/4ast - should have reasonable PER (10-25 range)

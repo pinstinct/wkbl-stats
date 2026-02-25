@@ -9,8 +9,51 @@ def _r(value: float, digits: int) -> float:
     return round(value, digits)
 
 
-def estimate_possessions(fga: float, fta: float, tov: float, oreb: float) -> float:
-    """Estimate possessions: FGA + 0.44*FTA + TOV - OREB."""
+def estimate_possessions(
+    fga: float,
+    fta: float,
+    tov: float,
+    oreb: float,
+    *,
+    strategy: str = "simple",
+    fgm: Optional[float] = None,
+    opp_fga: Optional[float] = None,
+    opp_fta: Optional[float] = None,
+    opp_tov: Optional[float] = None,
+    opp_oreb: Optional[float] = None,
+    opp_fgm: Optional[float] = None,
+    opp_dreb: Optional[float] = None,
+    team_dreb: Optional[float] = None,
+) -> float:
+    """Estimate possessions with selectable strategy.
+
+    Strategies:
+    - simple: FGA + 0.44*FTA + TOV - OREB
+    - bbr_standard: BBR team possession estimator with opponent/ORB adjustments
+    """
+    if strategy == "bbr_standard":
+        if (
+            fgm is None
+            or opp_fga is None
+            or opp_fta is None
+            or opp_tov is None
+            or opp_oreb is None
+            or opp_fgm is None
+            or opp_dreb is None
+            or team_dreb is None
+        ):
+            strategy = "simple"
+        else:
+            team_orb_pct = _safe_div(oreb, oreb + opp_dreb)
+            opp_orb_pct = _safe_div(opp_oreb, opp_oreb + team_dreb)
+            team_term = fga + 0.4 * fta - 1.07 * team_orb_pct * (fga - fgm) + tov
+            opp_term = (
+                opp_fga
+                + 0.4 * opp_fta
+                - 1.07 * opp_orb_pct * (opp_fga - opp_fgm)
+                + opp_tov
+            )
+            return _r(0.5 * (team_term + opp_term), 1)
     return _r(fga + 0.44 * fta + tov - oreb, 1)
 
 
@@ -157,11 +200,21 @@ def _compute_player_def_rtg(
     ts: Dict[str, Any],
 ) -> Optional[float]:
     """Estimate player DRtg from box score stops (BBR-inspired approximation)."""
+    poss_strategy = ts.get("poss_strategy", "simple")
     opp_poss = estimate_possessions(
         ts.get("opp_fga", 0) or 0,
         ts.get("opp_fta", 0) or 0,
         ts.get("opp_tov", 0) or 0,
         ts.get("opp_oreb", 0) or 0,
+        strategy=poss_strategy,
+        fgm=ts.get("opp_fgm"),
+        opp_fga=ts.get("team_fga"),
+        opp_fta=ts.get("team_fta"),
+        opp_tov=ts.get("team_tov"),
+        opp_oreb=ts.get("team_oreb"),
+        opp_fgm=ts.get("team_fgm"),
+        opp_dreb=ts.get("team_dreb"),
+        team_dreb=ts.get("opp_dreb"),
     )
     if opp_poss <= 0:
         return None
@@ -257,6 +310,42 @@ def _compute_ws_components(
     return (_r(ows, 2), _r(dws, 2), _r(ws, 2), _r(ws_40, 3))
 
 
+def _estimate_team_and_opp_possessions(ts: Dict[str, Any]) -> tuple[float, float]:
+    """Estimate team/opponent possessions using configured strategy."""
+    poss_strategy = ts.get("poss_strategy", "simple")
+    team_poss = estimate_possessions(
+        ts["team_fga"],
+        ts["team_fta"],
+        ts["team_tov"],
+        ts["team_oreb"],
+        strategy=poss_strategy,
+        fgm=ts.get("team_fgm"),
+        opp_fga=ts.get("opp_fga"),
+        opp_fta=ts.get("opp_fta"),
+        opp_tov=ts.get("opp_tov"),
+        opp_oreb=ts.get("opp_oreb"),
+        opp_fgm=ts.get("opp_fgm"),
+        opp_dreb=ts.get("opp_dreb"),
+        team_dreb=ts.get("team_dreb"),
+    )
+    opp_poss = estimate_possessions(
+        ts["opp_fga"],
+        ts["opp_fta"],
+        ts["opp_tov"],
+        ts["opp_oreb"],
+        strategy=poss_strategy,
+        fgm=ts.get("opp_fgm"),
+        opp_fga=ts.get("team_fga"),
+        opp_fta=ts.get("team_fta"),
+        opp_tov=ts.get("team_tov"),
+        opp_oreb=ts.get("team_oreb"),
+        opp_fgm=ts.get("team_fgm"),
+        opp_dreb=ts.get("team_dreb"),
+        team_dreb=ts.get("opp_dreb"),
+    )
+    return team_poss, opp_poss
+
+
 def compute_advanced_stats(
     row: Dict[str, Any],
     *,
@@ -297,6 +386,8 @@ def compute_advanced_stats(
     d["fgp"] = _r(total_fgm / total_fga, 3) if total_fga > 0 else 0.0
     d["tpp"] = _r(total_tpm / total_tpa, 3) if total_tpa > 0 else 0.0
     d["ftp"] = _r(total_ftm / total_fta, 3) if total_fta > 0 else 0.0
+    d["tpar"] = _r(total_tpa / total_fga, 3) if total_fga > 0 else 0.0
+    d["ftr"] = _r(total_fta / total_fga, 3) if total_fga > 0 else 0.0
 
     total_pts = pts_avg * gp
     total_reb = reb_avg * gp
@@ -375,12 +466,7 @@ def compute_advanced_stats(
         fta_avg = total_fta / gp if gp > 0 else 0
 
         # Team and opponent possessions (season totals)
-        team_poss = estimate_possessions(
-            ts["team_fga"], ts["team_fta"], ts["team_tov"], ts["team_oreb"]
-        )
-        opp_poss = estimate_possessions(
-            ts["opp_fga"], ts["opp_fta"], ts["opp_tov"], ts["opp_oreb"]
-        )
+        team_poss, opp_poss = _estimate_team_and_opp_possessions(ts)
 
         # USG% = 100 * (FGA + 0.44*FTA + TOV) * (Team_MIN/5) / (MIN * (Team_FGA + 0.44*Team_FTA + Team_TOV))
         player_usage = (fga_avg + 0.44 * fta_avg + tov_avg) * gp
@@ -505,10 +591,7 @@ def _compute_per(
     team_stats: Dict[str, Any],
     league_stats: Dict[str, Any],
 ) -> float:
-    """Compute PER (Player Efficiency Rating) using Hollinger formula.
-
-    Normalized so league average = 15.0.
-    """
+    """Compute PER (Player Efficiency Rating) using Hollinger-style uPER."""
     ts = team_stats
     lg = league_stats
 
@@ -520,13 +603,13 @@ def _compute_per(
     total_fta = d.get("total_fta") or 0
     total_min = min_avg * gp
 
-    ast_total = (d.get("ast") or 0) * gp
-    stl_total = (d.get("stl") or 0) * gp
-    blk_total = (d.get("blk") or 0) * gp
-    tov_total = (d.get("tov") or 0) * gp
-    pf_total = (d.get("pf") or 0) * gp
-    off_reb_total = (d.get("off_reb") or 0) * gp
-    def_reb_total = (d.get("def_reb") or 0) * gp
+    ast_total = _total_from_row(d, "total_ast", "ast", gp)
+    stl_total = _total_from_row(d, "total_stl", "stl", gp)
+    blk_total = _total_from_row(d, "total_blk", "blk", gp)
+    tov_total = _total_from_row(d, "total_tov", "tov", gp)
+    pf_total = _total_from_row(d, "total_pf", "pf", gp)
+    off_reb_total = _total_from_row(d, "total_off_reb", "off_reb", gp)
+    def_reb_total = _total_from_row(d, "total_def_reb", "def_reb", gp)
 
     if total_min <= 0:
         return 0.0
@@ -556,7 +639,7 @@ def _compute_per(
     pace_adj = lg_pace / team_pace if team_pace > 0 else 1
 
     # Hollinger's intermediate factors
-    if lg_ftm > 0 and lg_fgm > 0:
+    if lg_ftm > 0 and lg_fgm > 0 and lg_fga > 0:
         factor = (2 / 3) - (0.5 * (lg_ast / lg_fgm)) / (2 * (lg_fgm / lg_ftm))
     else:
         factor = 0.44
@@ -570,7 +653,9 @@ def _compute_per(
     if team_fgm > 0:
         team_ast_ratio = ts["team_ast"] / team_fgm
 
-        pf_penalty = pf_total * (lg_ftm / lg_pf) * vop if lg_pf > 0 else 0
+        pf_penalty = 0.0
+        if lg_pf > 0:
+            pf_penalty = pf_total * ((lg_ftm / lg_pf) - 0.44 * (lg_fta / lg_pf) * vop)
 
         uper = (1 / total_min) * (
             total_tpm
@@ -589,11 +674,12 @@ def _compute_per(
     else:
         uper = 0
 
-    # Normalize: aPER = pace_adj * uPER, then scale so league avg = 15
+    # Normalize: aPER = pace_adj * uPER, then scale so league average = 15.
     a_per = pace_adj * uper
 
-    # lg_aPER: league average uPER per minute, approximated as lg_pts / lg_min
-    lg_a_per = lg_pts / lg_min if lg_min > 0 else 1
+    lg_a_per = lg.get("lg_aper")
+    if not lg_a_per:
+        lg_a_per = lg_pts / lg_min if lg_min > 0 else 1
     if lg_a_per > 0:
         per = a_per * (15 / lg_a_per)
     else:
