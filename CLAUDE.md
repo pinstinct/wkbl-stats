@@ -260,23 +260,24 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → split_db.py → core.db + 
 
 API documentation available at `/api/docs` (Swagger UI) or `/api/redoc` (ReDoc).
 
-| Endpoint                           | Description                     |
-| ---------------------------------- | ------------------------------- |
-| `GET /api/players`                 | All players with season stats   |
-| `GET /api/players/compare`         | Compare 2-4 players (ids param) |
-| `GET /api/players/{id}`            | Player detail with career stats |
-| `GET /api/players/{id}/gamelog`    | Player's game log               |
-| `GET /api/players/{id}/highlights` | Career/season highlights        |
-| `GET /api/teams`                   | All teams                       |
-| `GET /api/teams/{id}`              | Team detail with roster         |
-| `GET /api/games`                   | Game list                       |
-| `GET /api/games/{id}`              | Full game boxscore              |
-| `GET /api/seasons`                 | All seasons                     |
-| `GET /api/seasons/{id}/standings`  | Team standings                  |
-| `GET /api/leaders`                 | Statistical leaders             |
-| `GET /api/leaders/all`             | Leaders for all categories      |
-| `GET /api/search`                  | Global search (players, teams)  |
-| `GET /api/health`                  | Health check                    |
+| Endpoint                                | Description                     |
+| --------------------------------------- | ------------------------------- |
+| `GET /api/players`                      | All players with season stats   |
+| `GET /api/players/compare`              | Compare 2-4 players (ids param) |
+| `GET /api/players/{id}`                 | Player detail with career stats |
+| `GET /api/players/{id}/gamelog`         | Player's game log               |
+| `GET /api/players/{id}/highlights`      | Career/season highlights        |
+| `GET /api/teams`                        | All teams                       |
+| `GET /api/teams/{id}`                   | Team detail with roster         |
+| `GET /api/games`                        | Game list                       |
+| `GET /api/games/{id}`                   | Full game boxscore              |
+| `GET /api/games/{id}/position-matchups` | Position matchup analysis       |
+| `GET /api/seasons`                      | All seasons                     |
+| `GET /api/seasons/{id}/standings`       | Team standings                  |
+| `GET /api/leaders`                      | Statistical leaders             |
+| `GET /api/leaders/all`                  | Leaders for all categories      |
+| `GET /api/search`                       | Global search (players, teams)  |
+| `GET /api/health`                       | Health check                    |
 
 Query parameters:
 
@@ -299,6 +300,7 @@ teams ───┼──→ games ──→ player_games (per-game player stats)
          │        └──→ play_by_play (play-by-play events)
          │        └──→ shot_charts (shot chart data)
          │        └──→ lineup_stints (on-court 5-man lineup stints)
+         │        └──→ position_matchups (position matchup analysis)
          │
          ├──→ team_standings (season standings)
          ├──→ team_category_stats (team category rankings)
@@ -326,6 +328,7 @@ Key tables:
 - `head_to_head`: Head-to-head records between teams (scores, venue, winner)
 - `game_mvp`: Game MVP records (player stats, evaluation score, rank)
 - `lineup_stints`: On-court 5-man lineup stints (per-game, per-quarter, with scores and duration)
+- `position_matchups`: Position matchup analysis (G/F/C stats comparison per game)
 - `_meta_descriptions`: Table/column descriptions metadata
 
 **Note:** Predictions are generated during ingest (`--include-future`) and stored in DB tables. Browser reads from DB via sql.js.
@@ -524,6 +527,8 @@ uv run pre-commit run --all-files
 | ruff-format | Code formatting (replaces black)  |
 | mypy        | Type checking                     |
 | bandit      | Security analysis                 |
+| eslint      | Frontend JS linting/security      |
+| prettier    | Frontend formatting check         |
 
 ## Branches
 
@@ -556,11 +561,15 @@ uv run pre-commit run --all-files
 
 ## Documentation
 
-| Document                       | Description                                      |
-| ------------------------------ | ------------------------------------------------ |
-| `docs/project-roadmap.md`      | Feature roadmap and completion status            |
-| `docs/project-structure.md`    | Directory responsibilities and structure rules   |
-| `docs/data-sources.md`         | WKBL Data Lab API endpoints and database schemas |
-| `docs/sql-query-contract.md`   | SQL query contracts between api.py and db.js     |
-| `docs/regression-checklist.md` | Mobile/responsive QA checklist                   |
-| `docs/bak/`                    | Archived completed plan documents                |
+| Document                            | Description                                      |
+| ----------------------------------- | ------------------------------------------------ |
+| `docs/project-roadmap.md`           | Feature roadmap and completion status            |
+| `docs/project-structure.md`         | Directory responsibilities and structure rules   |
+| `docs/data-sources.md`              | WKBL Data Lab API endpoints and database schemas |
+| `docs/sql-query-contract.md`        | SQL query contracts between api.py and db.js     |
+| `docs/regression-checklist.md`      | Mobile/responsive QA checklist                   |
+| `docs/game-shotchart-plan.md`       | Game shot chart implementation plan              |
+| `docs/player-shotchart-plan.md`     | Player shot chart implementation plan            |
+| `docs/loading-optimization-plan.md` | Loading optimization plan                        |
+| `docs/win-shares-plan.md`           | Win Shares implementation plan                   |
+| `docs/complete/`                    | Archived completed plan documents                |

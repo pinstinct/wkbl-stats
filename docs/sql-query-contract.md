@@ -1,6 +1,6 @@
 # SQL Query Contract (P3-2)
 
-Updated: 2026-02-09
+Updated: 2026-02-25
 
 목적: `tools/api.py`와 `src/db.js`의 유사 조회 결과가 핵심 필드 기준으로 동일한 의미를 유지하도록 계약을 명시한다.
 
@@ -58,7 +58,32 @@ Updated: 2026-02-09
 - `idx_player_games_player_game (player_id, game_id)`
 - `idx_games_season_date_id (season_id, game_date, id)`
 
-## 4) Regression tests
+## 4) Position Matchups Contract (`GET /games/{game_id}/position-matchups`)
+
+### Query params
+
+| param   | required | description                                             |
+| ------- | -------- | ------------------------------------------------------- |
+| `scope` | optional | `vs` (상대 비교) or `whole` (전체), 미지정 시 전체 반환 |
+
+### Response key fields
+
+```json
+{
+  "game_id": "04601055",
+  "scope": "vs",
+  "count": 3,
+  "rows": [{ "game_id", "scope", "position", ... }]
+}
+```
+
+### Detail DB note
+
+`position_matchups`은 detail DB 테이블이므로 `detailQuery()`로 조회해야 함. core DB와 JOIN 불가.
+
+---
+
+## 5) Regression tests
 
 - `tests/test_api.py`
   - `test_get_players_contract_fixture`

@@ -498,7 +498,7 @@ event_types (이벤트 코드 마스터)
 | `label`      | TEXT    | 시즌 라벨 (예: 2025-26)                         |
 | `start_date` | TEXT    | 시즌 시작일 (YYYY-MM-DD)                        |
 | `end_date`   | TEXT    | 시즌 종료일 (YYYY-MM-DD), 진행 중인 시즌은 NULL |
-| `is_current` | INTEGER | 현재 시즌 여부 (1: 현재, 0: 과거)               |
+| `is_playoff` | INTEGER | 플레이오프 여부 (0: 정규시즌, 1: 플레이오프)    |
 
 #### team_standings (팀 순위)
 
@@ -637,6 +637,33 @@ desc = database.get_table_description("player_games")
 cols = database.get_column_descriptions("player_games")
 # → {"id": "자동 증가 PK", "pts": "득점", ...}
 ```
+
+#### position_matchups (포지션 매치업)
+
+| 컬럼               | 타입    | 설명                                     |
+| ------------------ | ------- | ---------------------------------------- |
+| `id`               | INTEGER | PK, 자동 증가                            |
+| `game_id`          | TEXT    | 경기 ID (FK → games.id)                  |
+| `position`         | TEXT    | 포지션 (G/F/C)                           |
+| `scope`            | TEXT    | 비교 범위 (vs: 매치업, whole: 시즌 평균) |
+| `home_pts`         | REAL    | 홈팀 해당 포지션 득점                    |
+| `away_pts`         | REAL    | 원정팀 해당 포지션 득점                  |
+| `home_tpm`         | REAL    | 홈팀 3점 성공                            |
+| `away_tpm`         | REAL    | 원정팀 3점 성공                          |
+| `home_reb`         | REAL    | 홈팀 리바운드                            |
+| `away_reb`         | REAL    | 원정팀 리바운드                          |
+| `home_ast`         | REAL    | 홈팀 어시스트                            |
+| `away_ast`         | REAL    | 원정팀 어시스트                          |
+| `home_stl`         | REAL    | 홈팀 스틸                                |
+| `away_stl`         | REAL    | 원정팀 스틸                              |
+| `home_blk`         | REAL    | 홈팀 블록                                |
+| `away_blk`         | REAL    | 원정팀 블록                              |
+| `home_eff`         | REAL    | 홈팀 효율                                |
+| `away_eff`         | REAL    | 원정팀 효율                              |
+| `home_norm_values` | TEXT    | 홈팀 정규화 값 (JSON array)              |
+| `away_norm_values` | TEXT    | 원정팀 정규화 값 (JSON array)            |
+
+UNIQUE 제약: `(game_id, position, scope)`
 
 ---
 
