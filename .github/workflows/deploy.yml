@@ -3,6 +3,11 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: ["main"]
+    paths-ignore:
+      - "data/wkbl-active.json"
+      - "data/wkbl.db"
+      - "data/wkbl-core.db"
+      - "data/wkbl-detail.db"
   workflow_run:
     workflows: ["Update WKBL Data", "Update WKBL Data (Full History)"]
     types: [completed]
