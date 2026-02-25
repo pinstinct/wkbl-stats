@@ -108,7 +108,7 @@ uv run pytest tests/test_database.py -v
 uv run pytest tests/test_api.py -v
 ```
 
-**Test coverage (501 tests, 95% line coverage):**
+**Test coverage (512 tests, 95% line coverage):**
 
 - `test_parsers.py`: Parser functions (108 tests)
   - Play-by-play, head-to-head, shot chart, player profile, event type mapping
@@ -156,6 +156,8 @@ uv run pytest tests/test_api.py -v
   - Schedule fetch, cross-year dates, future games, dedup, game record fetch
 - `test_ingest_predictions.py`: Ingest prediction backfill (3 tests)
 - `test_ingest_db_init.py`: DB initialization (1 test)
+- `test_split_db.py`: DB splitting (11 tests)
+  - Core/detail table separation, row counts, source unmodified, edge cases
 
 ## Frontend Pages (SPA)
 
@@ -184,9 +186,9 @@ Hash-based routing system for single-page application.
 ```
 Frontend SPA (src/app.js)
        ↓
-   src/db.js
+   src/db.js ← IndexedDB cache (src/data/idb-cache.js)
        ↓
-sql.js (WASM) ← fetch(data/wkbl.db)
+sql.js (WASM) ← fetch(data/wkbl-core.db) + lazy fetch(data/wkbl-detail.db)
 ```
 
 **Server Mode (Render/Local):**
@@ -205,7 +207,8 @@ server.py (FastAPI) ─┬─ /api/* → tools/api.py (REST API)
 **Data Pipeline:**
 
 ```
-tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.json)
+tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → split_db.py → core.db + detail.db
+                                                   → JSON (data/wkbl-active.json)
 ```
 
 ## Key Files
@@ -219,8 +222,12 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.jso
 - `src/views/game-shot-logic.js` - Shot chart filter/aggregation pure logic (TDD covered)
 - `src/ui/` - DOM event binding, navigation, router logic
 - `src/data/` - Data access layer (API/local DB abstraction)
-- `src/styles/` - CSS split: core/components/pages/responsive
-- `data/wkbl.db` - SQLite database (fetched by browser for static hosting)
+- `src/data/idb-cache.js` - IndexedDB caching layer for database files (ETag revalidation)
+- `src/ui/skeleton.js` - Skeleton loading UI hide logic
+- `src/styles/` - CSS split: core/components/pages/responsive/skeleton
+- `data/wkbl-core.db` - Core SQLite database (players, teams, games — fast initial load)
+- `data/wkbl-detail.db` - Detail SQLite database (play-by-play, shot charts, lineups — lazy loaded)
+- `data/wkbl.db` - Full SQLite database (unsplit fallback)
 - `data/wkbl-active.json` - Generated player stats (JSON fallback)
 
 **Backend (Server Mode):**
@@ -234,6 +241,7 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → JSON (data/wkbl-active.jso
 - `tools/lineup.py` - Lineup tracking engine (stints, +/-, On/Off ratings)
 - `tools/season_utils.py` - Season code resolver
 - `tools/config.py` - Centralized configuration (URLs, paths, settings)
+- `tools/split_db.py` - Database splitter (core/detail separation for faster frontend loading)
 
 **Data & Config:**
 
@@ -454,13 +462,16 @@ Data files committed by Actions:
 ### GitHub Pages (Static Hosting - Recommended)
 
 GitHub Pages now provides **full functionality** using sql.js (WebAssembly SQLite).
-The browser fetches `data/wkbl.db` and runs all queries client-side.
+The browser fetches split database files and runs all queries client-side.
 
 **How it works:**
 
 1. `sql.js` WASM module loaded from CDN (jsdelivr)
-2. `data/wkbl.db` fetched via HTTP
-3. All queries run in browser (no server needed)
+2. `data/wkbl-core.db` fetched via HTTP (fast initial load, ~5MB)
+3. `data/wkbl-detail.db` fetched in background (lazy load for game detail pages)
+4. IndexedDB caching with ETag revalidation (instant reload on revisit)
+5. Skeleton UI shown during initial DB load
+6. All queries run in browser (no server needed)
 
 **CDN Dependencies:**
 
@@ -531,7 +542,10 @@ uv run pre-commit run --all-files
 - Incremental updates: only fetches games not already in database
 - HTTP responses are cached in `data/cache/` to avoid redundant network requests
 - **Static hosting**: Uses sql.js (WebAssembly) to run SQLite queries in browser
-- **Fallback chain**: Local DB (sql.js) → JSON file (API 폴백 제거됨)
+- **DB split**: `wkbl-core.db` (essential tables) loads first, `wkbl-detail.db` (PBP, shots, lineups) lazy-loaded in background
+- **IndexedDB caching**: Database files cached in browser with ETag revalidation for instant revisits
+- **Skeleton UI**: Pulse-animated placeholder shown during initial DB download
+- **Fallback chain**: IndexedDB cache → core.db fetch → wkbl.db fallback → JSON file
 - Frontend falls back to `data/wkbl-active.json` when local DB is unavailable
 - **Player ID tracking**: Use `--load-all-players` to load all 700+ players (active, retired, foreign) and correctly map player IDs (pno). Without this flag, retired players in historical data may get incorrect placeholder IDs.
 - Player IDs (pno) are consistent across seasons, enabling tracking of player career stats and team transfer history.

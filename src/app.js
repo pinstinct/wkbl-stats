@@ -61,6 +61,7 @@ import {
   mountResponsiveNav,
   resolveRouteTarget,
 } from "./ui/index.js";
+import { hideSkeleton } from "./ui/skeleton.js";
 
 (function () {
   "use strict";
@@ -1241,6 +1242,16 @@ import {
   async function loadPlayerPage(playerId) {
     try {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+
+      // Trigger detail DB loading for player shot charts
+      if (
+        state.dbInitialized &&
+        typeof WKBLDatabase !== "undefined" &&
+        !WKBLDatabase.isDetailReady()
+      ) {
+        WKBLDatabase.initDetailDatabase().catch(() => {});
+      }
+
       const player = await fetchPlayerDetail(playerId);
 
       $("detailPlayerName").textContent = player.name;
@@ -2638,6 +2649,16 @@ import {
   async function loadGamePage(gameId) {
     try {
       window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+
+      // Trigger detail DB loading (PBP, shot charts, lineups) in background
+      if (
+        state.dbInitialized &&
+        typeof WKBLDatabase !== "undefined" &&
+        !WKBLDatabase.isDetailReady()
+      ) {
+        WKBLDatabase.initDetailDatabase().catch(() => {});
+      }
+
       const game = await fetchGameBoxscore(gameId);
       const shotRows = await fetchGameShotChart(gameId);
 
@@ -3963,6 +3984,13 @@ import {
       console.warn(
         "[app.js] Local database not available, using JSON fallback",
       );
+    }
+
+    hideSkeleton(document.getElementById("skeletonUI"));
+
+    // Preload detail DB in background (fire-and-forget)
+    if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
+      WKBLDatabase.initDetailDatabase().catch(() => {});
     }
 
     initEventListeners();

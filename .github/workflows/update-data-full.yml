@@ -39,16 +39,19 @@ jobs:
             --fetch-quarter-scores \
             --output data/wkbl-active.json
 
+      - name: Split database
+        run: python3 tools/split_db.py
+
       - name: Check for changes
         id: changes
         run: |
-          git diff --quiet data/wkbl-active.json data/wkbl.db || echo "changed=true" >> $GITHUB_OUTPUT
+          git diff --quiet data/wkbl-active.json data/wkbl.db data/wkbl-core.db data/wkbl-detail.db || echo "changed=true" >> $GITHUB_OUTPUT
 
       - name: Commit and push if changed
         if: steps.changes.outputs.changed == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/wkbl-active.json data/wkbl.db
+          git add data/wkbl-active.json data/wkbl.db data/wkbl-core.db data/wkbl-detail.db
           git commit -m "chore: update player stats data (full history)"
           git push

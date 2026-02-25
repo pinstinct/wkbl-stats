@@ -13,16 +13,104 @@ const WKBLDatabase = (function () {
   // =============================================================================
 
   let db = null;
+  let detailDb = null;
   let initPromise = null;
+  let detailInitPromise = null;
 
   const SEASON_CODES = window.WKBLShared?.SEASON_CODES || {};
+
+  // =============================================================================
+  // IndexedDB Caching Helpers
+  // =============================================================================
+
+  const DB_CACHE_KEY = "wkbl-core";
+
+  /**
+   * Fetch a database file with IndexedDB caching and ETag revalidation.
+   * @param {string} url - URL to fetch
+   * @param {string} cacheKey - IndexedDB cache key
+   * @param {object} SQL - sql.js SQL module
+   * @returns {Promise<object>} sql.js Database instance
+   */
+  async function fetchDbWithCache(url, cacheKey, SQL) {
+    const cache = typeof IDBCache !== "undefined" ? IDBCache : null; // eslint-disable-line no-undef
+
+    // Try loading from IndexedDB cache first
+    if (cache) {
+      try {
+        const cached = await cache.loadFromCache(cacheKey);
+        if (cached && cached.buffer) {
+          const cachedDb = new SQL.Database(new Uint8Array(cached.buffer));
+          console.log(`[db.js] Loaded ${cacheKey} from IndexedDB cache`);
+
+          // Background ETag check for freshness
+          checkForUpdate(url, cacheKey, cached.etag, cache);
+
+          return cachedDb;
+        }
+      } catch (e) {
+        console.warn("[db.js] IndexedDB cache read failed:", e.message);
+      }
+    }
+
+    // No cache — fetch from network
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch database: ${response.status}`);
+    }
+
+    const buffer = await response.arrayBuffer();
+    const etag = response.headers.get("ETag") || null;
+
+    // Save to IndexedDB cache (fire-and-forget)
+    if (cache) {
+      cache
+        .saveToCache(cacheKey, buffer, etag)
+        .catch((_e) =>
+          console.warn("[db.js] IndexedDB cache write failed:", _e.message),
+        );
+    }
+
+    return new SQL.Database(new Uint8Array(buffer));
+  }
+
+  /**
+   * Background ETag check — if server has newer data, update cache silently.
+   */
+  function checkForUpdate(url, cacheKey, cachedEtag, cache) {
+    if (!cachedEtag) return;
+    fetch(url, { method: "HEAD" })
+      .then((res) => {
+        const serverEtag = res.headers.get("ETag");
+        if (serverEtag && serverEtag !== cachedEtag) {
+          console.log(`[db.js] New version detected for ${cacheKey}`);
+          fetch(url)
+            .then((r) => r.arrayBuffer())
+            .then((buffer) => {
+              cache
+                .saveToCache(cacheKey, buffer, serverEtag)
+                .then(() => {
+                  console.log(
+                    `[db.js] Cache updated for ${cacheKey}, reload for latest data`,
+                  );
+                })
+                .catch(() => {});
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {
+        // Network error during background check — ignore silently
+      });
+  }
 
   // =============================================================================
   // Initialization
   // =============================================================================
 
   /**
-   * Initialize sql.js and load the database
+   * Initialize sql.js and load the core database.
+   * Tries wkbl-core.db first, falls back to wkbl.db (unsplit).
    * @returns {Promise<boolean>} True if initialization successful
    */
   async function initDatabase() {
@@ -31,31 +119,70 @@ const WKBLDatabase = (function () {
 
     initPromise = (async () => {
       try {
-        // Initialize sql.js with WASM
         const SQL = await initSqlJs({
           locateFile: (file) =>
             `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`,
         });
 
-        // Fetch the database file
-        const response = await fetch("./data/wkbl.db");
-        if (!response.ok) {
-          throw new Error(`Failed to fetch database: ${response.status}`);
-        }
-
-        const buffer = await response.arrayBuffer();
-        db = new SQL.Database(new Uint8Array(buffer));
-
+        // Try split core DB first, fall back to full DB
+        db = await fetchDbWithCache("./data/wkbl-core.db", DB_CACHE_KEY, SQL);
         console.log("[db.js] Database loaded successfully");
         return true;
-      } catch (error) {
-        console.error("[db.js] Failed to initialize database:", error);
-        initPromise = null;
-        throw error;
+      } catch (_error) {
+        // Fallback: try the original unsplit database
+        try {
+          const SQL = await initSqlJs({
+            locateFile: (file) =>
+              `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`,
+          });
+          db = await fetchDbWithCache("./data/wkbl.db", "wkbl-full", SQL);
+          console.log("[db.js] Loaded full database (fallback)");
+          return true;
+        } catch (fallbackError) {
+          console.error(
+            "[db.js] Failed to initialize database:",
+            fallbackError,
+          );
+          initPromise = null;
+          throw fallbackError;
+        }
       }
     })();
 
     return initPromise;
+  }
+
+  /**
+   * Initialize the detail database (play-by-play, shot charts, lineups).
+   * Called lazily when game detail pages need this data.
+   * @returns {Promise<boolean>} True if initialization successful
+   */
+  async function initDetailDatabase() {
+    if (detailDb) return true;
+    if (detailInitPromise) return detailInitPromise;
+
+    detailInitPromise = (async () => {
+      try {
+        const SQL = await initSqlJs({
+          locateFile: (file) =>
+            `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`,
+        });
+
+        detailDb = await fetchDbWithCache(
+          "./data/wkbl-detail.db",
+          "wkbl-detail",
+          SQL,
+        );
+        console.log("[db.js] Detail database loaded successfully");
+        return true;
+      } catch (_error) {
+        console.warn("[db.js] Detail database not available:", _error.message);
+        detailInitPromise = null;
+        return false;
+      }
+    })();
+
+    return detailInitPromise;
   }
 
   /**
@@ -65,9 +192,53 @@ const WKBLDatabase = (function () {
     return db !== null;
   }
 
+  /**
+   * Check if detail database is ready
+   */
+  function isDetailReady() {
+    return detailDb !== null;
+  }
+
   // =============================================================================
   // Utility Functions
   // =============================================================================
+
+  /**
+   * Execute a query on a specific database instance.
+   */
+  function _execQuery(database, sql, params) {
+    const stmt = database.prepare(sql);
+    stmt.bind(params);
+    const results = [];
+    while (stmt.step()) {
+      results.push(stmt.getAsObject());
+    }
+    stmt.free();
+    return results;
+  }
+
+  /**
+   * Execute a query on the detail database (or main db as fallback).
+   * Returns empty array if neither DB has the table.
+   */
+  function detailQuery(sql, params = []) {
+    if (detailDb) {
+      try {
+        return _execQuery(detailDb, sql, params);
+      } catch (_e) {
+        // Table might not exist in detail DB
+      }
+    }
+    // Fallback to main DB (unsplit case)
+    if (db) {
+      try {
+        return _execQuery(db, sql, params);
+      } catch (_e) {
+        // Table doesn't exist in main DB either
+      }
+    }
+    return [];
+  }
 
   /**
    * Execute a query and return results as array of objects
@@ -1825,7 +1996,7 @@ const WKBLDatabase = (function () {
     game.home_team_stats = [];
     game.away_team_stats = [];
 
-    const gameStints = query(
+    const gameStints = detailQuery(
       `SELECT *
        FROM lineup_stints
        WHERE game_id = ?
@@ -2408,7 +2579,7 @@ const WKBLDatabase = (function () {
    * @returns {Array} List of PBP events ordered by event_order
    */
   function getPlayByPlay(gameId) {
-    return query(
+    return detailQuery(
       "SELECT * FROM play_by_play WHERE game_id = ? ORDER BY event_order",
       [gameId],
     );
@@ -2422,14 +2593,14 @@ const WKBLDatabase = (function () {
    */
   function getShotChart(gameId, playerId) {
     if (playerId) {
-      return query(
+      return detailQuery(
         `SELECT * FROM shot_charts
          WHERE game_id = ? AND player_id = ?
          ORDER BY quarter, game_minute, game_second`,
         [gameId, playerId],
       );
     }
-    return query(
+    return detailQuery(
       `SELECT * FROM shot_charts
        WHERE game_id = ?
        ORDER BY quarter, game_minute, game_second`,
@@ -2446,8 +2617,7 @@ const WKBLDatabase = (function () {
   function getPlayerShotChart(playerId, seasonId = null) {
     const whereSeason = seasonId ? " AND g.season_id = ? " : "";
     const params = seasonId ? [playerId, seasonId] : [playerId];
-    return query(
-      `SELECT sc.*,
+    const joinedSql = `SELECT sc.*,
               g.game_date,
               CASE
                 WHEN sc.team_id = g.home_team_id THEN at.name
@@ -2458,9 +2628,44 @@ const WKBLDatabase = (function () {
        LEFT JOIN teams ht ON ht.id = g.home_team_id
        LEFT JOIN teams at ON at.id = g.away_team_id
        WHERE sc.player_id = ? ${whereSeason}
-       ORDER BY g.game_date DESC, sc.quarter, sc.game_minute, sc.game_second`,
-      params,
+       ORDER BY g.game_date DESC, sc.quarter, sc.game_minute, sc.game_second`;
+
+    // If unsplit DB (no detail DB), query main db directly
+    if (!detailDb && db) {
+      return query(joinedSql, params);
+    }
+
+    // Split DB: get raw shots from detail, enrich from core
+    const rawSql = seasonId
+      ? "SELECT * FROM shot_charts WHERE player_id = ? AND game_id IN (SELECT id FROM games WHERE season_id = ?)"
+      : "SELECT * FROM shot_charts WHERE player_id = ?";
+    const rawShots = detailQuery(rawSql, params);
+    if (rawShots.length === 0) return rawShots;
+
+    // Build game info lookup from core DB
+    const gameIds = [...new Set(rawShots.map((s) => s.game_id))];
+    const placeholders = gameIds.map(() => "?").join(",");
+    const gameRows = query(
+      `SELECT g.id, g.game_date, g.home_team_id, g.away_team_id,
+              ht.name as home_name, at.name as away_name
+       FROM games g
+       LEFT JOIN teams ht ON ht.id = g.home_team_id
+       LEFT JOIN teams at ON at.id = g.away_team_id
+       WHERE g.id IN (${placeholders})`,
+      gameIds,
     );
+    const gameMap = {};
+    for (const g of gameRows) gameMap[g.id] = g;
+
+    return rawShots.map((sc) => {
+      const g = gameMap[sc.game_id] || {};
+      return {
+        ...sc,
+        game_date: g.game_date || null,
+        opponent_name:
+          sc.team_id === g.home_team_id ? g.away_name : g.home_name || null,
+      };
+    });
   }
 
   /**
@@ -2556,7 +2761,9 @@ const WKBLDatabase = (function () {
   return {
     // Initialization
     initDatabase,
+    initDetailDatabase,
     isReady,
+    isDetailReady,
 
     // Constants
     SEASON_CODES,

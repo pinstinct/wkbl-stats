@@ -9,7 +9,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - P0~P4 전체 완료 (시즌 상수 공통화, 뷰/데이터/이벤트 분리, CSS 분할, 데이터 정확도, 테스트 보강)
 - 상세 기록: `docs/bak/refactor-plan.md`
 
-## 현재 상태 (2026-02-20)
+## 현재 상태 (2026-02-25)
 
 | 단계      | 상태    | 설명                                                                           |
 | --------- | ------- | ------------------------------------------------------------------------------ |
@@ -25,6 +25,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 | Phase 7.4 | ✅ 완료 | 개인 ORtg/DRtg (팀 수준 → 개인 수준 전환)                                      |
 | Phase 8   | ✅ 완료 | 프론트엔드 고급 지표 표시 (정적 호스팅 팀 컨텍스트 계산 포함)                  |
 | Phase 8.5 | 🚧 진행 | 게임 상세 + 선수 상세 인터랙티브 슛차트 대시보드 (시즌/선수/결과/쿼터/존 필터) |
+| Phase 10  | ✅ 완료 | 로딩 속도 개선 (DB 분할, IndexedDB 캐싱, 스켈레톤 UI)                          |
 | 리팩토링  | ✅ 완료 | P0~P4 전체 (구조 분리, CSS 정리, 데이터 정확도, 테스트 보강)                   |
 
 ---
@@ -388,6 +389,23 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
   - 다요소 승리 확률 모델 (Net Rating + H2H + 모멘텀)
 - [x] 테스트 18개 추가 (총 169개)
 - [x] Graceful degradation: 모든 개선 사항이 데이터 미존재 시 기존 방식으로 폴백
+
+### Phase 10: 로딩 속도 개선 ✅ 완료 (2026-02-25)
+
+- [x] 스켈레톤 UI (`src/styles/skeleton.css`, `src/ui/skeleton.js`)
+  - 펄스 애니메이션 키프레임, 홈 페이지 레이아웃 플레이스홀더
+  - DB 로딩 완료 시 자동 숨김 (`skeleton-hidden` 클래스)
+- [x] IndexedDB 캐싱 (`src/data/idb-cache.js`)
+  - `saveToCache()`, `loadFromCache()`, `clearCache()` with ETag 메타데이터
+  - 백그라운드 ETag 체크로 캐시 자동 갱신
+  - 재방문 시 네트워크 없이 즉시 DB 로드
+- [x] DB 분할 (`tools/split_db.py`)
+  - `wkbl-core.db`: 필수 테이블 (players, teams, games, standings 등)
+  - `wkbl-detail.db`: 대용량 테이블 (play_by_play, shot_charts, lineup_stints, position_matchups)
+  - 2단계 로딩: core DB 우선 로드 → detail DB 백그라운드 프리로드
+  - `wkbl.db` 폴백 지원 (미분할 환경 호환)
+- [x] GitHub Actions + server.py 인제스트 후 자동 분할
+- [x] 테스트 11개 추가 (총 512개)
 
 ### Phase 8.5: Basketball Reference 정합성 개선 계획 🆕 (2026-02-20)
 

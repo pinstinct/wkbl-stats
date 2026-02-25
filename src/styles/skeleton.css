@@ -1,0 +1,177 @@
+/* Skeleton loading UI - shown while DB is loading */
+
+@keyframes skeleton-pulse {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
+.skeleton {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  background: var(--line);
+  border-radius: 8px;
+}
+
+.skeleton-line {
+  height: 14px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+}
+
+.skeleton-line.short {
+  width: 40%;
+}
+
+.skeleton-line.medium {
+  width: 65%;
+}
+
+.skeleton-line.long {
+  width: 90%;
+}
+
+.skeleton-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+
+.skeleton-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
+/* Skeleton: Home page layout */
+.skeleton-home {
+  padding: 0 clamp(16px, 6vw, 80px);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.skeleton-home .skeleton-title {
+  height: 28px;
+  width: 200px;
+  margin-bottom: 8px;
+}
+
+.skeleton-home .skeleton-subtitle {
+  height: 16px;
+  width: 140px;
+  margin-bottom: 24px;
+}
+
+.skeleton-game-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 32px;
+  margin-bottom: 24px;
+}
+
+.skeleton-team-block {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.skeleton-team-name {
+  height: 20px;
+  width: 80px;
+}
+
+.skeleton-team-record {
+  height: 14px;
+  width: 50px;
+}
+
+.skeleton-vs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.skeleton-vs-badge {
+  height: 32px;
+  width: 48px;
+  border-radius: 8px;
+}
+
+.skeleton-vs-text {
+  height: 14px;
+  width: 36px;
+}
+
+.skeleton-lineup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 768px) {
+  .skeleton-lineup-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.skeleton-lineup-section {
+  padding: 20px;
+}
+
+.skeleton-lineup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.skeleton-lineup-title {
+  height: 20px;
+  width: 150px;
+}
+
+.skeleton-lineup-prob {
+  height: 28px;
+  width: 60px;
+  border-radius: 12px;
+}
+
+.skeleton-player-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.skeleton-player-row:last-child {
+  border-bottom: none;
+}
+
+.skeleton-player-name {
+  height: 16px;
+  width: 70px;
+}
+
+.skeleton-player-stats {
+  height: 14px;
+  width: 120px;
+  margin-left: auto;
+}
+
+/* Hide skeleton when content loaded */
+.skeleton-hidden {
+  display: none !important;
+}

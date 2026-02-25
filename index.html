@@ -15,6 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js"></script>
     <script src="./src/seasons.js"></script>
+    <script src="./src/data/idb-cache.js"></script>
     <script src="./src/db.js"></script>
   </head>
   <body>
@@ -90,8 +91,92 @@
     </div>
 
     <main class="content">
+      <!-- Skeleton UI - shown while DB loads -->
+      <div id="skeletonUI" class="skeleton-home">
+        <div class="skeleton skeleton-title"></div>
+        <div class="skeleton skeleton-subtitle"></div>
+        <div class="skeleton-card skeleton-game-card">
+          <div class="skeleton-team-block">
+            <div class="skeleton skeleton-team-name"></div>
+            <div class="skeleton skeleton-team-record"></div>
+          </div>
+          <div class="skeleton-vs">
+            <div class="skeleton skeleton-vs-badge"></div>
+            <div class="skeleton skeleton-vs-text"></div>
+          </div>
+          <div class="skeleton-team-block">
+            <div class="skeleton skeleton-team-name"></div>
+            <div class="skeleton skeleton-team-record"></div>
+          </div>
+        </div>
+        <div class="skeleton-lineup-grid">
+          <div class="skeleton-card skeleton-lineup-section">
+            <div class="skeleton-lineup-header">
+              <div class="skeleton skeleton-lineup-title"></div>
+              <div class="skeleton skeleton-lineup-prob"></div>
+            </div>
+            <div class="skeleton-player-row">
+              <div class="skeleton skeleton-circle"></div>
+              <div class="skeleton skeleton-player-name"></div>
+              <div class="skeleton skeleton-player-stats"></div>
+            </div>
+            <div class="skeleton-player-row">
+              <div class="skeleton skeleton-circle"></div>
+              <div class="skeleton skeleton-player-name"></div>
+              <div class="skeleton skeleton-player-stats"></div>
+            </div>
+            <div class="skeleton-player-row">
+              <div class="skeleton skeleton-circle"></div>
+              <div class="skeleton skeleton-player-name"></div>
+              <div class="skeleton skeleton-player-stats"></div>
+            </div>
+            <div class="skeleton-player-row">
+              <div class="skeleton skeleton-circle"></div>
+              <div class="skeleton skeleton-player-name"></div>
+              <div class="skeleton skeleton-player-stats"></div>
+            </div>
+            <div class="skeleton-player-row">
+              <div class="skeleton skeleton-circle"></div>
+              <div class="skeleton skeleton-player-name"></div>
+              <div class="skeleton skeleton-player-stats"></div>
+            </div>
+          </div>
+          <div class="skeleton-card skeleton-lineup-section">
+            <div class="skeleton-lineup-header">
+              <div class="skeleton skeleton-lineup-title"></div>
+              <div class="skeleton skeleton-lineup-prob"></div>
+            </div>
+            <div class="skeleton-player-row">
+              <div class="skeleton skeleton-circle"></div>
+              <div class="skeleton skeleton-player-name"></div>
+              <div class="skeleton skeleton-player-stats"></div>
+            </div>
+            <div class="skeleton-player-row">
+              <div class="skeleton skeleton-circle"></div>
+              <div class="skeleton skeleton-player-name"></div>
+              <div class="skeleton skeleton-player-stats"></div>
+            </div>
+            <div class="skeleton-player-row">
+              <div class="skeleton skeleton-circle"></div>
+              <div class="skeleton skeleton-player-name"></div>
+              <div class="skeleton skeleton-player-stats"></div>
+            </div>
+            <div class="skeleton-player-row">
+              <div class="skeleton skeleton-circle"></div>
+              <div class="skeleton skeleton-player-name"></div>
+              <div class="skeleton skeleton-player-stats"></div>
+            </div>
+            <div class="skeleton-player-row">
+              <div class="skeleton skeleton-circle"></div>
+              <div class="skeleton skeleton-player-name"></div>
+              <div class="skeleton skeleton-player-stats"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Main Home View - Game Prediction -->
-      <section id="view-main" class="view">
+      <section id="view-main" class="view" style="display: none">
         <div class="main-prediction-header">
           <h2 id="mainPredictionTitle">다음 경기 예측</h2>
           <div class="main-prediction-date" id="mainPredictionDate"></div>

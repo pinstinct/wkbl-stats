@@ -93,6 +93,22 @@ def run_ingest_if_needed():
 
         save_status({"date": today})
         logger.info("Ingest completed successfully")
+
+        # Split database into core/detail for faster frontend loading
+        try:
+            from tools.split_db import split_database
+
+            split_result = split_database(
+                "data/wkbl.db", "data/wkbl-core.db", "data/wkbl-detail.db"
+            )
+            core_mb = split_result["core_size"] / (1024 * 1024)
+            detail_mb = split_result["detail_size"] / (1024 * 1024)
+            logger.info(
+                f"Database split: core={core_mb:.1f}MB, detail={detail_mb:.1f}MB"
+            )
+        except Exception as e:
+            logger.warning(f"Database split failed (non-critical): {e}")
+
         return True
 
     except subprocess.TimeoutExpired:
