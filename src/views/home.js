@@ -15,7 +15,7 @@ export function renderLineupPlayers({
         <div class="lineup-player-card">
           <div class="lineup-player-info">
             <span class="lineup-player-pos">${escapeHtml(player.pos || "-")}</span>
-            <a href="#/players/${encodeRouteParam(player.id)}" class="lineup-player-name">${escapeHtml(player.name)}</a>
+            <a href="#/predict/${encodeRouteParam(player.id)}" class="lineup-player-name">${escapeHtml(player.name)}</a>
           </div>
           <div class="lineup-player-stats">
             <div class="lineup-stat">

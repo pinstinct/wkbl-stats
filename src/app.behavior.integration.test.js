@@ -1523,7 +1523,7 @@ describe("app behavior integration", () => {
     await hooks.handleGlobalSearch("김");
     hooks.navigateGlobalSearch(1);
     hooks.selectGlobalSearchItem();
-    expect(window.location.hash).toContain("/players/");
+    expect(window.location.hash).toContain("/predict/");
 
     window.location.hash = "#/games/04601001";
     await hooks.handleRoute();

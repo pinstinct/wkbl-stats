@@ -4078,7 +4078,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
     closeGlobalSearch();
 
     if (type === "player") {
-      navigate(`/players/${id}`);
+      navigate(`/predict/${id}`);
     } else if (type === "team") {
       navigate(`/teams/${id}`);
     }
@@ -4223,7 +4223,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
       onSelect: selectGlobalSearchItem,
       onResultSelect: (type, id) => {
         closeGlobalSearch();
-        if (type === "player") navigate(`/players/${id}`);
+        if (type === "player") navigate(`/predict/${id}`);
         if (type === "team") navigate(`/teams/${id}`);
       },
     });

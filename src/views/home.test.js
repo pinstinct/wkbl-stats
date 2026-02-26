@@ -22,7 +22,8 @@ describe("home view", () => {
       formatNumber: (v) => String(Number(v).toFixed(1)),
     });
 
-    expect(container.innerHTML).toContain('href="#/players/p1"');
+    expect(container.innerHTML).toContain('href="#/predict/p1"');
+    expect(container.innerHTML).not.toContain('href="#/players/p1"');
     expect(container.innerHTML).toContain("선수1");
   });
 
