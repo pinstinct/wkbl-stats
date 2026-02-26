@@ -1,3 +1,5 @@
+import { escapeAttr, escapeHtml } from "./html.js";
+
 /** Render helpers for prediction page UI sections. */
 export function renderPredictSuggestions({
   container,
@@ -19,9 +21,9 @@ export function renderPredictSuggestions({
   container.innerHTML = players
     .map(
       (p) => `
-          <div class="predict-suggestion-item" data-id="${p.id}" data-name="${p.name}" data-team="${p.team}">
-            <span class="predict-suggestion-name">${p.name}</span>
-            <span class="predict-suggestion-team">${p.team}</span>
+          <div class="predict-suggestion-item" data-id="${escapeAttr(p.id)}" data-name="${escapeAttr(p.name)}" data-team="${escapeAttr(p.team)}">
+            <span class="predict-suggestion-name">${escapeHtml(p.name)}</span>
+            <span class="predict-suggestion-team">${escapeHtml(p.team)}</span>
           </div>
         `,
     )
@@ -32,11 +34,11 @@ export function renderPredictPlayerInfo({ container, player }) {
   if (!container) return;
   container.innerHTML = `
     <div class="predict-player-card">
-      <span class="predict-player-team">${player.team || "-"}</span>
-      <h3 class="predict-player-name">${player.name}</h3>
+      <span class="predict-player-team">${escapeHtml(player.team || "-")}</span>
+      <h3 class="predict-player-name">${escapeHtml(player.name)}</h3>
       <div class="predict-player-meta">
-        <span>${player.position || "-"}</span>
-        <span>${player.height || "-"}</span>
+        <span>${escapeHtml(player.position || "-")}</span>
+        <span>${escapeHtml(player.height || "-")}</span>
       </div>
     </div>
   `;
@@ -57,10 +59,10 @@ export function renderPredictCards({ container, prediction }) {
       if (!pred) return "";
       return `
           <div class="predict-stat-card">
-            <div class="predict-stat-label">${stat.label}</div>
+            <div class="predict-stat-label">${escapeHtml(stat.label)}</div>
             <div class="predict-stat-value">${pred.predicted.toFixed(1)}</div>
             <div class="predict-stat-range">${pred.low.toFixed(1)} - ${pred.high.toFixed(1)}</div>
-            <div class="predict-stat-trend ${pred.trend}">${pred.trendLabel}</div>
+            <div class="predict-stat-trend ${escapeAttr(pred.trend)}">${escapeHtml(pred.trendLabel)}</div>
           </div>
         `;
     })

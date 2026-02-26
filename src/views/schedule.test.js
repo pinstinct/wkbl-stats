@@ -66,4 +66,34 @@ describe("schedule view", () => {
     expect(card.style.display).toBe("block");
     expect(fields.get("nextGameMatchup").textContent).toContain("A vs B");
   });
+
+  it("renders empty states for schedule lists and hides missing next game", () => {
+    const upcoming = { innerHTML: "" };
+    const recent = { innerHTML: "" };
+    const card = { style: { display: "block" } };
+
+    renderUpcomingGames({
+      container: upcoming,
+      upcomingGames: [],
+      formatFullDate: () => "1/1",
+      getPredictionHtml: () => "",
+    });
+    expect(upcoming.innerHTML).toContain("예정된 경기가 없습니다");
+
+    renderRecentResults({
+      container: recent,
+      recentGames: [],
+      formatFullDate: () => "1/2",
+      getPredictionCompareHtml: () => "",
+    });
+    expect(recent.innerHTML).toContain("최근 경기 결과가 없습니다");
+
+    renderNextGameHighlight({
+      nextGameCard: card,
+      next: null,
+      formatFullDate: () => "1/1",
+      getById: () => ({ textContent: "" }),
+    });
+    expect(card.style.display).toBe("none");
+  });
 });

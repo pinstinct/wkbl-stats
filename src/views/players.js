@@ -1,3 +1,5 @@
+import { encodeRouteParam, escapeAttr, escapeHtml } from "./html.js";
+
 const BASIC_THEAD_HTML = `<tr>
   <th data-key="name">선수</th>
   <th data-key="team" class="hide-mobile">팀</th>
@@ -67,10 +69,10 @@ export function renderPlayersTable({
     tbody.innerHTML = players
       .map(
         (player, index) => `
-        <tr data-player-id="${player.id}" data-index="${index}">
-          <td><a href="#/players/${player.id}">${player.name}</a></td>
-          <td class="hide-mobile">${player.team}</td>
-          <td class="hide-mobile">${player.pos || "-"}</td>
+        <tr data-player-id="${escapeAttr(player.id)}" data-index="${index}">
+          <td><a href="#/players/${encodeRouteParam(player.id)}">${escapeHtml(player.name)}</a></td>
+          <td class="hide-mobile">${escapeHtml(player.team)}</td>
+          <td class="hide-mobile">${escapeHtml(player.pos || "-")}</td>
           <td>${formatNumber(player.per)}</td>
           <td>${formatNumber(player.game_score)}</td>
           <td>${formatNumber(player.usg_pct)}</td>
@@ -99,10 +101,10 @@ export function renderPlayersTable({
     tbody.innerHTML = players
       .map(
         (player, index) => `
-        <tr data-player-id="${player.id}" data-index="${index}">
-          <td><a href="#/players/${player.id}">${player.name}</a></td>
-          <td class="hide-mobile">${player.team}</td>
-          <td class="hide-mobile">${player.pos || "-"}</td>
+        <tr data-player-id="${escapeAttr(player.id)}" data-index="${index}">
+          <td><a href="#/players/${encodeRouteParam(player.id)}">${escapeHtml(player.name)}</a></td>
+          <td class="hide-mobile">${escapeHtml(player.team)}</td>
+          <td class="hide-mobile">${escapeHtml(player.pos || "-")}</td>
           <td class="hide-tablet">${player.gp}</td>
           <td class="hide-tablet">${formatNumber(player.min)}</td>
           <td>${formatNumber(player.pts)}</td>
@@ -173,7 +175,7 @@ export function renderPlayerSummaryCard({
       stat.format === "pct"
         ? formatPct(player[stat.key])
         : formatNumber(player[stat.key]);
-    primaryGrid.innerHTML += `<div class="stat-card" title="${stat.desc}" data-tooltip="${stat.desc}"><span>${stat.label}</span><strong>${value}</strong></div>`;
+    primaryGrid.innerHTML += `<div class="stat-card" title="${escapeAttr(stat.desc)}" data-tooltip="${escapeAttr(stat.desc)}"><span>${escapeHtml(stat.label)}</span><strong>${escapeHtml(value)}</strong></div>`;
   });
 
   const advancedSection = document.createElement("div");
@@ -193,7 +195,7 @@ export function renderPlayerSummaryCard({
     } else {
       value = formatNumber(rawValue);
     }
-    advancedGrid.innerHTML += `<div class="stat-card stat-card--advanced" title="${stat.desc}" data-tooltip="${stat.desc}"><span>${stat.label}</span><strong>${value}</strong></div>`;
+    advancedGrid.innerHTML += `<div class="stat-card stat-card--advanced" title="${escapeAttr(stat.desc)}" data-tooltip="${escapeAttr(stat.desc)}"><span>${escapeHtml(stat.label)}</span><strong>${escapeHtml(value)}</strong></div>`;
   });
 
   if (tier2Stats && tier2Stats.length > 0) {
@@ -216,7 +218,7 @@ export function renderPlayerSummaryCard({
       } else {
         value = formatNumber(rawValue);
       }
-      tier2Grid.innerHTML += `<div class="stat-card stat-card--advanced" title="${stat.desc}" data-tooltip="${stat.desc}"><span>${stat.label}</span><strong>${value}</strong></div>`;
+      tier2Grid.innerHTML += `<div class="stat-card stat-card--advanced" title="${escapeAttr(stat.desc)}" data-tooltip="${escapeAttr(stat.desc)}"><span>${escapeHtml(stat.label)}</span><strong>${escapeHtml(value)}</strong></div>`;
     });
     grid.append(primarySection, advancedSection, tier2Section);
   } else {

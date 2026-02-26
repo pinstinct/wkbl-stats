@@ -1,3 +1,5 @@
+import { encodeRouteParam, escapeHtml } from "./html.js";
+
 /** Render helpers for the home dashboard sections. */
 export function renderLineupPlayers({
   container,
@@ -12,8 +14,8 @@ export function renderLineupPlayers({
       return `
         <div class="lineup-player-card">
           <div class="lineup-player-info">
-            <span class="lineup-player-pos">${player.pos || "-"}</span>
-            <a href="#/players/${player.id}" class="lineup-player-name">${player.name}</a>
+            <span class="lineup-player-pos">${escapeHtml(player.pos || "-")}</span>
+            <a href="#/players/${encodeRouteParam(player.id)}" class="lineup-player-name">${escapeHtml(player.name)}</a>
           </div>
           <div class="lineup-player-stats">
             <div class="lineup-stat">

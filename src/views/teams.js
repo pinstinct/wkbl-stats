@@ -1,3 +1,5 @@
+import { encodeRouteParam, escapeAttr, escapeHtml } from "./html.js";
+
 /** Render helpers for teams listing and team detail tables. */
 export function sortStandings(standings, { key = "rank", dir = "asc" } = {}) {
   const rows = [...(standings || [])];
@@ -26,7 +28,7 @@ export function renderStandingsTable({ tbody, standings }) {
       (t) => `
         <tr>
           <td>${t.rank}</td>
-          <td><a href="#/teams/${t.team_id}">${t.team_name}</a></td>
+          <td><a href="#/teams/${encodeRouteParam(t.team_id)}">${escapeHtml(t.team_name)}</a></td>
           <td>${t.wins + t.losses}</td>
           <td>${t.wins}</td>
           <td>${t.losses}</td>
@@ -35,11 +37,11 @@ export function renderStandingsTable({ tbody, standings }) {
           <td>${t.def_rtg !== null && t.def_rtg !== undefined ? Number(t.def_rtg).toFixed(1) : "-"}</td>
           <td>${t.net_rtg !== null && t.net_rtg !== undefined ? `${t.net_rtg >= 0 ? "+" : ""}${Number(t.net_rtg).toFixed(1)}` : "-"}</td>
           <td>${t.pace !== null && t.pace !== undefined ? Number(t.pace).toFixed(1) : "-"}</td>
-          <td>${t.games_behind || "-"}</td>
-          <td class="hide-mobile">${t.home_record}</td>
-          <td class="hide-mobile">${t.away_record}</td>
-          <td class="hide-tablet">${t.streak || "-"}</td>
-          <td class="hide-tablet">${t.last5 || "-"}</td>
+          <td>${escapeHtml(t.games_behind || "-")}</td>
+          <td class="hide-mobile">${escapeHtml(t.home_record)}</td>
+          <td class="hide-mobile">${escapeHtml(t.away_record)}</td>
+          <td class="hide-tablet">${escapeHtml(t.streak || "-")}</td>
+          <td class="hide-tablet">${escapeHtml(t.last5 || "-")}</td>
         </tr>
       `,
     )
@@ -52,9 +54,9 @@ export function renderTeamRoster({ tbody, roster }) {
     .map(
       (p) => `
         <tr>
-          <td><a href="#/players/${p.id}">${p.name}</a></td>
-          <td>${p.position || "-"}</td>
-          <td>${p.height || "-"}</td>
+          <td><a href="#/players/${encodeRouteParam(p.id)}">${escapeHtml(p.name)}</a></td>
+          <td>${escapeHtml(p.position || "-")}</td>
+          <td>${escapeHtml(p.height || "-")}</td>
         </tr>
       `,
     )
@@ -108,7 +110,7 @@ export function renderTeamStats({ container, stats }) {
             : item.key === "gp"
               ? String(raw)
               : Number(raw).toFixed(1);
-      return `<div class="stat-card" title="${item.desc}" data-tooltip="${item.desc}"><span>${item.label}</span><strong>${value}</strong></div>`;
+      return `<div class="stat-card" title="${escapeAttr(item.desc)}" data-tooltip="${escapeAttr(item.desc)}"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(value)}</strong></div>`;
     })
     .join("");
 }
@@ -119,11 +121,11 @@ export function renderTeamRecentGames({ tbody, games, formatDate }) {
     .map(
       (g) => `
         <tr>
-          <td><a href="#/games/${g.game_id}">${formatDate(g.date)}</a></td>
-          <td>${g.opponent}</td>
-          <td>${g.is_home ? "홈" : "원정"}</td>
-          <td>${g.result}</td>
-          <td>${g.score}</td>
+          <td><a href="#/games/${encodeRouteParam(g.game_id)}">${escapeHtml(formatDate(g.date))}</a></td>
+          <td>${escapeHtml(g.opponent)}</td>
+          <td>${escapeHtml(g.is_home ? "홈" : "원정")}</td>
+          <td>${escapeHtml(g.result)}</td>
+          <td>${escapeHtml(g.score)}</td>
         </tr>
       `,
     )

@@ -1,3 +1,5 @@
+import { encodeRouteParam, escapeAttr, escapeHtml } from "./html.js";
+
 /** Render helpers for compare page inputs and result table. */
 export function renderCompareSelected({ container, selectedPlayers }) {
   if (!container) return;
@@ -9,9 +11,9 @@ export function renderCompareSelected({ container, selectedPlayers }) {
   container.innerHTML = selectedPlayers
     .map(
       (p) => `
-        <div class="compare-tag" data-id="${p.id}">
-          <span>${p.name}</span>
-          <button class="compare-tag-remove" data-id="${p.id}">&times;</button>
+        <div class="compare-tag" data-id="${escapeAttr(p.id)}">
+          <span>${escapeHtml(p.name)}</span>
+          <button class="compare-tag-remove" data-id="${escapeAttr(p.id)}">&times;</button>
         </div>
       `,
     )
@@ -37,9 +39,9 @@ export function renderCompareSuggestions({
   container.innerHTML = players
     .map(
       (p) => `
-          <div class="compare-suggestion-item" data-id="${p.id}" data-name="${p.name}" data-team="${p.team}">
-            <span class="compare-suggestion-name">${p.name}</span>
-            <span class="compare-suggestion-team">${p.team}</span>
+          <div class="compare-suggestion-item" data-id="${escapeAttr(p.id)}" data-name="${escapeAttr(p.name)}" data-team="${escapeAttr(p.team)}">
+            <span class="compare-suggestion-name">${escapeHtml(p.name)}</span>
+            <span class="compare-suggestion-team">${escapeHtml(p.team)}</span>
           </div>
         `,
     )
@@ -53,11 +55,11 @@ export function renderCompareCards({ container, players, formatNumber }) {
       (p) => `
       <div class="compare-player-card">
         <div class="compare-player-info">
-          <span class="compare-player-team">${p.team}</span>
-          <h3 class="compare-player-name"><a href="#/players/${p.id}">${p.name}</a></h3>
+          <span class="compare-player-team">${escapeHtml(p.team)}</span>
+          <h3 class="compare-player-name"><a href="#/players/${encodeRouteParam(p.id)}">${escapeHtml(p.name)}</a></h3>
           <div class="compare-player-meta">
-            <span>${p.position || "-"}</span>
-            <span>${p.height || "-"}</span>
+            <span>${escapeHtml(p.position || "-")}</span>
+            <span>${escapeHtml(p.height || "-")}</span>
           </div>
         </div>
         <div class="compare-player-stats">

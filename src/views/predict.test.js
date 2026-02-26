@@ -59,4 +59,40 @@ describe("predict view", () => {
     expect(cards.innerHTML).toContain("predict-stat-card");
     expect(factors.innerHTML).toContain("예측 근거");
   });
+
+  it("renders predict suggestion fallback states", () => {
+    const suggestions = { innerHTML: "" };
+
+    renderPredictSuggestions({
+      container: suggestions,
+      players: [],
+      error: false,
+    });
+    expect(suggestions.innerHTML).toContain("검색 결과 없음");
+
+    renderPredictSuggestions({
+      container: suggestions,
+      players: [],
+      error: true,
+    });
+    expect(suggestions.innerHTML).toContain("검색 오류");
+  });
+
+  it("skips missing stat cards safely", () => {
+    const cards = { innerHTML: "" };
+    renderPredictCards({
+      container: cards,
+      prediction: {
+        pts: {
+          predicted: 10.1,
+          low: 8.1,
+          high: 12.1,
+          trend: "up",
+          trendLabel: "상승",
+        },
+      },
+    });
+    expect(cards.innerHTML).toContain("predict-stat-card");
+    expect(cards.innerHTML).not.toContain("리바운드");
+  });
 });

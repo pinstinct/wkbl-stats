@@ -1,3 +1,5 @@
+import { encodeRouteParam, escapeAttr, escapeHtml } from "./html.js";
+
 /** Render helpers for game detail and boxscore rows. */
 function compareNullableNumbers(a, b, dirSign) {
   const aNull = a === null || a === undefined || Number.isNaN(a);
@@ -59,8 +61,9 @@ export function renderBoxscoreRows({
 }) {
   const isUpcomingGame = game.home_score == null || game.away_score == null;
   const getPlayerHref = (playerId, pred) => {
-    if (isUpcomingGame && pred?.is_starter) return `#/predict/${playerId}`;
-    return `#/players/${playerId}`;
+    if (isUpcomingGame && pred?.is_starter)
+      return `#/predict/${encodeRouteParam(playerId)}`;
+    return `#/players/${encodeRouteParam(playerId)}`;
   };
 
   function renderPlayerRow(p) {
@@ -82,15 +85,15 @@ export function renderBoxscoreRows({
     return `
       <tr class="${pred?.is_starter ? "starter-row" : ""}">
         <td>
-          <a href="${getPlayerHref(p.player_id, pred)}">${p.player_name}</a>
+          <a href="${getPlayerHref(p.player_id, pred)}">${escapeHtml(p.player_name)}</a>
           ${pred?.is_starter ? '<span class="starter-badge">선발</span>' : ""}
         </td>
         <td>${formatNumber(p.minutes, 0)}</td>
-        <td class="${ptsPred.cls}" title="${ptsPred.title}">${p.pts}</td>
-        <td class="${rebPred.cls}" title="${rebPred.title}">${p.reb}</td>
-        <td class="${astPred.cls}" title="${astPred.title}">${p.ast}</td>
-        <td class="${stlPred.cls}" title="${stlPred.title}">${p.stl}</td>
-        <td class="${blkPred.cls}" title="${blkPred.title}">${p.blk}</td>
+        <td class="${escapeAttr(ptsPred.cls)}" title="${escapeAttr(ptsPred.title)}">${p.pts}</td>
+        <td class="${escapeAttr(rebPred.cls)}" title="${escapeAttr(rebPred.title)}">${p.reb}</td>
+        <td class="${escapeAttr(astPred.cls)}" title="${escapeAttr(astPred.title)}">${p.ast}</td>
+        <td class="${escapeAttr(stlPred.cls)}" title="${escapeAttr(stlPred.title)}">${p.stl}</td>
+        <td class="${escapeAttr(blkPred.cls)}" title="${escapeAttr(blkPred.title)}">${p.blk}</td>
         <td class="hide-mobile">${p.tov}</td>
         <td class="hide-mobile">${p.fgm}/${p.fga}</td>
         <td>${p.tpm}/${p.tpa}</td>
@@ -106,7 +109,7 @@ export function renderBoxscoreRows({
     return `
       <tr class="starter-row dnp-row">
         <td>
-          <a href="${getPlayerHref(pred.player_id, pred)}">${pred.player_name || pred.player_id}</a>
+          <a href="${getPlayerHref(pred.player_id, pred)}">${escapeHtml(pred.player_name || pred.player_id)}</a>
           <span class="starter-badge">선발</span>
           <span class="dnp-badge">미출장</span>
         </td>

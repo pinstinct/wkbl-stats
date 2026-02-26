@@ -1,4 +1,5 @@
 import { getDayCountdownLabel } from "./schedule-logic.js";
+import { encodeRouteParam, escapeHtml } from "./html.js";
 
 /** Render helpers for schedule page sections. */
 export function renderNextGameHighlight({
@@ -39,12 +40,12 @@ export function renderUpcomingGames({
     .map((g) => {
       const predHtml = getPredictionHtml(g);
       return `
-          <a href="#/games/${g.id}" class="schedule-item upcoming">
-            <div class="schedule-item-date">${formatFullDate(g.game_date)}</div>
+          <a href="#/games/${encodeRouteParam(g.id)}" class="schedule-item upcoming">
+            <div class="schedule-item-date">${escapeHtml(formatFullDate(g.game_date))}</div>
             <div class="schedule-item-matchup">
-              <span class="schedule-team away">${g.away_team_short || g.away_team_name}</span>
+              <span class="schedule-team away">${escapeHtml(g.away_team_short || g.away_team_name)}</span>
               <span class="schedule-vs">vs</span>
-              <span class="schedule-team home">${g.home_team_short || g.home_team_name}</span>
+              <span class="schedule-team home">${escapeHtml(g.home_team_short || g.home_team_name)}</span>
             </div>
             ${predHtml}
           </a>
@@ -71,12 +72,12 @@ export function renderRecentResults({
       const homeWin = g.home_score > g.away_score;
       const predCompareHtml = getPredictionCompareHtml(g, homeWin);
       return `
-          <a href="#/games/${g.id}" class="schedule-item result">
-            <div class="schedule-item-date">${formatFullDate(g.game_date)}</div>
+          <a href="#/games/${encodeRouteParam(g.id)}" class="schedule-item result">
+            <div class="schedule-item-date">${escapeHtml(formatFullDate(g.game_date))}</div>
             <div class="schedule-item-matchup">
-              <span class="schedule-team away ${!homeWin ? "winner" : ""}">${g.away_team_short || g.away_team_name}</span>
-              <span class="schedule-score">${g.away_score} - ${g.home_score}</span>
-              <span class="schedule-team home ${homeWin ? "winner" : ""}">${g.home_team_short || g.home_team_name}</span>
+              <span class="schedule-team away ${!homeWin ? "winner" : ""}">${escapeHtml(g.away_team_short || g.away_team_name)}</span>
+              <span class="schedule-score">${escapeHtml(g.away_score)} - ${escapeHtml(g.home_score)}</span>
+              <span class="schedule-team home ${homeWin ? "winner" : ""}">${escapeHtml(g.home_team_short || g.home_team_name)}</span>
             </div>
             ${predCompareHtml}
           </a>

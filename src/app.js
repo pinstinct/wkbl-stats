@@ -183,6 +183,20 @@ import { hideSkeleton } from "./ui/skeleton.js";
     return document.getElementById(id);
   }
 
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (ch) => {
+      if (ch === "&") return "&amp;";
+      if (ch === "<") return "&lt;";
+      if (ch === ">") return "&gt;";
+      if (ch === '"') return "&quot;";
+      return "&#39;";
+    });
+  }
+
+  function escapeAttr(value) {
+    return escapeHtml(value);
+  }
+
   // =============================================================================
   // API Functions
   // =============================================================================
@@ -1584,7 +1598,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
         .reverse()
         .map(
           (season) =>
-            `<option value="${season.season_id}">${season.season_label || season.season_id}</option>`,
+            `<option value="${escapeAttr(season.season_id)}">${escapeHtml(season.season_label || season.season_id)}</option>`,
         ),
     ].join("");
     seasonSelect.value = latestSeasonId || "all";
@@ -1607,13 +1621,13 @@ import { hideSkeleton } from "./ui/skeleton.js";
       quarterSelect.innerHTML = buildQuarterSelectOptions(normalized)
         .map(
           (option) =>
-            `<option value="${option.value}">${option.label}</option>`,
+            `<option value="${escapeAttr(option.value)}">${escapeHtml(option.label)}</option>`,
         )
         .join("");
       zoneSelect.innerHTML = buildPlayerShotZoneOptions(normalized)
         .map(
           (option) =>
-            `<option value="${option.value}">${option.label}</option>`,
+            `<option value="${escapeAttr(option.value)}">${escapeHtml(option.label)}</option>`,
         )
         .join("");
       filters.quarter = "all";
@@ -2585,13 +2599,15 @@ import { hideSkeleton } from "./ui/skeleton.js";
     teamSelect.innerHTML = [
       '<option value="all">전체</option>',
       ...teams.map(
-        (team) => `<option value="${team.id}">${team.name}</option>`,
+        (team) =>
+          `<option value="${escapeAttr(team.id)}">${escapeHtml(team.name)}</option>`,
       ),
     ].join("");
 
     quarterSelect.innerHTML = buildQuarterSelectOptions(correctedShots)
       .map(
-        (option) => `<option value="${option.value}">${option.label}</option>`,
+        (option) =>
+          `<option value="${escapeAttr(option.value)}">${escapeHtml(option.label)}</option>`,
       )
       .join("");
 
@@ -2636,7 +2652,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
       playerSelect.innerHTML = options
         .map(
           (option) =>
-            `<option value="${option.value}">${option.label}</option>`,
+            `<option value="${escapeAttr(option.value)}">${escapeHtml(option.label)}</option>`,
         )
         .join("");
       const hasCurrent = options.some(
@@ -2807,7 +2823,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
             `;
               })
               .join("");
-            return `<tr><td class="pred-team-label">${t.name}</td>${cells}</tr>`;
+            return `<tr><td class="pred-team-label">${escapeHtml(t.name)}</td>${cells}</tr>`;
           })
           .join("");
 
@@ -2816,7 +2832,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
             <h3>예측 vs 실제</h3>
             <div class="prediction-comparison">
               <div class="pred-team">
-                <span class="pred-label">${game.away_team_name}</span>
+                <span class="pred-label">${escapeHtml(game.away_team_name)}</span>
                 <div class="pred-values">
                   <span class="pred-expected">예측: ${predictions.team.away_win_prob.toFixed(0)}%</span>
                   <span class="pred-actual ${!homeActualWin ? "winner" : ""}">${!homeActualWin ? "승리" : "패배"}</span>
@@ -2824,7 +2840,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
               </div>
               <div class="pred-vs">VS</div>
               <div class="pred-team">
-                <span class="pred-label">${game.home_team_name}</span>
+                <span class="pred-label">${escapeHtml(game.home_team_name)}</span>
                 <div class="pred-values">
                   <span class="pred-expected">예측: ${predictions.team.home_win_prob.toFixed(0)}%</span>
                   <span class="pred-actual ${homeActualWin ? "winner" : ""}">${homeActualWin ? "승리" : "패배"}</span>
@@ -2838,7 +2854,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
               <thead>
                 <tr>
                   <th></th>
-                  ${stats.map((s) => `<th colspan="3">${statLabels[s]}</th>`).join("")}
+                  ${stats.map((s) => `<th colspan="3">${escapeHtml(statLabels[s])}</th>`).join("")}
                 </tr>
                 <tr>
                   <th></th>
@@ -2898,7 +2914,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
             .map(
               (s) => `
                 <div class="total-stat">
-                  <span class="stat-label">${totalStatLabels[s]}</span>
+                  <span class="stat-label">${escapeHtml(totalStatLabels[s])}</span>
                   <span class="stat-value">${formatNumber(totals[s].pred)}</span>
                   <span class="stat-range">${formatRange(totals[s].low, totals[s].high)}</span>
                 </div>`,
@@ -2906,7 +2922,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
             .join("");
           return `
             <div class="pred-total-team">
-              <div class="pred-total-header">${teamName}</div>
+              <div class="pred-total-header">${escapeHtml(teamName)}</div>
               <div class="lineup-total-stats">${statItems}</div>
             </div>`;
         };
@@ -2930,12 +2946,12 @@ import { hideSkeleton } from "./ui/skeleton.js";
             <h3>경기 예측</h3>
             <div class="prediction-comparison">
               <div class="pred-team">
-                <span class="pred-label">${game.away_team_name}</span>
+                <span class="pred-label">${escapeHtml(game.away_team_name)}</span>
                 <span class="pred-prob">${predictions.team.away_win_prob.toFixed(0)}%</span>
               </div>
               <div class="pred-vs">VS</div>
               <div class="pred-team">
-                <span class="pred-label">${game.home_team_name}</span>
+                <span class="pred-label">${escapeHtml(game.home_team_name)}</span>
                 <span class="pred-prob">${predictions.team.home_win_prob.toFixed(0)}%</span>
               </div>
             </div>
@@ -3376,7 +3392,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
       const maxValue = Math.max(...players.map((p) => p[stat.key] || 0));
       return `
         <div class="compare-bar-row">
-          <div class="compare-bar-label">${stat.label}</div>
+          <div class="compare-bar-label">${escapeHtml(stat.label)}</div>
           <div class="compare-bar-container">
             ${players
               .map((p, i) => {
@@ -3384,9 +3400,9 @@ import { hideSkeleton } from "./ui/skeleton.js";
                 const width = maxValue > 0 ? (value / maxValue) * 100 : 0;
                 return `
                 <div class="compare-bar-item">
-                  <span class="compare-bar-name">${p.name}</span>
+                  <span class="compare-bar-name">${escapeHtml(p.name)}</span>
                   <div class="compare-bar-track">
-                    <div class="compare-bar-fill" style="width: ${width}%; background: ${colors[i % colors.length]};"></div>
+                    <div class="compare-bar-fill" style="width: ${escapeAttr(width)}%; background: ${escapeAttr(colors[i % colors.length])};"></div>
                   </div>
                   <span class="compare-bar-value">${formatNumber(value)}</span>
                 </div>
@@ -3405,7 +3421,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
     tableHead.innerHTML = `
       <tr>
         <th>스탯</th>
-        ${players.map((p) => `<th title="${p.name}">${p.name}</th>`).join("")}
+        ${players.map((p) => `<th title="${escapeAttr(p.name)}">${escapeHtml(p.name)}</th>`).join("")}
       </tr>
     `;
 
@@ -3419,7 +3435,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
 
       return `
         <tr>
-          <td>${stat.label}</td>
+          <td>${escapeHtml(stat.label)}</td>
           ${players
             .map((p, i) => {
               const value = p[stat.key];
@@ -3445,7 +3461,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
                 formatted = formatNumber(value);
               }
               const isMax = i === maxIdx && maxIdx !== -1;
-              return `<td class="${isMax ? "compare-best" : ""}">${formatted}</td>`;
+              return `<td class="${isMax ? "compare-best" : ""}">${escapeHtml(formatted)}</td>`;
             })
             .join("")}
         </tr>
@@ -3828,11 +3844,11 @@ import { hideSkeleton } from "./ui/skeleton.js";
         html += players
           .map(
             (p, i) => `
-          <div class="search-result-item" data-type="player" data-id="${p.id}" data-index="${i}">
+          <div class="search-result-item" data-type="player" data-id="${escapeAttr(p.id)}" data-index="${i}">
             <div class="search-result-icon">👤</div>
             <div class="search-result-info">
-              <div class="search-result-name">${p.name}</div>
-              <div class="search-result-meta">${p.team} · ${p.position || "-"}</div>
+              <div class="search-result-name">${escapeHtml(p.name)}</div>
+              <div class="search-result-meta">${escapeHtml(p.team)} · ${escapeHtml(p.position || "-")}</div>
             </div>
           </div>
         `,
@@ -3847,11 +3863,11 @@ import { hideSkeleton } from "./ui/skeleton.js";
         html += teams
           .map(
             (t, i) => `
-          <div class="search-result-item" data-type="team" data-id="${t.id}" data-index="${players.length + i}">
+          <div class="search-result-item" data-type="team" data-id="${escapeAttr(t.id)}" data-index="${players.length + i}">
             <div class="search-result-icon">🏀</div>
             <div class="search-result-info">
-              <div class="search-result-name">${t.name}</div>
-              <div class="search-result-meta">${t.short_name}</div>
+              <div class="search-result-name">${escapeHtml(t.name)}</div>
+              <div class="search-result-meta">${escapeHtml(t.short_name)}</div>
             </div>
           </div>
         `,

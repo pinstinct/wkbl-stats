@@ -1,3 +1,5 @@
+import { escapeAttr, escapeHtml } from "./html.js";
+
 /** Render helpers for player detail page blocks. */
 export function renderCareerSummary({ summaryEl, seasons, courtMargin }) {
   if (!summaryEl || !seasons || seasons.length === 0) return;
@@ -35,8 +37,8 @@ export function renderPlayerSeasonTable({
     .map(
       (s) => `
         <tr>
-          <td>${s.season_label || "-"}</td>
-          <td>${s.team || "-"}</td>
+          <td>${escapeHtml(s.season_label || "-")}</td>
+          <td>${escapeHtml(s.team || "-")}</td>
           <td>${s.gp}</td>
           <td>${formatNumber(s.min)}</td>
           <td>${formatNumber(s.pts)}</td>
@@ -214,7 +216,7 @@ export function renderPlayerAdvancedStats({
                 : stat.key === "ast_to"
                   ? formatNumber(raw, 2)
                   : formatNumber(raw);
-      return `<div class="stat-card stat-card--advanced" title="${stat.desc}" data-tooltip="${stat.desc}"><span>${stat.label}</span><strong>${value}</strong></div>`;
+      return `<div class="stat-card stat-card--advanced" title="${escapeAttr(stat.desc)}" data-tooltip="${escapeAttr(stat.desc)}"><span>${escapeHtml(stat.label)}</span><strong>${escapeHtml(value)}</strong></div>`;
     })
     .join("");
 }
@@ -230,18 +232,18 @@ export function renderPlayerGameLogTable({
     .map(
       (g) => `
         <tr>
-          <td>${formatDate(g.game_date)}</td>
-          <td>vs ${g.opponent}</td>
-          <td>${g.result}</td>
+          <td>${escapeHtml(formatDate(g.game_date))}</td>
+          <td>vs ${escapeHtml(g.opponent)}</td>
+          <td>${escapeHtml(g.result)}</td>
           <td>${formatNumber(g.minutes, 0)}</td>
           <td>${g.pts}</td>
           <td>${g.reb}</td>
           <td>${g.ast}</td>
           <td>${g.stl}</td>
           <td>${g.blk}</td>
-          <td>${g.fgm}/${g.fga}</td>
-          <td>${g.tpm}/${g.tpa}</td>
-          <td>${g.ftm}/${g.fta}</td>
+          <td>${escapeHtml(g.fgm)}/${escapeHtml(g.fga)}</td>
+          <td>${escapeHtml(g.tpm)}/${escapeHtml(g.tpa)}</td>
+          <td>${escapeHtml(g.ftm)}/${escapeHtml(g.fta)}</td>
         </tr>
       `,
     )

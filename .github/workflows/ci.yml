@@ -48,6 +48,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run frontend lint/security gate
+        run: npm run lint:front
+
+      - name: Run frontend format gate
+        run: npm run format:front:check
+
       - name: Run frontend tests with coverage gate
         run: npm run test:front:coverage
 
