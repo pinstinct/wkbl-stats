@@ -384,6 +384,134 @@ scenarios:
     since: "2026-02-25"
     notes: display precision quality gate
 
+  - id: E2E-PLAYERS-004
+    title: players advanced tab renders advanced headers and rows
+    tier: recommended
+    area: players
+    owner: frontend
+    risk: medium
+    preconditions: players route loaded with row data
+    expected: advanced tab switch updates header and keeps rows visible
+    testRefs:
+      - spec: e2e/recommended/deep-flow.spec.js
+        title: "[E2E-PLAYERS-004]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-26"
+    notes: tab/column contract
+
+  - id: E2E-PLAYERS-005
+    title: players row click updates summary card
+    tier: recommended
+    area: players
+    owner: frontend
+    risk: medium
+    preconditions: players route loaded with table rows
+    expected: clicking a row reflects selected player in summary card
+    testRefs:
+      - spec: e2e/recommended/deep-flow.spec.js
+        title: "[E2E-PLAYERS-005]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-26"
+    notes: list-to-card interaction
+
+  - id: E2E-TEAMS-002
+    title: standings team link opens team detail with roster
+    tier: recommended
+    area: teams
+    owner: frontend
+    risk: medium
+    preconditions: teams route loaded with standings rows
+    expected: team detail view opens and roster table has rows
+    testRefs:
+      - spec: e2e/recommended/deep-flow.spec.js
+        title: "[E2E-TEAMS-002]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-26"
+    notes: cross-view navigation
+
+  - id: E2E-GAMES-001
+    title: games list card opens game detail route
+    tier: recommended
+    area: nav
+    owner: frontend
+    risk: medium
+    preconditions: games route loaded with cards
+    expected: clicking a card opens game detail view
+    testRefs:
+      - spec: e2e/recommended/deep-flow.spec.js
+        title: "[E2E-GAMES-001]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-26"
+    notes: list-to-detail navigation
+
+  - id: E2E-SCHEDULE-003
+    title: schedule team filter updates list region without crash
+    tier: recommended
+    area: schedule
+    owner: frontend
+    risk: medium
+    preconditions: schedule route loaded and team select populated
+    expected: changing team filter keeps schedule lists rendered
+    testRefs:
+      - spec: e2e/recommended/deep-flow.spec.js
+        title: "[E2E-SCHEDULE-003]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-26"
+    notes: filter refresh stability
+
+  - id: E2E-COMPARE-004
+    title: compare execution renders table and cards for selected players
+    tier: recommended
+    area: compare
+    owner: frontend
+    risk: high
+    preconditions: compare route loaded and at least two players selectable
+    expected: comparison result section shows cards and stat table rows
+    testRefs:
+      - spec: e2e/recommended/deep-flow.spec.js
+        title: "[E2E-COMPARE-004]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-26"
+    notes: end-to-end compare flow
+
+  - id: E2E-PREDICT-003
+    title: predict selection renders player info and result panel
+    tier: recommended
+    area: predict
+    owner: frontend
+    risk: high
+    preconditions: predict route loaded and player suggestion selectable
+    expected: selecting suggestion opens result panel with player info
+    testRefs:
+      - spec: e2e/recommended/deep-flow.spec.js
+        title: "[E2E-PREDICT-003]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-26"
+    notes: end-to-end predict flow
+
+  - id: E2E-SEARCH-004
+    title: global search keyboard selection navigates to detail route
+    tier: recommended
+    area: search
+    owner: frontend
+    risk: medium
+    preconditions: modal opened with searchable query
+    expected: arrow/enter selects result and updates hash route
+    testRefs:
+      - spec: e2e/recommended/deep-flow.spec.js
+        title: "[E2E-SEARCH-004]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-26"
+    notes: keyboard interaction path
+
   - id: E2E-MOBILE-001
     title: mobile nav toggle opens menu
     tier: optional
