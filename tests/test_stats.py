@@ -889,3 +889,54 @@ def test_per_zero_lg_aper():
         league_stats=lg,
     )
     assert isinstance(result, float)
+
+
+def test_per_passes_poss_strategy_to_estimate_possessions():
+    """_compute_per should forward poss_strategy from team_stats to estimate_possessions."""
+    from unittest.mock import patch
+
+    from stats import _compute_per
+
+    d = dict(_BASE_ROW)
+    d["off_reb"] = 1.0
+    d["def_reb"] = 4.0
+    d["pf"] = 2.0
+
+    ts = dict(_TEAM_STATS)
+    ts["poss_strategy"] = "bbr_standard"
+    lg = dict(_LEAGUE_STATS)
+
+    with patch(
+        "stats.estimate_possessions", wraps=__import__("stats").estimate_possessions
+    ) as mock_ep:
+        _compute_per(d, gp=10, min_avg=30.0, team_stats=ts, league_stats=lg)
+        # Verify strategy was forwarded
+        mock_ep.assert_called_once()
+        call_kwargs = mock_ep.call_args
+        assert call_kwargs.kwargs["strategy"] == "bbr_standard"
+        # Verify opponent params were also forwarded
+        assert call_kwargs.kwargs["opp_fga"] == ts["opp_fga"]
+        assert call_kwargs.kwargs["opp_fgm"] == ts["opp_fgm"]
+
+
+def test_per_defaults_to_simple_strategy():
+    """_compute_per should default to simple strategy when poss_strategy not in team_stats."""
+    from unittest.mock import patch
+
+    from stats import _compute_per
+
+    d = dict(_BASE_ROW)
+    d["off_reb"] = 1.0
+    d["def_reb"] = 4.0
+    d["pf"] = 2.0
+
+    ts = dict(_TEAM_STATS)
+    # No poss_strategy key
+    lg = dict(_LEAGUE_STATS)
+
+    with patch(
+        "stats.estimate_possessions", wraps=__import__("stats").estimate_possessions
+    ) as mock_ep:
+        _compute_per(d, gp=10, min_avg=30.0, team_stats=ts, league_stats=lg)
+        mock_ep.assert_called_once()
+        assert mock_ep.call_args.kwargs["strategy"] == "simple"

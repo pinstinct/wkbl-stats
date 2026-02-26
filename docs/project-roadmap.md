@@ -25,7 +25,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 | Phase 7.4  | ✅ 완료 | 개인 ORtg/DRtg (팀 수준 → 개인 수준 전환)                                      |
 | Phase 8    | ✅ 완료 | 프론트엔드 고급 지표 표시 (정적 호스팅 팀 컨텍스트 계산 포함)                  |
 | Phase 8.5a | ✅ 완료 | 게임 상세 + 선수 상세 인터랙티브 슛차트 대시보드 (시즌/선수/결과/쿼터/존 필터) |
-| Phase 8.5b | 🚧 진행 | BBR 정합성 개선 (P0~P3 완료, P4 미착수)                                        |
+| Phase 8.5b | ✅ 완료 | BBR 정합성 개선 (P0~P4 완료, BPM/VORP 보류)                                    |
 | Phase 9    | ✅ 완료 | 예측 시스템 리팩토링 (Game Score 가중, 다요소 승률, STL/BLK)                   |
 | Phase 10   | ✅ 완료 | 로딩 속도 개선 (DB 분할, IndexedDB 캐싱, 스켈레톤 UI)                          |
 | 리팩토링   | ✅ 완료 | P0~P4 전체 (구조 분리, CSS 정리, 데이터 정확도, 테스트 보강)                   |
@@ -428,7 +428,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] GitHub Actions + server.py 인제스트 후 자동 분할
 - [x] 테스트 22개 추가 (총 523개)
 
-### Phase 8.5b: Basketball Reference 정합성 개선 계획 🚧 진행중 (2026-02-20)
+### Phase 8.5b: Basketball Reference 정합성 개선 계획 ✅ 완료 (2026-02-26)
 
 목표: Basketball Reference 기준 지표 정의와 현재 구현(`tools/stats.py`, `src/db.js`)의 차이를 줄여 지표 일관성과 해석 신뢰도를 높인다.
 
@@ -453,11 +453,22 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 
 2. P1 (단기): Possessions 공식을 BBR 표준식으로 전환 가능한 구조로 분리
    - [x] `estimate_possessions()`를 단순식/표준식 선택 가능한 전략 함수로 분리
-   - [ ] `Pace`, `ORtg/DRtg`, Rate 계열에 미치는 영향 범위 측정(시즌 전체 diff 리포트)
-   - [ ] 리그 규모(6팀, 40분) 기준으로 표준식 채택 또는 하이브리드 유지 결정
+   - [x] `Pace`, `ORtg/DRtg`, Rate 계열에 미치는 영향 범위 측정(시즌 전체 diff 리포트)
+   - [x] 리그 규모(6팀, 40분) 기준으로 표준식 채택 또는 하이브리드 유지 결정
+     - **결정: `simple` 유지** (2026-02-26)
+     - PER max rank Δ=3 (max abs Δ=0.3), DRtg max Δ=4.5, Pace max Δ=3.1
+     - DWS/WS rank 변동 크지만 절대값 차이 미미 (DWS max Δ=0.19, WS max Δ=0.15)
+     - 6팀 리그에서 opponent ORB% 보정 효과가 NBA 대비 제한적
+     - `_compute_per()`에 strategy 전달 버그 수정 완료 (simple/bbr_standard 전환 가능 구조 유지)
+     - diff 리포트: `tools/possession_diff_report.py --season 046`
 
 3. P2 (단기): Win Shares 보정
-   - [ ] `marginal_ppw` 계산을 BBR 문서식 기준으로 재검증
+   - [x] `marginal_ppw` 계산을 BBR 문서식 기준으로 재검증
+     - **결정: 현행 유지** (2026-02-26)
+     - BBR 대비: pace 조정 유무(marginal_ppw), replacement_def 계수(0.08 vs 0.14)
+     - diff 리포트 결과: WS max |Δ|=0.05, rank 변동 max=4 (71명 기준)
+     - 6팀 리그에서 팀 간 pace 편차가 크므로 pace 조정이 합리적 (BBR은 30팀 평균에 수렴)
+     - replacement_def 0.08은 소규모 리그의 대체 선수 수준 보수적 반영에 적합
    - [x] `OWS`, `DWS`, `WS`, `WS/40` 분포/표시 sanity check 및 회귀 테스트 추가
    - [x] API/정적 계산 동치성 테스트 추가 (compare 경로 포함)
 
@@ -475,8 +486,13 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] E2E 추가: `E2E-LEADERS-002`, `E2E-COMPARE-003`, `E2E-PLAYERS-003`
 
 5. P4 (중장기): BPM/VORP 도입 타당성 검토
-   - [ ] NBA 계수 직접 이식 대신 WKBL 데이터 기반 보정(또는 비도입) 방침 수립
-   - [ ] 표본 수/안정성 기준(최소 시즌 수, 최소 분수) 정의 후 PoC
+   - [x] NBA 계수 직접 이식 대신 WKBL 데이터 기반 보정(또는 비도입) 방침 수립
+   - [x] 표본 수/안정성 기준(최소 시즌 수, 최소 분수) 정의 후 PoC
+     - **결정: 2028시즌 이후 재검토로 명시적 보류** (2026-02-26)
+     - BPM v2.0은 NBA 회귀 계수 기반 → 6팀 리그 직접 이식 부적합
+     - 자체 계수 학습에 최소 3~5시즌 lineup_stints 데이터 필요 (현재 1시즌만 존재)
+     - 대안: 현재 `plus_minus_per_game`, `plus_minus_per100`이 유사 역할 수행 중
+     - 향후 lineup_stints 3시즌 이상 축적 시 RAPM 기반 BPM 계수 학습 검토
 
 #### 완료 기준 (Definition of Done)
 

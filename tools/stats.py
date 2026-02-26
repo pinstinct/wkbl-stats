@@ -629,8 +629,21 @@ def _compute_per(
 
     # Team pace / league pace factor
     team_min_5 = ts["team_min"] / 5 if ts["team_min"] > 0 else 1
+    poss_strategy = ts.get("poss_strategy", "simple")
     team_poss = estimate_possessions(
-        ts["team_fga"], ts["team_fta"], ts["team_tov"], ts["team_oreb"]
+        ts["team_fga"],
+        ts["team_fta"],
+        ts["team_tov"],
+        ts["team_oreb"],
+        strategy=poss_strategy,
+        fgm=ts.get("team_fgm"),
+        opp_fga=ts.get("opp_fga"),
+        opp_fta=ts.get("opp_fta"),
+        opp_tov=ts.get("opp_tov"),
+        opp_oreb=ts.get("opp_oreb"),
+        opp_fgm=ts.get("opp_fgm"),
+        opp_dreb=ts.get("opp_dreb"),
+        team_dreb=ts.get("team_dreb"),
     )
     team_pace = 40 * team_poss / team_min_5 if team_min_5 > 0 else 1
 
