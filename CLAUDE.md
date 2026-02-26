@@ -122,7 +122,7 @@ npm run test:e2e:optional
 npm run test:e2e:coverage:required
 ```
 
-**Test coverage (539 tests, 95% line coverage):**
+**Test coverage (642 tests: Python 541 + Frontend 101, 95% line coverage):**
 
 - `test_parsers.py`: Parser functions (108 tests)
   - Play-by-play, head-to-head, shot chart, player profile, event type mapping
@@ -139,7 +139,7 @@ npm run test:e2e:coverage:required
   - Quarter scores, H2H quarter score population, play-by-play, shot charts, team category stats, head-to-head, game MVP
   - Orphan player resolution (cross-season transfer, minutes tiebreak, tied minutes)
   - Team/opponent/league season totals for advanced stats
-- `test_refactor_p0.py`: Advanced stats and season resolver (38 tests)
+- `test_stats.py`: Advanced stats calculations (40 tests)
   - Basic stats (TS%, eFG%, PIR, Per-36), Game Score, TOV%
   - Team-context stats (USG%, ORtg, DRtg, Net Rating, Pace)
   - Rate stats (OREB%, DREB%, AST%, STL%, BLK%)
