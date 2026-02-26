@@ -158,8 +158,11 @@ API_ALLOW_ORIGINS = _parse_csv_env(
 API_ALLOW_METHODS = _parse_csv_env("API_ALLOW_METHODS", "GET")
 API_ALLOW_HEADERS = _parse_csv_env("API_ALLOW_HEADERS", "Content-Type")
 API_ALLOW_CREDENTIALS = _parse_bool_env("API_ALLOW_CREDENTIALS", False)
-API_TRUST_PROXY = _parse_bool_env("API_TRUST_PROXY", False)
-API_TRUSTED_PROXIES = _parse_csv_env("API_TRUSTED_PROXIES", "127.0.0.1,::1,localhost")
+API_TRUST_PROXY = _parse_bool_env("API_TRUST_PROXY", True)
+API_TRUSTED_PROXIES = _parse_csv_env(
+    "API_TRUSTED_PROXIES",
+    "127.0.0.1/32,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,localhost",
+)
 API_RATE_LIMIT_PER_MINUTE = int(os.getenv("API_RATE_LIMIT_PER_MINUTE", "60"))
 API_SEARCH_RATE_LIMIT_PER_MINUTE = int(
     os.getenv("API_SEARCH_RATE_LIMIT_PER_MINUTE", "20")

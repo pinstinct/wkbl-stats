@@ -8,6 +8,7 @@ Provides endpoints for players, teams, games, seasons, and leaderboards.
 
 from contextlib import asynccontextmanager
 import hashlib
+import ipaddress
 import time
 from threading import Lock
 from typing import Any, Optional
@@ -50,6 +51,84 @@ from season_utils import resolve_season
 from stats import compute_advanced_stats, estimate_possessions
 
 logger = setup_logging("api")
+
+
+class _PayloadTooLargeError(Exception):
+    """Raised when request body exceeds configured limit while streaming."""
+
+
+IPNetwork = ipaddress.IPv4Network | ipaddress.IPv6Network
+
+
+def _compile_trusted_proxies(raw_items: list[str]) -> tuple[list[IPNetwork], set[str]]:
+    networks: list[IPNetwork] = []
+    literals: set[str] = set()
+    for item in raw_items:
+        token = item.strip()
+        if not token:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(token, strict=False))
+        except ValueError:
+            literals.add(token.lower())
+    return networks, literals
+
+
+_TRUSTED_PROXY_NETWORKS, _TRUSTED_PROXY_LITERALS = _compile_trusted_proxies(
+    API_TRUSTED_PROXIES
+)
+
+
+def _is_trusted_proxy_ip(ip_str: str) -> bool:
+    if not ip_str:
+        return False
+    if ip_str.lower() in _TRUSTED_PROXY_LITERALS:
+        return True
+    try:
+        ip_obj = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return False
+    return any(ip_obj in net for net in _TRUSTED_PROXY_NETWORKS)
+
+
+def _extract_forwarded_client_ip(forwarded_for: str) -> Optional[str]:
+    entries = [entry.strip() for entry in forwarded_for.split(",") if entry.strip()]
+    if not entries:
+        return None
+
+    # Parse from nearest hop to farthest and pick first untrusted address.
+    for entry in reversed(entries):
+        try:
+            ipaddress.ip_address(entry)
+        except ValueError:
+            continue
+        if not _is_trusted_proxy_ip(entry):
+            return entry
+
+    # If all entries are trusted addresses, fall back to first valid one.
+    for entry in entries:
+        try:
+            ipaddress.ip_address(entry)
+            return entry
+        except ValueError:
+            continue
+    return None
+
+
+def _build_limited_receive(receive, max_bytes: int):
+    total = 0
+
+    async def limited_receive():
+        nonlocal total
+        message = await receive()
+        if message.get("type") == "http.request":
+            body = message.get("body", b"") or b""
+            total += len(body)
+            if total > max_bytes:
+                raise _PayloadTooLargeError()
+        return message
+
+    return limited_receive
 
 
 # =============================================================================
@@ -1626,14 +1705,21 @@ def _resolve_client_ip(request: Request) -> str:
     if not API_TRUST_PROXY:
         return source_ip
 
-    if source_ip not in API_TRUSTED_PROXIES:
+    if not _is_trusted_proxy_ip(source_ip):
         return source_ip
 
     forwarded_for = request.headers.get("x-forwarded-for")
     if forwarded_for:
-        forwarded_ip = forwarded_for.split(",")[0].strip()
+        forwarded_ip = _extract_forwarded_client_ip(forwarded_for)
         if forwarded_ip:
             return forwarded_ip
+    real_ip = request.headers.get("x-real-ip", "").strip()
+    if real_ip:
+        try:
+            ipaddress.ip_address(real_ip)
+            return real_ip
+        except ValueError:
+            pass
     return source_ip
 
 
@@ -1710,16 +1796,13 @@ class TrafficGuardMiddleware(BaseHTTPMiddleware):
                     )
             except ValueError:
                 pass
-        elif request.method in {"POST", "PUT", "PATCH"}:
-            body = await request.body()
-            if len(body) > self._max_request_bytes:
-                return JSONResponse(
-                    status_code=413,
-                    content={
-                        "detail": "Request payload too large",
-                        "max_bytes": self._max_request_bytes,
-                    },
-                )
+        if request.method in {"POST", "PUT", "PATCH"}:
+            request = Request(
+                request.scope,
+                receive=_build_limited_receive(
+                    request.receive, self._max_request_bytes
+                ),
+            )
 
         bucket, limit = self._bucket_limit(path)
         client_ip = _resolve_client_ip(request)
@@ -1756,7 +1839,16 @@ class TrafficGuardMiddleware(BaseHTTPMiddleware):
             history.append(now)
             self._hits[key] = history
 
-        return await call_next(request)
+        try:
+            return await call_next(request)
+        except _PayloadTooLargeError:
+            return JSONResponse(
+                status_code=413,
+                content={
+                    "detail": "Request payload too large",
+                    "max_bytes": self._max_request_bytes,
+                },
+            )
 
 
 # CORS + traffic guard middleware for frontend access

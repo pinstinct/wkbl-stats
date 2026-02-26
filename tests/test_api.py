@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.requests import Request
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "tools"))
 
@@ -26,6 +27,36 @@ def _find_traffic_guard_middleware(client):
             return stack
         stack = getattr(stack, "app", None)
     return None
+
+
+def _make_request(
+    *,
+    path: str = "/teams",
+    method: str = "GET",
+    headers: dict[str, str] | None = None,
+    client_host: str = "203.0.113.10",
+) -> Request:
+    raw_headers = [
+        (k.lower().encode("latin-1"), v.encode("latin-1"))
+        for k, v in (headers or {}).items()
+    ]
+    scope = {
+        "type": "http",
+        "http_version": "1.1",
+        "method": method,
+        "path": path,
+        "raw_path": path.encode("latin-1"),
+        "query_string": b"",
+        "headers": raw_headers,
+        "client": (client_host, 12345),
+        "server": ("testserver", 80),
+        "scheme": "http",
+    }
+
+    async def _receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    return Request(scope, _receive)
 
 
 @pytest.fixture
@@ -127,6 +158,130 @@ class TestHealthEndpoint:
         }
         guard._sweep(cutoff=0.0)
         assert len(guard._hits) <= 3
+
+    def test_forwarded_chain_uses_last_untrusted_hop(self, monkeypatch):
+        """When proxy trust is enabled, use nearest untrusted address from XFF chain."""
+        import api
+
+        monkeypatch.setattr(api, "API_TRUST_PROXY", True)
+        monkeypatch.setattr(
+            api,
+            "_TRUSTED_PROXY_NETWORKS",
+            api._compile_trusted_proxies(["10.0.0.0/8"])[0],
+        )
+        monkeypatch.setattr(api, "_TRUSTED_PROXY_LITERALS", set())
+
+        # client, edge-proxy, app-proxy
+        xff = "198.51.100.22, 10.10.10.10, 10.20.20.20"
+        assert api._extract_forwarded_client_ip(xff) == "198.51.100.22"
+
+    @pytest.mark.anyio
+    async def test_limited_receive_raises_before_full_body_buffering(self):
+        """Chunked request stream should fail once payload exceeds limit."""
+        import api
+
+        messages = [
+            {"type": "http.request", "body": b"a" * 8, "more_body": True},
+            {"type": "http.request", "body": b"b" * 8, "more_body": False},
+        ]
+
+        async def fake_receive():
+            return messages.pop(0)
+
+        limited = api._build_limited_receive(fake_receive, max_bytes=10)
+        first = await limited()
+        assert first["type"] == "http.request"
+        with pytest.raises(api._PayloadTooLargeError):
+            await limited()
+
+    def test_proxy_parser_helpers_cover_invalid_and_literal_paths(self, monkeypatch):
+        import api
+
+        networks, literals = api._compile_trusted_proxies(
+            ["10.0.0.0/8", "localhost", "invalid-host"]
+        )
+        assert networks
+        assert "localhost" in literals
+        assert "invalid-host" in literals
+
+        monkeypatch.setattr(api, "_TRUSTED_PROXY_NETWORKS", networks)
+        monkeypatch.setattr(api, "_TRUSTED_PROXY_LITERALS", literals)
+        assert api._is_trusted_proxy_ip("10.1.2.3") is True
+        assert api._is_trusted_proxy_ip("localhost") is True
+        assert api._is_trusted_proxy_ip("") is False
+        assert api._is_trusted_proxy_ip("not-an-ip") is False
+
+        assert api._extract_forwarded_client_ip("") is None
+        assert api._extract_forwarded_client_ip("bad-ip, nope") is None
+        assert api._extract_forwarded_client_ip("10.1.2.3, 10.1.2.4") == "10.1.2.3"
+
+    def test_resolve_client_ip_branches(self, monkeypatch):
+        import api
+
+        monkeypatch.setattr(api, "API_TRUST_PROXY", False)
+        req = _make_request(
+            headers={"x-forwarded-for": "198.51.100.2"},
+            client_host="10.0.0.9",
+        )
+        assert api._resolve_client_ip(req) == "10.0.0.9"
+
+        monkeypatch.setattr(api, "API_TRUST_PROXY", True)
+        monkeypatch.setattr(api, "_TRUSTED_PROXY_NETWORKS", [])
+        monkeypatch.setattr(api, "_TRUSTED_PROXY_LITERALS", set())
+        assert api._resolve_client_ip(req) == "10.0.0.9"
+
+        monkeypatch.setattr(
+            api,
+            "_TRUSTED_PROXY_NETWORKS",
+            api._compile_trusted_proxies(["10.0.0.0/8"])[0],
+        )
+        monkeypatch.setattr(api, "_TRUSTED_PROXY_LITERALS", set())
+        req_real = _make_request(
+            headers={"x-real-ip": "198.51.100.44"},
+            client_host="10.0.0.9",
+        )
+        assert api._resolve_client_ip(req_real) == "198.51.100.44"
+
+        req_real_bad = _make_request(
+            headers={"x-real-ip": "not-ip"},
+            client_host="10.0.0.9",
+        )
+        assert api._resolve_client_ip(req_real_bad) == "10.0.0.9"
+
+    @pytest.mark.anyio
+    async def test_traffic_guard_content_length_413_and_payload_exception_path(self):
+        import api
+
+        guard = api.TrafficGuardMiddleware(api.app)
+        req = _make_request(
+            method="POST",
+            headers={"content-length": str(guard._max_request_bytes + 1)},
+        )
+
+        async def _next(_req):
+            return None
+
+        resp = await guard.dispatch(req, _next)
+        assert resp.status_code == 413
+
+        async def _raise_next(_req):
+            raise api._PayloadTooLargeError()
+
+        req2 = _make_request(method="POST")
+        resp2 = await guard.dispatch(req2, _raise_next)
+        assert resp2.status_code == 413
+
+    def test_traffic_guard_retry_after_and_sweep_expired_keys(self):
+        import api
+
+        guard = api.TrafficGuardMiddleware(api.app)
+        assert guard._remaining_retry_after([], now=10.0) == guard._request_window
+
+        guard._max_keys = 10
+        guard._hits = {"old": [1.0], "fresh": [100.0]}
+        guard._sweep(cutoff=50.0)
+        assert "old" not in guard._hits
+        assert "fresh" in guard._hits
 
 
 class TestPlayersEndpoint:
