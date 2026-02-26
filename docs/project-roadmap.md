@@ -40,6 +40,8 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - [x] Playwright E2E를 `required/recommended/optional` 3티어로 확장
 - [x] 시나리오 매트릭스(`e2e/scenarios/scenario-matrix.yaml`) + 커버리지 리포터(`tools/e2e_coverage_report.py`) 도입
 - [x] CI 분리 운영: PR(required >= 90% 게이트), main(recommended 모니터링), schedule(optional 모니터링)
+- [x] 탭 복귀 시 자동 데이터 갱신 (`visibilitychange` + ETag 비교 + 5분 staleness threshold)
+- [x] `SKIP_INGEST=1` 서버 시작 옵션 문서화
 
 ---
 
@@ -427,6 +429,10 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
   - `wkbl.db` 폴백 지원 (미분할 환경 호환)
 - [x] GitHub Actions + server.py 인제스트 후 자동 분할
 - [x] 테스트 22개 추가 (총 523개)
+- [x] 탭 복귀 시 자동 데이터 갱신 (`visibilitychange`)
+  - `src/db.js`: `refreshDatabase()` — ETag 비교 → core/detail DB 메모리 교체 + IndexedDB 캐시 업데이트
+  - `src/app.js`: `visibilitychange` 리스너 — 5분 staleness threshold, 갱신 시 `handleRoute()` 재렌더링
+  - 테스트 6개 추가 (db.integration.test.js)
 
 ### Phase 8.5b: Basketball Reference 정합성 개선 계획 ✅ 완료 (2026-02-26)
 

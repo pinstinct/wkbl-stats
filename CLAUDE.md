@@ -18,6 +18,8 @@ uv run python3 server.py
 - Frontend: http://localhost:8000
 - API: http://localhost:8000/api/
 - API Docs: http://localhost:8000/api/docs
+- 시작 시 당일 데이터 인제스트를 동기 실행 (최대 5분 소요, `capture_output=True`)
+- 인제스트 건너뛰기: `SKIP_INGEST=1 uv run python3 server.py`
 
 **Manual data ingest** (incremental - only fetches new games):
 
@@ -122,18 +124,18 @@ npm run test:e2e:optional
 npm run test:e2e:coverage:required
 ```
 
-**Test coverage (644 tests: Python 543 + Frontend 101, 95% line coverage):**
+**Test coverage (728 tests: Python 600 + Frontend 128, 95% line coverage):**
 
 - `test_parsers.py`: Parser functions (108 tests)
   - Play-by-play, head-to-head, shot chart, player profile, event type mapping
   - Ambiguous player resolution (season adjacency, overlap exclusion, minutes tiebreak, tie detection)
   - Game list items, schedule month parsing, season meta
-- `test_api.py`: REST API endpoints (80 tests)
+- `test_api.py`: REST API endpoints (91 tests)
   - Health, players, teams, games, seasons, standings, leaders, search, compare
   - Plus/minus aggregation, team advanced stats
-- `test_ingest_helpers.py`: Ingest helper functions (71 tests)
+- `test_ingest_helpers.py`: Ingest helper functions (73 tests)
   - Player loading, record aggregation, future game saving, prediction generation
-- `test_database.py`: Database operations (66 tests)
+- `test_database.py`: Database operations (71 tests)
   - Database init, CRUD operations, season stats, boxscore, standings, predictions
   - Team game operations, game queries, bulk operations, future game predictions
   - Quarter scores, H2H quarter score population, play-by-play, shot charts, team category stats, head-to-head, game MVP
@@ -146,7 +148,7 @@ npm run test:e2e:coverage:required
   - PER (Player Efficiency Rating), zero-denominator edge cases
   - Individual ORtg/DRtg (points produced, scoring possessions)
   - Win Shares zero-denominator guards
-- `test_ingest_orchestration.py`: Ingest orchestration (32 tests)
+- `test_ingest_orchestration.py`: Ingest orchestration (39 tests)
   - Single season flow (basic, incremental, force refresh, future games, standings, H2H, MVP, quarter scores, PBP/shot charts)
   - Multi-season flow (all seasons, specific codes, error handling, orphan resolution)
   - main() entry point (backfill, multi-season, single season, active-only, DB aggregation, all fetch flags)
@@ -157,7 +159,7 @@ npm run test:e2e:coverage:required
   - Plus/minus calculation, On/Off rating
   - NULL player_id resolution from PBP descriptions
   - Lineup stints DB CRUD, duration calculation
-- `test_predict.py`: Prediction system (29 tests)
+- `test_predict.py`: Prediction system (32 tests)
   - Player stat prediction (basic, STL/BLK, Game Score weighting, opponent adjustment)
   - Minutes stability confidence interval widening
   - Win probability (basic, net rating, H2H, momentum, graceful degradation, court advantage)
@@ -168,15 +170,18 @@ npm run test:e2e:coverage:required
   - Season/team insertion, player ID mapping, game insertion, score calculation
 - `test_ingest_schedule.py`: Schedule parsing (15 tests)
   - Schedule fetch, cross-year dates, future games, dedup, game record fetch
-- `test_ingest_predictions.py`: Ingest prediction backfill (3 tests)
+- `test_ingest_predictions.py`: Ingest prediction backfill (9 tests)
 - `test_ingest_db_init.py`: DB initialization (1 test)
 - `test_split_db.py`: DB splitting (11 tests)
   - Core/detail table separation, row counts, source unmodified, edge cases
 - `test_split_db_queries.py`: Split DB cross-DB query contract (11 tests)
   - Shot chart cross-DB subquery failure repro, two-step season filter, enrichment from core
   - Lineup stints cross-DB JOIN failure repro, two-step plus/minus aggregation, season isolation
-- `test_e2e_coverage_report.py`: E2E coverage reporter (8 tests)
+- `test_e2e_coverage_report.py`: E2E coverage reporter (10 tests)
   - Tier filtering, scenario-test mapping, coverage calculation, strict ID validation
+- `test_possession_diff_report.py`: Possession formula diff report (6 tests)
+- `test_server.py`: Server startup and ingest (13 tests)
+- `test_predict_backtest.py`: Prediction backtesting (2 tests)
 - `test_split_db_cli.py`: Split DB CLI (2 tests)
   - CLI entry point, missing source error
 
@@ -495,8 +500,9 @@ The browser fetches split database files and runs all queries client-side.
 2. `data/wkbl-core.db` fetched via HTTP (fast initial load, ~5MB)
 3. `data/wkbl-detail.db` fetched in background (lazy load for game detail pages)
 4. IndexedDB caching with ETag revalidation (instant reload on revisit)
-5. Skeleton UI shown during initial DB load
-6. All queries run in browser (no server needed)
+5. `visibilitychange` 기반 탭 복귀 시 자동 DB 갱신 (5분 staleness threshold)
+6. Skeleton UI shown during initial DB load
+7. All queries run in browser (no server needed)
 
 **CDN Dependencies:**
 
@@ -572,6 +578,7 @@ uv run pre-commit run --all-files
 - **DB split**: `wkbl-core.db` (essential tables) loads first, `wkbl-detail.db` (PBP, shots, lineups) lazy-loaded in background
 - **Split DB query rule**: Detail tables (`shot_charts`, `lineup_stints`, `play_by_play`, `position_matchups`)은 반드시 `detailQuery()`로 조회. Core tables (`games`, `teams`, `players` 등)과 JOIN이 필요할 경우, core DB에서 먼저 ID 목록을 가져온 뒤 `WHERE ... IN (ids)` 패턴으로 detail DB를 별도 조회해야 함 (cross-DB JOIN 불가)
 - **IndexedDB caching**: Database files cached in browser with ETag revalidation for instant revisits
+- **Tab auto-refresh**: `visibilitychange` 리스너로 탭 복귀 시 ETag 비교 → DB 갱신 → 현재 뷰 재렌더링 (5분 미만 복귀 시 스킵)
 - **Skeleton UI**: Pulse-animated placeholder shown during initial DB download
 - **Fallback chain**: IndexedDB cache → core.db fetch → wkbl.db fallback → JSON file
 - Frontend falls back to `data/wkbl-active.json` when local DB is unavailable
