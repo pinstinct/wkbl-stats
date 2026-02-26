@@ -39,6 +39,12 @@ jobs:
             --fetch-quarter-scores \
             --output data/wkbl-active.json
 
+      - name: Repair missing pregame predictions (all seasons)
+        run: |
+          for season_code in $(python3 -c "import sys; sys.path.insert(0, 'tools'); from config import SEASON_CODES; print(' '.join(sorted(SEASON_CODES.keys())))"); do
+            python3 tools/ingest_wkbl.py --repair-missing-pregame --season-code "$season_code"
+          done
+
       - name: Split database
         run: python3 tools/split_db.py
 

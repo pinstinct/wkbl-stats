@@ -38,6 +38,12 @@ jobs:
           echo "Using season label: $season_label"
           echo "Using end date (KST): $end_date"
 
+      - name: Resolve current season code
+        run: |
+          season_code=$(python3 -c "import os, sys; sys.path.insert(0, 'tools'); from config import SEASON_CODES; label=os.environ.get('SEASON_LABEL','').strip(); inv={v:k for k,v in SEASON_CODES.items()}; print(inv.get(label, max(SEASON_CODES.keys())))")
+          echo "SEASON_CODE=$season_code" >> "$GITHUB_ENV"
+          echo "Using season code: $season_code"
+
       - name: Run data ingest
         run: |
           python3 tools/ingest_wkbl.py \
@@ -60,6 +66,12 @@ jobs:
             --end-date "$END_DATE" \
             --active-only \
             --output data/wkbl-active.json
+
+      - name: Repair missing pregame predictions
+        run: |
+          python3 tools/ingest_wkbl.py \
+            --repair-missing-pregame \
+            --season-code "$SEASON_CODE"
 
       - name: Split database
         run: python3 tools/split_db.py
