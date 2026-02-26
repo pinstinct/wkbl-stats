@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "tools"))
 
 
@@ -177,10 +179,257 @@ def test_save_future_games_skips_games_on_end_date(monkeypatch):
     }
 
     ingest_wkbl._save_future_games(
-        args=None,
         schedule_info=schedule_info,
         end_date="20260209",
         season_code="046",
     )
 
     assert inserted_game_ids == ["04601068"]
+
+
+def test_rebuild_pregame_predictions_excludes_exhibition(test_db, monkeypatch):
+    import database
+    import ingest_wkbl
+
+    database.insert_season("046", "2025-26")
+    with database.get_connection() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO teams (id, name) VALUES ('kb', 'KB스타즈')"
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO teams (id, name) VALUES ('samsung', '삼성생명')"
+        )
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO games
+            (id, season_id, game_date, home_team_id, away_team_id, home_score, away_score, game_type, is_exhibition)
+            VALUES
+            ('04601001', '046', '2026-01-04', 'kb', 'samsung', 80, 70, 'allstar', 1),
+            ('04601002', '046', '2026-01-05', 'kb', 'samsung', 70, 65, 'regular', 0)
+            """
+        )
+        conn.commit()
+
+    called = []
+    monkeypatch.setattr(
+        ingest_wkbl, "_load_prediction_params", lambda: {"model_version": "v2"}
+    )
+    monkeypatch.setattr(ingest_wkbl.database, "get_team_standings", lambda _s: [])
+    monkeypatch.setattr(ingest_wkbl.database, "get_team_season_totals", lambda _s: {})
+    monkeypatch.setattr(
+        ingest_wkbl.database, "get_opponent_season_totals", lambda _s: {}
+    )
+    monkeypatch.setattr(ingest_wkbl.database, "get_league_season_totals", lambda _s: {})
+
+    def _capture(game_id, *args, **kwargs):
+        called.append(game_id)
+
+    monkeypatch.setattr(ingest_wkbl, "_generate_predictions_for_game", _capture)
+
+    ingest_wkbl._rebuild_pregame_predictions("046", repair_only=False)
+    assert called == ["04601002"]
+
+
+def test_repair_missing_pregame_predictions_targets_only_missing(test_db, monkeypatch):
+    import database
+    import ingest_wkbl
+
+    database.insert_season("046", "2025-26")
+    with database.get_connection() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO teams (id, name) VALUES ('kb', 'KB스타즈')"
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO teams (id, name) VALUES ('samsung', '삼성생명')"
+        )
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO games
+            (id, season_id, game_date, home_team_id, away_team_id, home_score, away_score, game_type, is_exhibition)
+            VALUES
+            ('04601002', '046', '2026-01-05', 'kb', 'samsung', 70, 65, 'regular', 0),
+            ('04601003', '046', '2026-01-06', 'kb', 'samsung', 68, 66, 'regular', 0)
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO game_team_prediction_runs
+            (game_id, prediction_kind, model_version, generated_at, home_win_prob, away_win_prob)
+            VALUES ('04601003', 'pregame', 'v2', '2026-01-06 00:00:00', 55.0, 45.0)
+            """
+        )
+        conn.commit()
+
+    called = []
+    monkeypatch.setattr(
+        ingest_wkbl, "_load_prediction_params", lambda: {"model_version": "v2"}
+    )
+    monkeypatch.setattr(ingest_wkbl.database, "get_team_standings", lambda _s: [])
+    monkeypatch.setattr(ingest_wkbl.database, "get_team_season_totals", lambda _s: {})
+    monkeypatch.setattr(
+        ingest_wkbl.database, "get_opponent_season_totals", lambda _s: {}
+    )
+    monkeypatch.setattr(ingest_wkbl.database, "get_league_season_totals", lambda _s: {})
+
+    def _capture(game_id, *args, **kwargs):
+        called.append(game_id)
+
+    monkeypatch.setattr(ingest_wkbl, "_generate_predictions_for_game", _capture)
+
+    ingest_wkbl._rebuild_pregame_predictions("046", repair_only=True)
+    assert called == ["04601002"]
+
+
+def test_repair_missing_pregame_predictions_repairs_future_stamped_runs(
+    test_db, monkeypatch
+):
+    import database
+    import ingest_wkbl
+
+    database.insert_season("046", "2025-26")
+    with database.get_connection() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO teams (id, name) VALUES ('kb', 'KB스타즈')"
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO teams (id, name) VALUES ('samsung', '삼성생명')"
+        )
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO games
+            (id, season_id, game_date, home_team_id, away_team_id, home_score, away_score, game_type, is_exhibition)
+            VALUES ('04601003', '046', '2026-01-06', 'kb', 'samsung', 68, 66, 'regular', 0)
+            """
+        )
+        # pregame run exists, but generated after game_date -> schedule pregame gate fails
+        conn.execute(
+            """
+            INSERT INTO game_team_prediction_runs
+            (game_id, prediction_kind, model_version, generated_at, home_win_prob, away_win_prob)
+            VALUES ('04601003', 'pregame', 'v2', '2026-01-07 00:00:00', 55.0, 45.0)
+            """
+        )
+        conn.commit()
+
+    called = []
+    monkeypatch.setattr(
+        ingest_wkbl, "_load_prediction_params", lambda: {"model_version": "v2"}
+    )
+    monkeypatch.setattr(ingest_wkbl.database, "get_team_standings", lambda _s: [])
+    monkeypatch.setattr(ingest_wkbl.database, "get_team_season_totals", lambda _s: {})
+    monkeypatch.setattr(
+        ingest_wkbl.database, "get_opponent_season_totals", lambda _s: {}
+    )
+    monkeypatch.setattr(ingest_wkbl.database, "get_league_season_totals", lambda _s: {})
+
+    def _capture(game_id, *args, **kwargs):
+        called.append(game_id)
+
+    monkeypatch.setattr(ingest_wkbl, "_generate_predictions_for_game", _capture)
+
+    ingest_wkbl._rebuild_pregame_predictions("046", repair_only=True)
+    assert called == ["04601003"]
+
+
+def test_rebuild_pregame_predictions_returns_success_count_only(test_db, monkeypatch):
+    import database
+    import ingest_wkbl
+
+    database.insert_season("046", "2025-26")
+    with database.get_connection() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO teams (id, name) VALUES ('kb', 'KB스타즈')"
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO teams (id, name) VALUES ('samsung', '삼성생명')"
+        )
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO games
+            (id, season_id, game_date, home_team_id, away_team_id, home_score, away_score, game_type, is_exhibition)
+            VALUES ('04601004', '046', '2026-01-08', 'kb', 'samsung', 70, 65, 'regular', 0)
+            """
+        )
+        conn.commit()
+
+    monkeypatch.setattr(
+        ingest_wkbl, "_load_prediction_params", lambda: {"model_version": "v2"}
+    )
+    monkeypatch.setattr(ingest_wkbl.database, "get_team_standings", lambda _s: [])
+    monkeypatch.setattr(ingest_wkbl.database, "get_team_season_totals", lambda _s: {})
+    monkeypatch.setattr(
+        ingest_wkbl.database, "get_opponent_season_totals", lambda _s: {}
+    )
+    monkeypatch.setattr(ingest_wkbl.database, "get_league_season_totals", lambda _s: {})
+
+    # Simulate a failed generation path that emits no prediction rows.
+    monkeypatch.setattr(
+        ingest_wkbl, "_generate_predictions_for_game", lambda *args, **kwargs: None
+    )
+
+    succeeded = ingest_wkbl._rebuild_pregame_predictions("046", repair_only=False)
+    assert succeeded == 0
+
+
+def test_rebuild_success_counts_only_newly_created_runs(test_db, monkeypatch):
+    import database
+    import ingest_wkbl
+
+    database.insert_season("046", "2025-26")
+    with database.get_connection() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO teams (id, name) VALUES ('kb', 'KB스타즈')"
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO teams (id, name) VALUES ('samsung', '삼성생명')"
+        )
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO games
+            (id, season_id, game_date, home_team_id, away_team_id, home_score, away_score, game_type, is_exhibition)
+            VALUES ('04601005', '046', '2026-01-09', 'kb', 'samsung', 70, 65, 'regular', 0)
+            """
+        )
+        # Existing historical pregame run
+        conn.execute(
+            """
+            INSERT INTO game_team_prediction_runs
+            (game_id, prediction_kind, model_version, generated_at, home_win_prob, away_win_prob)
+            VALUES ('04601005', 'pregame', 'v2', '2026-01-09 00:00:00', 54.0, 46.0)
+            """
+        )
+        conn.commit()
+
+    monkeypatch.setattr(
+        ingest_wkbl, "_load_prediction_params", lambda: {"model_version": "v2"}
+    )
+    monkeypatch.setattr(ingest_wkbl.database, "get_team_standings", lambda _s: [])
+    monkeypatch.setattr(ingest_wkbl.database, "get_team_season_totals", lambda _s: {})
+    monkeypatch.setattr(
+        ingest_wkbl.database, "get_opponent_season_totals", lambda _s: {}
+    )
+    monkeypatch.setattr(ingest_wkbl.database, "get_league_season_totals", lambda _s: {})
+
+    # Simulate generation failure: no new run should be created.
+    monkeypatch.setattr(
+        ingest_wkbl, "_generate_predictions_for_game", lambda *args, **kwargs: None
+    )
+
+    succeeded = ingest_wkbl._rebuild_pregame_predictions("046", repair_only=False)
+    assert succeeded == 0
+
+
+def test_rebuild_pregame_predictions_fails_fast_when_locked(test_db, monkeypatch):
+    import ingest_wkbl
+
+    monkeypatch.setattr(
+        ingest_wkbl.os,
+        "open",
+        lambda *args, **kwargs: (_ for _ in ()).throw(FileExistsError()),
+    )
+    monkeypatch.setattr(
+        ingest_wkbl, "_generate_predictions_for_game", lambda *a, **k: None
+    )
+
+    with pytest.raises(RuntimeError, match="already running"):
+        ingest_wkbl._rebuild_pregame_predictions("046", repair_only=False)

@@ -88,6 +88,20 @@ export function calculatePrediction(gamelog) {
 }
 
 export function buildPredictionCompareState({ homeWin, teamPrediction }) {
+  if (
+    !teamPrediction ||
+    teamPrediction.home_win_prob === null ||
+    teamPrediction.home_win_prob === undefined
+  ) {
+    return {
+      isAvailable: false,
+      isCorrect: false,
+      badgeText: "사전 예측 없음",
+      resultClass: "unavailable",
+      expectedScoreText: "사전 예측 없음",
+    };
+  }
+
   const predictedHomeWin = teamPrediction.home_win_prob > 50;
   const isCorrect = homeWin === predictedHomeWin;
   const badgeText = isCorrect ? "적중" : "실패";
@@ -104,6 +118,7 @@ export function buildPredictionCompareState({ homeWin, teamPrediction }) {
       : teamPrediction.home_predicted_pts.toFixed(0);
 
   return {
+    isAvailable: true,
     isCorrect,
     badgeText,
     resultClass,

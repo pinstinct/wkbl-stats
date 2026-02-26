@@ -336,6 +336,43 @@ const WKBLDatabase = (function () {
     return results.length > 0 ? results[0] : null;
   }
 
+  const TABLE_EXISTS_CACHE = new Map();
+
+  function hasTable(tableName) {
+    if (TABLE_EXISTS_CACHE.has(tableName)) {
+      return TABLE_EXISTS_CACHE.get(tableName);
+    }
+    const row = queryOne(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      [tableName],
+    );
+    const exists = !!row;
+    TABLE_EXISTS_CACHE.set(tableName, exists);
+    return exists;
+  }
+
+  function normalizeDateKey(value) {
+    if (value == null) return null;
+    const raw = String(value).trim();
+    if (!raw) return null;
+    if (/^\d{8}$/.test(raw)) {
+      return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+    }
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      return `${match[1]}-${match[2]}-${match[3]}`;
+    }
+    return raw.slice(0, 10);
+  }
+
+  function isOnOrBefore(leftDate, rightDate) {
+    if (!rightDate) return true;
+    const left = normalizeDateKey(leftDate);
+    const right = normalizeDateKey(rightDate);
+    if (!left || !right) return false;
+    return left <= right;
+  }
+
   /**
    * Get team season totals + opponent totals for all teams in a season.
    * Used for computing team-context stats (USG%, ORtg, DRtg, rate stats, PER).
@@ -2747,7 +2784,11 @@ const WKBLDatabase = (function () {
    * @param {string} gameId - Game ID
    * @returns {Object} - { players: [...], team: {...} }
    */
-  function getGamePredictions(gameId) {
+  function getGamePredictions(gameId, options = {}) {
+    const pregameOnly = Boolean(options?.pregameOnly);
+    const asOfDate = options?.asOfDate || null;
+    const asOfDateKey = normalizeDateKey(asOfDate);
+
     // Get player predictions
     const players = query(
       `SELECT gp.*, p.name as player_name, t.name as team_name, t.short_name
@@ -2759,15 +2800,81 @@ const WKBLDatabase = (function () {
       [gameId],
     );
 
-    // Get team prediction
-    const teamRows = query(
-      "SELECT * FROM game_team_predictions WHERE game_id = ?",
-      [gameId],
-    );
+    let team = null;
+    if (pregameOnly) {
+      if (hasTable("game_team_prediction_runs")) {
+        let runSql = `
+          SELECT game_id, home_win_prob, away_win_prob,
+                 home_predicted_pts, away_predicted_pts,
+                 model_version, prediction_kind, generated_at
+          FROM game_team_prediction_runs
+          WHERE game_id = ? AND prediction_kind = 'pregame'
+        `;
+        const params = [gameId];
+        if (asOfDateKey) {
+          runSql += " AND substr(generated_at, 1, 10) <= ?";
+          params.push(asOfDateKey);
+        }
+        runSql += " ORDER BY generated_at DESC LIMIT 1";
+        const runRows = query(runSql, params);
+        if (runRows.length > 0) {
+          team = {
+            ...runRows[0],
+            pregame_generated_at: runRows[0].generated_at,
+          };
+        }
+      }
+
+      // Backward-compat fallback for older DB snapshots.
+      if (!team) {
+        const cacheRows = query(
+          "SELECT * FROM game_team_predictions WHERE game_id = ?",
+          [gameId],
+        );
+        if (cacheRows.length > 0) {
+          const cached = cacheRows[0];
+          const fallbackTs = cached.pregame_generated_at || cached.created_at;
+          if (fallbackTs && isOnOrBefore(fallbackTs, asOfDateKey)) {
+            team = {
+              ...cached,
+              pregame_generated_at: cached.pregame_generated_at || fallbackTs,
+              prediction_kind:
+                cached.prediction_kind ||
+                (cached.pregame_generated_at ? "pregame" : "legacy"),
+            };
+          }
+        }
+      }
+    } else {
+      const teamRows = query(
+        "SELECT * FROM game_team_predictions WHERE game_id = ?",
+        [gameId],
+      );
+      if (teamRows.length > 0) {
+        team = teamRows[0];
+      } else if (hasTable("game_team_prediction_runs")) {
+        const runRows = query(
+          `SELECT game_id, home_win_prob, away_win_prob,
+                  home_predicted_pts, away_predicted_pts,
+                  model_version, prediction_kind, generated_at
+           FROM game_team_prediction_runs
+           WHERE game_id = ?
+           ORDER BY generated_at DESC
+           LIMIT 1`,
+          [gameId],
+        );
+        if (runRows.length > 0) {
+          team = {
+            ...runRows[0],
+            pregame_generated_at: runRows[0].generated_at,
+          };
+        }
+      }
+    }
 
     return {
       players: players,
-      team: teamRows.length > 0 ? teamRows[0] : null,
+      team,
     };
   }
 

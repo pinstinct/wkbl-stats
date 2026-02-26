@@ -176,6 +176,66 @@ def _normalize_rating(rating: float, center: float = 0, scale: float = 10) -> fl
     return 1 / (1 + math.exp(-(rating - center) / scale))
 
 
+def blend_probabilities(
+    rules_home_prob: float,
+    elo_home_prob: float,
+    *,
+    w_elo: float = 0.35,
+) -> float:
+    """Blend rules-based and Elo-based home win probabilities."""
+    w_elo = max(0.0, min(1.0, w_elo))
+    w_rules = 1.0 - w_elo
+    blended = rules_home_prob * w_rules + elo_home_prob * w_elo
+    return max(0.0, min(100.0, blended))
+
+
+def calibrate_probability(
+    raw_home_prob: float,
+    bins: Optional[List[Dict[str, float]]] = None,
+) -> float:
+    """Calibrate home win probability using piecewise bins.
+
+    bins format:
+        [{"min": 40.0, "max": 50.0, "value": 47.0}, ...]
+    If no bins are provided or no range matches, returns raw probability.
+    """
+    if not bins:
+        return max(0.0, min(100.0, raw_home_prob))
+
+    for b in bins:
+        lo = b.get("min")
+        hi = b.get("max")
+        val = b.get("value")
+        if lo is None or hi is None or val is None:
+            continue
+        if float(lo) <= raw_home_prob < float(hi):
+            return max(0.0, min(100.0, float(val)))
+
+    return max(0.0, min(100.0, raw_home_prob))
+
+
+def _estimate_elo_home_prob(
+    home_win_pct: float,
+    away_win_pct: float,
+    home_net_rtg: Optional[float],
+    away_net_rtg: Optional[float],
+    elo_cfg: Dict[str, Any],
+) -> float:
+    """Estimate home win probability from lightweight Elo-style ratings."""
+    rating_base = float(elo_cfg.get("rating_base", 1500))
+    home_adv = float(elo_cfg.get("home_advantage", 65))
+    wp_weight = float(elo_cfg.get("win_pct_weight", 400))
+    net_weight = float(elo_cfg.get("net_rtg_weight", 25))
+
+    h_net = float(home_net_rtg or 0.0)
+    a_net = float(away_net_rtg or 0.0)
+    home_rating = (
+        rating_base + (home_win_pct - 0.5) * wp_weight + h_net * net_weight + home_adv
+    )
+    away_rating = rating_base + (away_win_pct - 0.5) * wp_weight + a_net * net_weight
+    return 100.0 / (1.0 + 10 ** ((away_rating - home_rating) / 400.0))
+
+
 def calculate_win_probability(
     home_preds: List[Dict],
     away_preds: List[Dict],
@@ -195,6 +255,7 @@ def calculate_win_probability(
             - h2h_factor: Home team H2H win rate (0-1)
             - home_last5, away_last5: Recent form strings ("3-2")
             - home_court_pct: Home team's home win %
+            - model_params: optional v2 model params (elo/calibration)
 
     Returns:
         Tuple of (home_win_prob, away_win_prob) as percentages summing to 100
@@ -285,10 +346,35 @@ def calculate_win_probability(
 
     total = home_score + away_score
     if total > 0:
-        home_prob = round(home_score / total * 100, 1)
-        away_prob = round(100 - home_prob, 1)
+        rules_home_prob = home_score / total * 100
     else:
-        home_prob, away_prob = 50.0, 50.0
+        rules_home_prob = 50.0
+
+    # Optional v2: blend with Elo probability and calibrate.
+    model_params = ctx.get("model_params")
+    if isinstance(model_params, dict):
+        elo_cfg = model_params.get("elo", {})
+        if elo_cfg.get("enabled"):
+            elo_home_prob = _estimate_elo_home_prob(
+                home_win_pct=float(home_win_pct),
+                away_win_pct=float(away_win_pct),
+                home_net_rtg=float(home_net_rtg) if home_net_rtg is not None else None,
+                away_net_rtg=float(away_net_rtg) if away_net_rtg is not None else None,
+                elo_cfg=elo_cfg if isinstance(elo_cfg, dict) else {},
+            )
+            w_elo = float(elo_cfg.get("blend_weight", 0.35))
+            rules_home_prob = blend_probabilities(
+                rules_home_prob,
+                elo_home_prob,
+                w_elo=w_elo,
+            )
+
+        bins = model_params.get("calibration_bins")
+        if isinstance(bins, list):
+            rules_home_prob = calibrate_probability(rules_home_prob, bins=bins)
+
+    home_prob = round(max(0.0, min(100.0, rules_home_prob)), 1)
+    away_prob = round(100 - home_prob, 1)
 
     return home_prob, away_prob
 

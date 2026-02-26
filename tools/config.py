@@ -186,6 +186,23 @@ SECURITY_PERMISSIONS_POLICY = os.getenv(
     "geolocation=(), microphone=(), camera=(), payment=(), usb=()",
 )
 SECURITY_FRAME_OPTIONS = os.getenv("SECURITY_FRAME_OPTIONS", "DENY")
+SECURITY_ALLOW_UNSAFE_EVAL = _parse_bool_env("SECURITY_ALLOW_UNSAFE_EVAL", False)
+_script_src = "script-src 'self' 'wasm-unsafe-eval'"
+if SECURITY_ALLOW_UNSAFE_EVAL:
+    _script_src += " 'unsafe-eval'"
+_script_src += "; "
+SECURITY_CONTENT_SECURITY_POLICY = os.getenv(
+    "SECURITY_CONTENT_SECURITY_POLICY",
+    "default-src 'self'; "
+    + _script_src
+    + "style-src 'self' https://fonts.googleapis.com; "
+    + "font-src 'self' https://fonts.gstatic.com data:; "
+    + "img-src 'self' data: blob:; "
+    + "connect-src 'self'; "
+    + "object-src 'none'; "
+    + "base-uri 'self'; "
+    + "frame-ancestors 'none';",
+)
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

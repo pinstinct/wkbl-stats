@@ -40,4 +40,4 @@ python_functions = ["test_*"]
 addopts = "-v --tb=short --cov=tools --cov=server --cov-fail-under=95"
 
 [tool.coverage.run]
-omit = ["tools/possession_diff_report.py"]
+omit = ["tools/possession_diff_report.py", "tools/predict_backtest.py"]

@@ -31,6 +31,7 @@ class TestDatabaseInit:
             "team_standings",
             "game_predictions",
             "game_team_predictions",
+            "game_team_prediction_runs",
             "_meta_descriptions",
             "play_by_play",
             "shot_charts",
@@ -43,6 +44,29 @@ class TestDatabaseInit:
         assert expected_tables.issubset(tables), (
             f"Missing tables: {expected_tables - tables}"
         )
+
+    def test_init_db_creates_prediction_migration_columns(self, test_db):
+        """Prediction cache table should expose model metadata columns."""
+        import database
+
+        with database.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(game_team_predictions)")
+            columns = {row[1] for row in cursor.fetchall()}
+
+        assert "model_version" in columns
+        assert "pregame_generated_at" in columns
+
+    def test_init_db_creates_games_exhibition_column(self, test_db):
+        """Games table should expose exhibition marker column."""
+        import database
+
+        with database.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(games)")
+            columns = {row[1] for row in cursor.fetchall()}
+
+        assert "is_exhibition" in columns
 
     def test_init_db_is_idempotent(self, test_db):
         """Test that init_db can be called multiple times without error."""
@@ -201,6 +225,81 @@ class TestGameOperations:
         assert row[2] == sample_game["away_team_id"]
         assert row[3] == sample_game["home_score"]
         assert row[4] == sample_game["away_score"]
+
+    def test_insert_game_known_exhibition_id_forces_flag(self, test_db):
+        """Known exhibition IDs should remain exhibition regardless of game_type input."""
+        import database
+
+        database.insert_season("046", "2025-26")
+        with database.get_connection() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO teams (id, name) VALUES ('kb', 'KB스타즈')"
+            )
+            conn.execute(
+                "INSERT OR REPLACE INTO teams (id, name) VALUES ('samsung', '삼성생명')"
+            )
+            conn.commit()
+
+        database.insert_game(
+            game_id="04601001",
+            season_id="046",
+            game_date="2026-01-04",
+            home_team_id="kb",
+            away_team_id="samsung",
+            home_score=80,
+            away_score=70,
+            game_type="regular",
+            is_exhibition=0,
+        )
+
+        with database.get_connection() as conn:
+            row = conn.execute(
+                "SELECT is_exhibition FROM games WHERE id='04601001'"
+            ).fetchone()
+        assert row[0] == 1
+
+    def test_insert_game_preserves_existing_exhibition_flag(self, test_db):
+        """Existing exhibition=1 should not be downgraded by later writes."""
+        import database
+
+        database.insert_season("046", "2025-26")
+        with database.get_connection() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO teams (id, name) VALUES ('kb', 'KB스타즈')"
+            )
+            conn.execute(
+                "INSERT OR REPLACE INTO teams (id, name) VALUES ('samsung', '삼성생명')"
+            )
+            conn.commit()
+
+        database.insert_game(
+            game_id="04601999",
+            season_id="046",
+            game_date="2026-01-10",
+            home_team_id="kb",
+            away_team_id="samsung",
+            home_score=70,
+            away_score=60,
+            game_type="regular",
+            is_exhibition=1,
+        )
+        database.insert_game(
+            game_id="04601999",
+            season_id="046",
+            game_date="2026-01-10",
+            home_team_id="kb",
+            away_team_id="samsung",
+            home_score=71,
+            away_score=61,
+            game_type="regular",
+            is_exhibition=0,
+        )
+
+        with database.get_connection() as conn:
+            row = conn.execute(
+                "SELECT is_exhibition FROM games WHERE id='04601999'"
+            ).fetchone()
+        assert row[0] == 1
 
     def test_get_existing_game_ids(self, populated_db, sample_game):
         """Test getting existing game IDs."""
@@ -577,6 +676,52 @@ class TestPredictions:
         assert result["team"]["away_win_prob"] == 47.5
         assert len(result["players"]) == 1
         assert result["players"][0]["predicted_pts"] == 18.5
+
+    def test_get_game_predictions_pregame_only(self, populated_db, sample_game):
+        """Pregame-only lookup should ignore post-game backfill runs."""
+        import database
+
+        pregame_team_prediction = {
+            "home_win_prob": 62.0,
+            "away_win_prob": 38.0,
+            "home_predicted_pts": 75.0,
+            "away_predicted_pts": 68.0,
+        }
+        backfill_team_prediction = {
+            "home_win_prob": 35.0,
+            "away_win_prob": 65.0,
+            "home_predicted_pts": 61.0,
+            "away_predicted_pts": 78.0,
+        }
+
+        database.save_game_predictions(
+            sample_game["game_id"],
+            [],
+            pregame_team_prediction,
+            prediction_kind="pregame",
+            model_version="v2",
+            promote_latest=True,
+            generated_at="2025-10-17 10:00:00",
+        )
+        database.save_game_predictions(
+            sample_game["game_id"],
+            [],
+            backfill_team_prediction,
+            prediction_kind="backfill",
+            model_version="v2",
+            promote_latest=False,
+            generated_at="2025-10-19 10:00:00",
+        )
+
+        result = database.get_game_predictions(
+            sample_game["game_id"],
+            pregame_only=True,
+            as_of_date=sample_game["game_date"],
+        )
+        assert result["team"] is not None
+        assert result["team"]["home_win_prob"] == 62.0
+        assert result["team"]["away_win_prob"] == 38.0
+        assert result["team"]["prediction_kind"] == "pregame"
 
 
 class TestPlayerRecentGames:

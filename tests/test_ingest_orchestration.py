@@ -42,6 +42,8 @@ def _make_args(**overrides):
         "all_seasons": False,
         "seasons": None,
         "backfill_games": None,
+        "rebuild_pregame": None,
+        "repair_missing_pregame": False,
     }
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
@@ -573,6 +575,32 @@ class TestMain:
             main()
 
         mock_gen.assert_called_once_with(["04601010", "04601011"])
+
+    @patch("ingest_wkbl._rebuild_pregame_predictions")
+    @patch("ingest_wkbl.database")
+    def test_main_rebuild_pregame_mode(self, mock_db, mock_rebuild):
+        """--rebuild-pregame should run without season-label requirement."""
+        from ingest_wkbl import main
+
+        with patch("sys.argv", ["ingest", "--rebuild-pregame", "046"]):
+            main()
+
+        mock_db.init_db.assert_called_once()
+        mock_rebuild.assert_called_once_with("046", repair_only=False)
+
+    @patch("ingest_wkbl._rebuild_pregame_predictions")
+    @patch("ingest_wkbl.database")
+    def test_main_repair_missing_pregame_mode(self, mock_db, mock_rebuild):
+        """--repair-missing-pregame should run without season-label requirement."""
+        from ingest_wkbl import main
+
+        with patch(
+            "sys.argv", ["ingest", "--repair-missing-pregame", "--season-code", "046"]
+        ):
+            main()
+
+        mock_db.init_db.assert_called_once()
+        mock_rebuild.assert_called_once_with("046", repair_only=True)
 
     @patch("ingest_wkbl._ingest_multiple_seasons")
     def test_main_multi_season_mode(self, mock_multi):

@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS games (
     away_ot INTEGER,
     venue TEXT,
     game_type TEXT DEFAULT 'regular',  -- regular, playoff, allstar
+    is_exhibition INTEGER DEFAULT 0,   -- 1: 올스타/시범경기
     FOREIGN KEY (season_id) REFERENCES seasons(id),
     FOREIGN KEY (home_team_id) REFERENCES teams(id),
     FOREIGN KEY (away_team_id) REFERENCES teams(id)
@@ -211,13 +212,32 @@ CREATE TABLE IF NOT EXISTS game_team_predictions (
     away_win_prob REAL,                 -- 원정팀 승률 예측 (0-100)
     home_predicted_pts REAL,            -- 홈팀 예상 총득점
     away_predicted_pts REAL,            -- 원정팀 예상 총득점
+    model_version TEXT DEFAULT 'v1',    -- 모델 버전
+    pregame_generated_at TEXT,          -- 경기 전 예측 생성 시각
     created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (game_id) REFERENCES games(id),
     UNIQUE (game_id)
 );
 
+-- 팀 예측 실행 이력 (append-only)
+CREATE TABLE IF NOT EXISTS game_team_prediction_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id TEXT NOT NULL,
+    prediction_kind TEXT NOT NULL DEFAULT 'pregame',  -- pregame/backfill
+    model_version TEXT NOT NULL DEFAULT 'v1',
+    generated_at TEXT DEFAULT (datetime('now')),
+    home_win_prob REAL,
+    away_win_prob REAL,
+    home_predicted_pts REAL,
+    away_predicted_pts REAL,
+    feature_json TEXT,
+    FOREIGN KEY (game_id) REFERENCES games(id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_game_predictions_game ON game_predictions(game_id);
 CREATE INDEX IF NOT EXISTS idx_game_team_predictions_game ON game_team_predictions(game_id);
+CREATE INDEX IF NOT EXISTS idx_game_team_pred_runs_game_kind_time
+  ON game_team_prediction_runs(game_id, prediction_kind, generated_at DESC);
 
 -- Play-by-Play 테이블
 CREATE TABLE IF NOT EXISTS play_by_play (
@@ -561,6 +581,8 @@ TEAMS_DATA = [
     ("bnk", "BNK썸", "BNK", None, 2014),
 ]
 
+KNOWN_EXHIBITION_GAME_IDS = ("04601001",)
+
 
 @contextmanager
 def get_connection():
@@ -585,12 +607,15 @@ def init_db():
 
         # Migrate existing tables: add columns that may not exist yet.
         _migrations = [
+            ("games", "is_exhibition", "INTEGER DEFAULT 0"),
             ("game_predictions", "predicted_stl", "REAL"),
             ("game_predictions", "predicted_stl_low", "REAL"),
             ("game_predictions", "predicted_stl_high", "REAL"),
             ("game_predictions", "predicted_blk", "REAL"),
             ("game_predictions", "predicted_blk_low", "REAL"),
             ("game_predictions", "predicted_blk_high", "REAL"),
+            ("game_team_predictions", "model_version", "TEXT DEFAULT 'v1'"),
+            ("game_team_predictions", "pregame_generated_at", "TEXT"),
         ]
         for table, col, col_type in _migrations:
             try:
@@ -625,6 +650,19 @@ def init_db():
                VALUES (?, ?, ?, ?)""",
             event_type_data,
         )
+
+        cursor.execute(
+            """UPDATE games
+               SET is_exhibition = 1
+               WHERE game_type = 'allstar'"""
+        )
+        if KNOWN_EXHIBITION_GAME_IDS:
+            cursor.executemany(
+                """UPDATE games
+                   SET is_exhibition = 1
+                   WHERE id = ?""",
+                [(gid,) for gid in KNOWN_EXHIBITION_GAME_IDS],
+            )
 
         conn.commit()
         logger.info(f"Database initialized at {DB_PATH}")
@@ -693,15 +731,26 @@ def insert_game(
     away_q4: Optional[int] = None,
     away_ot: Optional[int] = None,
     venue: Optional[str] = None,
+    is_exhibition: Optional[int] = None,
 ):
     """Insert or update a game."""
+    if is_exhibition is None:
+        is_exhibition = 1 if game_type == "allstar" else 0
     with get_connection() as conn:
+        existing = conn.execute(
+            "SELECT is_exhibition FROM games WHERE id = ?",
+            (game_id,),
+        ).fetchone()
+        if game_id in KNOWN_EXHIBITION_GAME_IDS or (
+            existing and int(existing["is_exhibition"] or 0) == 1
+        ):
+            is_exhibition = 1
         conn.execute(
             """INSERT OR REPLACE INTO games
                (id, season_id, game_date, home_team_id, away_team_id,
                 home_score, away_score, home_q1, home_q2, home_q3, home_q4, home_ot,
-                away_q1, away_q2, away_q3, away_q4, away_ot, venue, game_type)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                away_q1, away_q2, away_q3, away_q4, away_ot, venue, game_type, is_exhibition)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 game_id,
                 season_id,
@@ -722,6 +771,7 @@ def insert_game(
                 away_ot,
                 venue,
                 game_type,
+                is_exhibition,
             ),
         )
         conn.commit()
@@ -1335,6 +1385,11 @@ def save_game_predictions(
     game_id: str,
     predictions: List[Dict[str, Any]],
     team_prediction: Optional[Dict[str, Any]] = None,
+    *,
+    prediction_kind: str = "pregame",
+    model_version: str = "v1",
+    promote_latest: bool = True,
+    generated_at: Optional[str] = None,
 ):
     """Save player predictions for a game.
 
@@ -1350,6 +1405,10 @@ def save_game_predictions(
         team_prediction: Optional dict with:
             - home_win_prob, away_win_prob
             - home_predicted_pts, away_predicted_pts
+        prediction_kind: 'pregame' or 'backfill'
+        model_version: prediction model version tag
+        promote_latest: whether to upsert game_team_predictions cache row
+        generated_at: optional explicit timestamp for deterministic tests
     """
     with get_connection() as conn:
         # Save player predictions
@@ -1390,25 +1449,92 @@ def save_game_predictions(
 
         # Save team prediction
         if team_prediction:
-            conn.execute(
-                """INSERT OR REPLACE INTO game_team_predictions
-                   (game_id, home_win_prob, away_win_prob,
-                    home_predicted_pts, away_predicted_pts, created_at)
-                   VALUES (?, ?, ?, ?, ?, datetime('now'))""",
-                (
-                    game_id,
-                    team_prediction.get("home_win_prob"),
-                    team_prediction.get("away_win_prob"),
-                    team_prediction.get("home_predicted_pts"),
-                    team_prediction.get("away_predicted_pts"),
-                ),
-            )
+            # Append run history first.
+            if generated_at:
+                conn.execute(
+                    """INSERT INTO game_team_prediction_runs
+                       (game_id, prediction_kind, model_version, generated_at,
+                        home_win_prob, away_win_prob, home_predicted_pts, away_predicted_pts)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        game_id,
+                        prediction_kind,
+                        model_version,
+                        generated_at,
+                        team_prediction.get("home_win_prob"),
+                        team_prediction.get("away_win_prob"),
+                        team_prediction.get("home_predicted_pts"),
+                        team_prediction.get("away_predicted_pts"),
+                    ),
+                )
+            else:
+                conn.execute(
+                    """INSERT INTO game_team_prediction_runs
+                       (game_id, prediction_kind, model_version, generated_at,
+                        home_win_prob, away_win_prob, home_predicted_pts, away_predicted_pts)
+                       VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?)""",
+                    (
+                        game_id,
+                        prediction_kind,
+                        model_version,
+                        team_prediction.get("home_win_prob"),
+                        team_prediction.get("away_win_prob"),
+                        team_prediction.get("home_predicted_pts"),
+                        team_prediction.get("away_predicted_pts"),
+                    ),
+                )
+
+            # Promote into cache only when requested.
+            if promote_latest:
+                pregame_generated_at = (
+                    generated_at if prediction_kind == "pregame" else None
+                )
+                if generated_at:
+                    conn.execute(
+                        """INSERT OR REPLACE INTO game_team_predictions
+                           (game_id, home_win_prob, away_win_prob,
+                            home_predicted_pts, away_predicted_pts,
+                            model_version, pregame_generated_at, created_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            game_id,
+                            team_prediction.get("home_win_prob"),
+                            team_prediction.get("away_win_prob"),
+                            team_prediction.get("home_predicted_pts"),
+                            team_prediction.get("away_predicted_pts"),
+                            model_version,
+                            pregame_generated_at,
+                            generated_at,
+                        ),
+                    )
+                else:
+                    conn.execute(
+                        """INSERT OR REPLACE INTO game_team_predictions
+                           (game_id, home_win_prob, away_win_prob,
+                            home_predicted_pts, away_predicted_pts,
+                            model_version, pregame_generated_at, created_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+                        (
+                            game_id,
+                            team_prediction.get("home_win_prob"),
+                            team_prediction.get("away_win_prob"),
+                            team_prediction.get("home_predicted_pts"),
+                            team_prediction.get("away_predicted_pts"),
+                            model_version,
+                            pregame_generated_at,
+                        ),
+                    )
 
         conn.commit()
         logger.info(f"Saved {len(predictions)} predictions for game {game_id}")
 
 
-def get_game_predictions(game_id: str) -> Dict[str, Any]:
+def get_game_predictions(
+    game_id: str,
+    *,
+    pregame_only: bool = False,
+    as_of_date: Optional[str] = None,
+) -> Dict[str, Any]:
     """Get predictions for a game.
 
     Args:
@@ -1432,10 +1558,69 @@ def get_game_predictions(game_id: str) -> Dict[str, Any]:
         ).fetchall()
 
         # Get team prediction
-        team_row = conn.execute(
-            "SELECT * FROM game_team_predictions WHERE game_id = ?",
-            (game_id,),
-        ).fetchone()
+        team_row = None
+        if pregame_only:
+            if as_of_date:
+                team_row = conn.execute(
+                    """SELECT game_id, home_win_prob, away_win_prob,
+                              home_predicted_pts, away_predicted_pts,
+                              model_version, prediction_kind,
+                              generated_at as pregame_generated_at,
+                              generated_at as created_at
+                       FROM game_team_prediction_runs
+                       WHERE game_id = ?
+                         AND prediction_kind = 'pregame'
+                         AND date(generated_at) <= date(?)
+                       ORDER BY generated_at DESC
+                       LIMIT 1""",
+                    (game_id, as_of_date),
+                ).fetchone()
+            else:
+                team_row = conn.execute(
+                    """SELECT game_id, home_win_prob, away_win_prob,
+                              home_predicted_pts, away_predicted_pts,
+                              model_version, prediction_kind,
+                              generated_at as pregame_generated_at,
+                              generated_at as created_at
+                       FROM game_team_prediction_runs
+                       WHERE game_id = ?
+                         AND prediction_kind = 'pregame'
+                       ORDER BY generated_at DESC
+                       LIMIT 1""",
+                    (game_id,),
+                ).fetchone()
+            # Backward compatibility fallback for older DB snapshots.
+            if not team_row:
+                cached = conn.execute(
+                    "SELECT * FROM game_team_predictions WHERE game_id = ?",
+                    (game_id,),
+                ).fetchone()
+                if cached:
+                    cached_dt = cached["pregame_generated_at"]
+                    if cached_dt and (
+                        as_of_date is None or cached_dt[:10] <= as_of_date
+                    ):
+                        team_row = cached
+        else:
+            team_row = conn.execute(
+                "SELECT * FROM game_team_predictions WHERE game_id = ?",
+                (game_id,),
+            ).fetchone()
+            # Backward-compatible fallback: if cache row is missing,
+            # return the latest available run.
+            if not team_row:
+                team_row = conn.execute(
+                    """SELECT game_id, home_win_prob, away_win_prob,
+                              home_predicted_pts, away_predicted_pts,
+                              model_version, prediction_kind,
+                              generated_at as pregame_generated_at,
+                              generated_at as created_at
+                       FROM game_team_prediction_runs
+                       WHERE game_id = ?
+                       ORDER BY generated_at DESC
+                       LIMIT 1""",
+                    (game_id,),
+                ).fetchone()
 
         return {
             "players": [dict(row) for row in player_rows],

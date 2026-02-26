@@ -2604,11 +2604,10 @@ def _save_to_db(
         logger.info(f"Saved {team_games_saved} team-game records to database")
 
 
-def _save_future_games(args, schedule_info, end_date, season_code):
+def _save_future_games(schedule_info, end_date, season_code):
     """Save future games (after end_date) with NULL scores to database.
 
     Args:
-        args: Command line arguments
         schedule_info: Dict mapping game_id to {date, home_team, away_team}
         end_date: Current end date (YYYYMMDD)
         season_code: Season code (e.g., '046')
@@ -2666,41 +2665,45 @@ def _build_opp_context(opp_team_id, opp_totals, league_totals, num_teams=6):
     if not opp or not league_totals:
         return None
 
-    opp_gp = 0
-    # Count distinct games for this team in opponent totals
-    for tid, t in opp_totals.items():
-        if tid == opp_team_id:
-            # Estimate GP from minutes (each game ~200 total player-minutes)
-            total_min = t.get("min") or 0
-            opp_gp = round(total_min / 200) if total_min > 0 else 0
-            break
+    def _num(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return 0.0
 
-    if opp_gp <= 0:
-        return None
-
-    lg_min = league_totals.get("min") or 0
-    # League GP = total minutes / (200 min/game * num_teams)
-    lg_gp = round(lg_min / 200) if lg_min > 0 else 0
-    # Each team plays lg_gp / (num_teams/2) games on average
-    games_per_team = lg_gp / num_teams if num_teams > 0 else 1
-
-    if games_per_team <= 0:
+    stats = ["pts", "reb", "ast", "stl", "blk"]
+    if all(_num(opp.get(stat)) <= 0 for stat in stats):
         return None
 
     context = {}
-    for stat in ["pts", "reb", "ast", "stl", "blk"]:
-        opp_val = opp.get(stat) or 0
-        lg_val = league_totals.get(stat) or 0
-
-        opp_per_game = opp_val / opp_gp if opp_gp > 0 else 0
-        lg_per_game = lg_val / lg_gp if lg_gp > 0 else 0
-
-        if lg_per_game > 0:
-            context[f"{stat}_factor"] = opp_per_game / lg_per_game
+    for stat in stats:
+        opp_val = _num(opp.get(stat))
+        lg_val = _num(league_totals.get(stat))
+        # Opponent totals are season totals allowed vs this team.
+        # Normalize by league average totals-per-team to avoid requiring minute fields.
+        lg_per_team = (lg_val / num_teams) if num_teams > 0 else 0
+        if lg_per_team > 0:
+            context[f"{stat}_factor"] = opp_val / lg_per_team
         else:
             context[f"{stat}_factor"] = 1.0
 
     return context
+
+
+def _load_prediction_params():
+    """Load shared prediction params from data file with safe fallback."""
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "data", "prediction_params.json"
+    )
+    default_params = {"model_version": "v1"}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            loaded = json.load(f)
+        if isinstance(loaded, dict):
+            return {**default_params, **loaded}
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        logger.debug("Using default prediction params due to load/parse failure")
+    return default_params
 
 
 def _build_win_context(
@@ -2769,6 +2772,10 @@ def _generate_predictions_for_game(
     team_totals,
     opp_totals,
     league_totals,
+    force_refresh=False,
+    prediction_kind="pregame",
+    promote_latest=True,
+    model_params=None,
 ):
     """Generate and save predictions for a single game.
 
@@ -2782,7 +2789,7 @@ def _generate_predictions_for_game(
         opp_totals: Opponent season totals dict
         league_totals: League season totals dict
     """
-    if database.has_game_predictions(game_id):
+    if not force_refresh and database.has_game_predictions(game_id):
         return
 
     all_predictions = []
@@ -2845,6 +2852,8 @@ def _generate_predictions_for_game(
         team_totals,
         opp_totals,
     )
+    if model_params:
+        win_ctx["model_params"] = model_params
 
     home_win_prob, away_win_prob = calculate_win_probability(
         home_preds,
@@ -2861,7 +2870,14 @@ def _generate_predictions_for_game(
         "away_predicted_pts": away_total_pts,
     }
 
-    database.save_game_predictions(game_id, all_predictions, team_prediction)
+    database.save_game_predictions(
+        game_id,
+        all_predictions,
+        team_prediction,
+        prediction_kind=prediction_kind,
+        model_version=(model_params or {}).get("model_version", "v1"),
+        promote_latest=promote_latest,
+    )
 
 
 def _generate_predictions_for_games(games, season_code):
@@ -2878,6 +2894,7 @@ def _generate_predictions_for_games(games, season_code):
         return
 
     logger.info(f"Generating predictions for {len(games)} future games...")
+    model_params = _load_prediction_params()
 
     # Load season-level context once
     standings = database.get_team_standings(season_code)
@@ -2898,6 +2915,10 @@ def _generate_predictions_for_games(games, season_code):
             team_totals,
             opp_totals,
             league_totals,
+            force_refresh=True,
+            prediction_kind="pregame",
+            promote_latest=True,
+            model_params=model_params,
         )
 
     logger.info(f"Generated predictions for {len(games)} games")
@@ -2913,6 +2934,7 @@ def _generate_predictions_for_game_ids(game_ids):
         return
 
     logger.info(f"Backfilling predictions for {len(game_ids)} games...")
+    model_params = _load_prediction_params()
 
     # Group by season for efficient context loading
     season_cache = {}
@@ -2949,9 +2971,181 @@ def _generate_predictions_for_game_ids(game_ids):
             sc["team_totals"],
             sc["opp_totals"],
             sc["league_totals"],
+            force_refresh=False,
+            prediction_kind="backfill",
+            promote_latest=False,
+            model_params=model_params,
         )
 
     logger.info("Backfill predictions complete")
+
+
+def _rebuild_pregame_predictions(season_code: str, repair_only: bool = False) -> int:
+    """Rebuild pregame predictions for completed non-exhibition games.
+
+    Args:
+        season_code: Season code (e.g. '046')
+        repair_only: If True, only target games missing pregame run.
+
+    Returns:
+        Number of games that created a new pregame run in this execution.
+    """
+    lock_dir = os.path.join("data", "cache")
+    os.makedirs(lock_dir, exist_ok=True)
+    lock_path = os.path.join(lock_dir, f"pregame-rebuild-{season_code}.lock")
+    lock_fd = None
+    try:
+        lock_fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError as exc:
+        raise RuntimeError(
+            f"pregame rebuild for season {season_code} is already running"
+        ) from exc
+
+    try:
+        os.write(lock_fd, f"pid={os.getpid()}\n".encode("utf-8"))
+    finally:
+        if lock_fd is not None:
+            os.close(lock_fd)
+
+    try:
+        with database.get_connection() as conn:
+            params = [season_code]
+            if repair_only:
+                rows = conn.execute(
+                    """
+                    SELECT g.id, g.game_date, g.home_team_id, g.away_team_id
+                    FROM games g
+                    WHERE g.season_id = ?
+                      AND g.home_score IS NOT NULL
+                      AND g.away_score IS NOT NULL
+                      AND COALESCE(g.is_exhibition, 0) = 0
+                      AND NOT EXISTS (
+                        SELECT 1 FROM game_team_prediction_runs r
+                        WHERE r.game_id = g.id
+                          AND r.prediction_kind = 'pregame'
+                          AND substr(r.generated_at, 1, 10) <= g.game_date
+                      )
+                    ORDER BY g.game_date, g.id
+                    """,
+                    params,
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT g.id, g.game_date, g.home_team_id, g.away_team_id
+                    FROM games g
+                    WHERE g.season_id = ?
+                      AND g.home_score IS NOT NULL
+                      AND g.away_score IS NOT NULL
+                      AND COALESCE(g.is_exhibition, 0) = 0
+                    ORDER BY g.game_date, g.id
+                    """,
+                    params,
+                ).fetchall()
+
+        if not rows:
+            logger.info("No games selected for pregame rebuild")
+            return 0
+
+        model_params = _load_prediction_params()
+        standings = database.get_team_standings(season_code)
+        team_totals = database.get_team_season_totals(season_code)
+        opp_totals = database.get_opponent_season_totals(season_code)
+        league_totals = database.get_league_season_totals(season_code)
+        model_version = (model_params or {}).get("model_version", "v1")
+
+        logger.info(
+            f"Rebuilding pregame predictions for {len(rows)} completed games "
+            f"(season={season_code}, repair_only={repair_only})"
+        )
+
+        succeeded = 0
+        failed = 0
+        with database.get_connection() as conn:
+            for row in rows:
+                game_id = row["id"]
+                game_date = row["game_date"]
+                generated_at = f"{game_date} 00:00:00"
+
+                before_cnt_row = conn.execute(
+                    """
+                    SELECT COUNT(*) AS cnt
+                    FROM game_team_prediction_runs
+                    WHERE game_id = ?
+                      AND prediction_kind = 'pregame'
+                    """,
+                    (game_id,),
+                ).fetchone()
+                before_cnt = int(before_cnt_row["cnt"] if before_cnt_row else 0)
+
+                _generate_predictions_for_game(
+                    game_id=game_id,
+                    home_team_id=row["home_team_id"],
+                    away_team_id=row["away_team_id"],
+                    season_code=season_code,
+                    standings=standings,
+                    team_totals=team_totals,
+                    opp_totals=opp_totals,
+                    league_totals=league_totals,
+                    force_refresh=True,
+                    prediction_kind="pregame",
+                    promote_latest=True,
+                    model_params=model_params,
+                )
+
+                # Stamp latest pregame rows to historical pregame timestamp for schedule gating.
+                conn.execute(
+                    """
+                    UPDATE game_team_prediction_runs
+                    SET generated_at = ?
+                    WHERE game_id = ?
+                      AND prediction_kind = 'pregame'
+                      AND generated_at = (
+                        SELECT MAX(generated_at)
+                        FROM game_team_prediction_runs
+                        WHERE game_id = ?
+                          AND prediction_kind = 'pregame'
+                      )
+                    """,
+                    (generated_at, game_id, game_id),
+                )
+                conn.execute(
+                    """
+                    UPDATE game_team_predictions
+                    SET model_version = ?,
+                        pregame_generated_at = ?
+                    WHERE game_id = ?
+                    """,
+                    (model_version, generated_at, game_id),
+                )
+
+                after_cnt_row = conn.execute(
+                    """
+                    SELECT COUNT(*) AS cnt
+                    FROM game_team_prediction_runs
+                    WHERE game_id = ?
+                      AND prediction_kind = 'pregame'
+                    """,
+                    (game_id,),
+                ).fetchone()
+                after_cnt = int(after_cnt_row["cnt"] if after_cnt_row else 0)
+
+                if after_cnt > before_cnt:
+                    succeeded += 1
+                else:
+                    failed += 1
+                conn.commit()
+
+        logger.info(
+            f"Pregame rebuild complete: selected={len(rows)} "
+            f"succeeded={succeeded} failed={failed}"
+        )
+        return succeeded
+    finally:
+        try:
+            os.unlink(lock_path)
+        except FileNotFoundError:
+            pass
 
 
 def _ingest_single_season(args, season_code, season_label, active_players, game_types):
@@ -3010,7 +3204,7 @@ def _ingest_single_season(args, season_code, season_label, active_players, game_
 
     # Save future games if requested
     if args.save_db and getattr(args, "include_future", False) and schedule_info:
-        _save_future_games(args, schedule_info, end_date, season_code)
+        _save_future_games(schedule_info, end_date, season_code)
 
     # Fetch and save standings if requested
     if getattr(args, "fetch_standings", False) and args.save_db:
@@ -3325,6 +3519,20 @@ def main():
         help="game IDs to backfill predictions for (requires existing DB data)",
     )
     parser.add_argument(
+        "--rebuild-pregame",
+        metavar="SEASON_CODE",
+        help="rebuild pregame predictions for completed non-exhibition games",
+    )
+    parser.add_argument(
+        "--repair-missing-pregame",
+        action="store_true",
+        help="repair missing pregame predictions only",
+    )
+    parser.add_argument(
+        "--season-code",
+        help="season code for repair mode (e.g. 046)",
+    )
+    parser.add_argument(
         "--fetch-play-by-play",
         action="store_true",
         help="fetch play-by-play data for each game",
@@ -3373,6 +3581,18 @@ def main():
 
     if args.backfill_games:
         _generate_predictions_for_game_ids(args.backfill_games)
+        return
+
+    if args.rebuild_pregame:
+        database.init_db()
+        _rebuild_pregame_predictions(args.rebuild_pregame, repair_only=False)
+        return
+
+    if args.repair_missing_pregame:
+        if not args.season_code:
+            parser.error("--season-code is required with --repair-missing-pregame")
+        database.init_db()
+        _rebuild_pregame_predictions(args.season_code, repair_only=True)
         return
 
     # Handle multi-season collection mode
@@ -3449,7 +3669,7 @@ def main():
     # Save future games if requested
     if args.save_db and args.include_future and schedule_info:
         season_code = args.selected_id[:3] if args.selected_id else "046"
-        _save_future_games(args, schedule_info, end_date, season_code)
+        _save_future_games(schedule_info, end_date, season_code)
 
     # Aggregate stats - use DB if available, otherwise use fetched records
     if args.save_db and existing_game_ids:

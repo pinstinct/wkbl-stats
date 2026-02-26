@@ -1127,6 +1127,45 @@ class TestBuildOppContext:
         result = _build_opp_context("kb", {"kb": {"min": 100}}, None)
         assert result is None
 
+    def test_works_without_min_field(self):
+        """opp_totals without 'min' should still compute factors."""
+        from ingest_wkbl import _build_opp_context
+
+        opp_totals = {
+            "kb": {
+                "pts": 2500,
+                "reb": 1100,
+                "ast": 580,
+                "stl": 260,
+                "blk": 120,
+            },
+            "samsung": {
+                "pts": 2300,
+                "reb": 1050,
+                "ast": 540,
+                "stl": 240,
+                "blk": 110,
+            },
+        }
+        league_totals = {
+            "pts": 14400,
+            "reb": 7200,
+            "ast": 3600,
+            "stl": 1800,
+            "blk": 600,
+        }
+
+        result = _build_opp_context("kb", opp_totals, league_totals, num_teams=6)
+        assert result is not None
+        assert set(result.keys()) == {
+            "pts_factor",
+            "reb_factor",
+            "ast_factor",
+            "stl_factor",
+            "blk_factor",
+        }
+        assert result["pts_factor"] > 1.0
+
     def test_zero_minutes(self):
         from ingest_wkbl import _build_opp_context
 
@@ -1372,6 +1411,62 @@ class TestGeneratePredictionsForGame:
             assert "home_win_prob" in team_pred
             assert "away_win_prob" in team_pred
 
+    def test_force_refresh_ignores_existing_prediction_check(self):
+        """force_refresh=True should regenerate even when predictions exist."""
+        from ingest_wkbl import _generate_predictions_for_game
+
+        mock_player = {
+            "id": "095001",
+            "name": "김선수",
+            "pos": "G",
+            "pts": 15.0,
+            "reb": 5.0,
+            "ast": 3.0,
+            "stl": 1.5,
+            "blk": 0.5,
+            "tov": 2.0,
+            "min": 30.0,
+            "game_score": 12.0,
+            "pir": 10.0,
+        }
+        mock_recent = [
+            {
+                "pts": 15,
+                "reb": 5,
+                "ast": 3,
+                "stl": 1,
+                "blk": 0,
+                "tov": 2,
+                "min": 30,
+                "fgm": 5,
+                "fga": 10,
+                "tpm": 1,
+                "tpa": 3,
+                "ftm": 4,
+                "fta": 5,
+            },
+        ]
+
+        with patch("ingest_wkbl.database") as mock_db:
+            mock_db.has_game_predictions.return_value = True
+            mock_db.get_team_players.return_value = [mock_player]
+            mock_db.get_player_recent_games.return_value = mock_recent
+            mock_db.get_head_to_head.return_value = []
+
+            _generate_predictions_for_game(
+                "04601010",
+                "kb",
+                "samsung",
+                "046",
+                [],
+                {},
+                {},
+                {},
+                force_refresh=True,
+            )
+
+            mock_db.save_game_predictions.assert_called_once()
+
 
 # ===========================================================================
 # _generate_predictions_for_games tests
@@ -1428,7 +1523,6 @@ class TestSaveFutureGames:
     def test_saves_future_games(self):
         from ingest_wkbl import _save_future_games
 
-        args = MagicMock()
         schedule_info = {
             "04601060": {
                 "date": "20260315",
@@ -1446,7 +1540,7 @@ class TestSaveFutureGames:
             patch("ingest_wkbl.database") as mock_db,
             patch("ingest_wkbl._generate_predictions_for_games"),
         ):
-            _save_future_games(args, schedule_info, "20260301", "046")
+            _save_future_games(schedule_info, "20260301", "046")
 
         assert mock_db.insert_game.call_count == 2
         # Check that scores are NULL (future games)
@@ -1472,7 +1566,7 @@ class TestSaveFutureGames:
             patch("ingest_wkbl.database") as mock_db,
             patch("ingest_wkbl._generate_predictions_for_games"),
         ):
-            _save_future_games(MagicMock(), schedule_info, "20260201", "046")
+            _save_future_games(schedule_info, "20260201", "046")
 
         mock_db.insert_game.assert_not_called()
 
@@ -1492,7 +1586,7 @@ class TestSaveFutureGames:
             patch("ingest_wkbl.database") as mock_db,
             patch("ingest_wkbl._generate_predictions_for_games"),
         ):
-            _save_future_games(MagicMock(), schedule_info, "20260301", "046")
+            _save_future_games(schedule_info, "20260301", "046")
 
         mock_db.insert_game.assert_not_called()
 

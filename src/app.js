@@ -82,6 +82,43 @@ import { hideSkeleton } from "./ui/skeleton.js";
     defaultSeason: SHARED.DEFAULT_SEASON,
   };
 
+  const DEFAULT_PREDICTION_PARAMS = {
+    model_version: "v2",
+    rules_weights: {
+      net_rating: 0.35,
+      stat_strength: 0.25,
+      win_pct: 0.15,
+      h2h: 0.1,
+      momentum: 0.1,
+      court: 0.05,
+    },
+    fallback_weights: {
+      net_rating: 0.0,
+      stat_strength: 0.45,
+      win_pct: 0.25,
+      h2h: 0.1,
+      momentum: 0.1,
+      court: 0.1,
+    },
+    elo: {
+      enabled: true,
+      blend_weight: 0.35,
+      rating_base: 1500,
+      home_advantage: 65,
+      win_pct_weight: 400,
+      net_rtg_weight: 25,
+    },
+    player_adjustments: {
+      home_multiplier: 1.05,
+      away_multiplier: 0.97,
+      trend_threshold: 0.1,
+      trend_up_bonus: 0.05,
+      trend_down_penalty: 0.05,
+      opponent_factor_weight: 0.15,
+    },
+    calibration_bins: [],
+  };
+
   const SEASONS = SHARED.SEASON_CODES;
 
   const LEADER_CATEGORIES = [
@@ -128,6 +165,8 @@ import { hideSkeleton } from "./ui/skeleton.js";
   let unmountPlayersSortEvents = null;
   let unmountBoxscoreSortEvents = null;
   let unmountPlayerShotFilters = null;
+  let predictionParamsPromise = null;
+  let predictionParamsCache = null;
 
   // =============================================================================
   // Utility Functions
@@ -195,6 +234,47 @@ import { hideSkeleton } from "./ui/skeleton.js";
 
   function escapeAttr(value) {
     return escapeHtml(value);
+  }
+
+  function _mergePredictionParams(base, overrides) {
+    const merged = { ...base, ...(overrides || {}) };
+    merged.rules_weights = {
+      ...base.rules_weights,
+      ...(overrides?.rules_weights || {}),
+    };
+    merged.fallback_weights = {
+      ...base.fallback_weights,
+      ...(overrides?.fallback_weights || {}),
+    };
+    merged.elo = { ...base.elo, ...(overrides?.elo || {}) };
+    merged.player_adjustments = {
+      ...base.player_adjustments,
+      ...(overrides?.player_adjustments || {}),
+    };
+    if (!Array.isArray(merged.calibration_bins)) merged.calibration_bins = [];
+    return merged;
+  }
+
+  async function getPredictionParams() {
+    if (predictionParamsCache) return predictionParamsCache;
+    if (predictionParamsPromise) return predictionParamsPromise;
+
+    if (typeof fetch !== "function") {
+      predictionParamsCache = DEFAULT_PREDICTION_PARAMS;
+      return predictionParamsCache;
+    }
+
+    predictionParamsPromise = fetch("./data/prediction_params.json")
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((loaded) =>
+        _mergePredictionParams(DEFAULT_PREDICTION_PARAMS, loaded),
+      )
+      .catch(() => DEFAULT_PREDICTION_PARAMS)
+      .then((params) => {
+        predictionParamsCache = params;
+        return params;
+      });
+    return predictionParamsPromise;
   }
 
   // =============================================================================
@@ -478,6 +558,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
 
     // Get rosters and generate lineups
     try {
+      const predictionParams = await getPredictionParams();
       const homeRoster = await getTeamRoster(nextGame.home_team_id);
       const awayRoster = await getTeamRoster(nextGame.away_team_id);
 
@@ -591,10 +672,14 @@ import { hideSkeleton } from "./ui/skeleton.js";
 
       // Calculate predictions for each player
       const homePredictions = await Promise.all(
-        homeLineup.map((p) => getPlayerPrediction(p, true, homeOppCtx)),
+        homeLineup.map((p) =>
+          getPlayerPrediction(p, true, homeOppCtx, predictionParams),
+        ),
       );
       const awayPredictions = await Promise.all(
-        awayLineup.map((p) => getPlayerPrediction(p, false, awayOppCtx)),
+        awayLineup.map((p) =>
+          getPlayerPrediction(p, false, awayOppCtx, predictionParams),
+        ),
       );
 
       // Calculate win probability
@@ -604,6 +689,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
         homeStanding,
         awayStanding,
         winCtx,
+        predictionParams,
       );
       const homeWinProb = winProb.home;
       const awayWinProb = winProb.away;
@@ -743,7 +829,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
     return totalW > 0 ? totalV / totalW : 0;
   }
 
-  async function getPlayerPrediction(player, isHome, oppContext) {
+  async function getPlayerPrediction(player, isHome, oppContext, modelParams) {
     // Get recent games for prediction
     let recentGames = [];
     if (state.dbInitialized && typeof WKBLDatabase !== "undefined") {
@@ -756,6 +842,13 @@ import { hideSkeleton } from "./ui/skeleton.js";
 
     const stats = ["pts", "reb", "ast", "stl", "blk"];
     const prediction = { player };
+    const playerAdjust = modelParams?.player_adjustments || {};
+    const homeMultiplier = Number(playerAdjust.home_multiplier ?? 1.05);
+    const awayMultiplier = Number(playerAdjust.away_multiplier ?? 0.97);
+    const trendThreshold = Number(playerAdjust.trend_threshold ?? 0.1);
+    const trendUpBonus = Number(playerAdjust.trend_up_bonus ?? 0.05);
+    const trendDownPenalty = Number(playerAdjust.trend_down_penalty ?? 0.05);
+    const oppFactorWeight = Number(playerAdjust.opponent_factor_weight ?? 0.15);
     for (const s of stats) {
       prediction[s] = { pred: 0, low: 0, high: 0 };
     }
@@ -789,20 +882,22 @@ import { hideSkeleton } from "./ui/skeleton.js";
       let basePred = avg5 * 0.6 + avg10 * 0.4;
 
       // Home/away
-      if (isHome) basePred *= 1.05;
-      else basePred *= 0.97;
+      if (isHome) basePred *= homeMultiplier;
+      else basePred *= awayMultiplier;
 
       // Trend bonus
       const seasonAvg = player[stat] || 0;
       if (seasonAvg > 0) {
-        if (avg5 > seasonAvg * 1.1) basePred *= 1.05;
-        else if (avg5 < seasonAvg * 0.9) basePred *= 0.95;
+        if (avg5 > seasonAvg * (1 + trendThreshold))
+          basePred *= 1 + trendUpBonus;
+        else if (avg5 < seasonAvg * (1 - trendThreshold))
+          basePred *= 1 - trendDownPenalty;
       }
 
       // Opponent defensive adjustment
       if (oppContext) {
         const factor = oppContext[stat + "_factor"] || 1.0;
-        basePred *= 1.0 + (factor - 1.0) * 0.15;
+        basePred *= 1.0 + (factor - 1.0) * oppFactorWeight;
       }
 
       // Standard deviation
@@ -820,9 +915,9 @@ import { hideSkeleton } from "./ui/skeleton.js";
       if (cv > 0.3) stdDev *= 1.0 + (cv - 0.3);
 
       prediction[stat] = {
-        pred: basePred,
-        low: Math.max(0, basePred - stdDev),
-        high: basePred + stdDev,
+        pred: Number(basePred.toFixed(1)),
+        low: Number(Math.max(0, basePred - stdDev).toFixed(1)),
+        high: Number((basePred + stdDev).toFixed(1)),
       };
     });
 
@@ -850,8 +945,10 @@ import { hideSkeleton } from "./ui/skeleton.js";
     homeStanding,
     awayStanding,
     winCtx,
+    modelParams,
   ) {
     const ctx = winCtx || {};
+    const params = modelParams || DEFAULT_PREDICTION_PARAMS;
 
     // 1. Predicted stats strength (25%)
     const statStr = (preds) =>
@@ -905,12 +1002,15 @@ import { hideSkeleton } from "./ui/skeleton.js";
     }
 
     // Weight allocation
-    const wRtg = hasNetRtg ? 0.35 : 0.0;
-    const wStat = hasNetRtg ? 0.25 : 0.45;
-    const wWp = hasNetRtg ? 0.15 : 0.25;
-    const wH2h = 0.1;
-    const wMom = 0.1;
-    const wCourt = hasNetRtg ? 0.05 : 0.1;
+    const ruleWeights = hasNetRtg
+      ? params.rules_weights || DEFAULT_PREDICTION_PARAMS.rules_weights
+      : params.fallback_weights || DEFAULT_PREDICTION_PARAMS.fallback_weights;
+    const wRtg = Number(ruleWeights.net_rating ?? 0);
+    const wStat = Number(ruleWeights.stat_strength ?? 0);
+    const wWp = Number(ruleWeights.win_pct ?? 0);
+    const wH2h = Number(ruleWeights.h2h ?? 0);
+    const wMom = Number(ruleWeights.momentum ?? 0);
+    const wCourt = Number(ruleWeights.court ?? 0);
 
     const homeScore =
       wRtg * homeRtgScore +
@@ -929,9 +1029,54 @@ import { hideSkeleton } from "./ui/skeleton.js";
 
     const total = homeScore + awayScore;
     if (total > 0) {
+      let homeProb = (homeScore / total) * 100;
+
+      const eloCfg = params.elo || {};
+      if (eloCfg.enabled) {
+        const ratingBase = Number(eloCfg.rating_base ?? 1500);
+        const homeAdv = Number(eloCfg.home_advantage ?? 65);
+        const wpWeight = Number(eloCfg.win_pct_weight ?? 400);
+        const netWeight = Number(eloCfg.net_rtg_weight ?? 25);
+        const eloBlend = Math.max(
+          0,
+          Math.min(1, Number(eloCfg.blend_weight ?? 0.35)),
+        );
+        const homeRating =
+          ratingBase +
+          (homeWinPct - 0.5) * wpWeight +
+          (ctx.homeNetRtg || 0) * netWeight +
+          homeAdv;
+        const awayRating =
+          ratingBase +
+          (awayWinPct - 0.5) * wpWeight +
+          (ctx.awayNetRtg || 0) * netWeight;
+        const eloHomeProb =
+          100 / (1 + Math.pow(10, (awayRating - homeRating) / 400));
+        homeProb = homeProb * (1 - eloBlend) + eloHomeProb * eloBlend;
+      }
+
+      const bins = Array.isArray(params.calibration_bins)
+        ? params.calibration_bins
+        : [];
+      for (const bin of bins) {
+        const lo = Number(bin?.min);
+        const hi = Number(bin?.max);
+        const value = Number(bin?.value);
+        if (
+          Number.isFinite(lo) &&
+          Number.isFinite(hi) &&
+          Number.isFinite(value) &&
+          homeProb >= lo &&
+          homeProb < hi
+        ) {
+          homeProb = value;
+          break;
+        }
+      }
+      homeProb = Math.max(0, Math.min(100, homeProb));
       return {
-        home: Math.round((homeScore / total) * 100),
-        away: Math.round(100 - (homeScore / total) * 100),
+        home: Math.round(homeProb),
+        away: Math.round(100 - homeProb),
       };
     }
     return { home: 50, away: 50 };
@@ -3539,8 +3684,16 @@ import { hideSkeleton } from "./ui/skeleton.js";
       getPredictionHtml: (g) => {
         if (!(state.dbInitialized && typeof WKBLDatabase !== "undefined"))
           return "";
-        const pred = WKBLDatabase.getGamePredictions(g.id);
-        if (!pred.team) return "";
+        const pred = WKBLDatabase.getGamePredictions(g.id, {
+          pregameOnly: true,
+        });
+        if (!pred.team) {
+          return `
+            <div class="schedule-prediction unavailable">
+              <span class="pred-label">사전 예측 없음</span>
+            </div>
+          `;
+        }
         const awayProb = pred.team.away_win_prob?.toFixed(0) || "-";
         const homeProb = pred.team.home_win_prob?.toFixed(0) || "-";
         const awayPts = pred.team.away_predicted_pts?.toFixed(0) || "-";
@@ -3569,12 +3722,21 @@ import { hideSkeleton } from "./ui/skeleton.js";
       getPredictionCompareHtml: (g, homeWin) => {
         if (!(state.dbInitialized && typeof WKBLDatabase !== "undefined"))
           return "";
-        const pred = WKBLDatabase.getGamePredictions(g.id);
-        if (!pred.team) return "";
+        const pred = WKBLDatabase.getGamePredictions(g.id, {
+          pregameOnly: true,
+          asOfDate: g.game_date,
+        });
         const result = buildPredictionCompareState({
           homeWin,
           teamPrediction: pred.team,
         });
+        if (!result.isAvailable) {
+          return `
+            <div class="schedule-pred-compare unavailable">
+              <span class="pred-result-badge">사전 예측 없음</span>
+            </div>
+          `;
+        }
         return `
           <div class="schedule-pred-compare ${result.resultClass}">
             <span class="pred-result-badge">${result.badgeText}</span>

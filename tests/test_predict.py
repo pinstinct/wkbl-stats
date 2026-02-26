@@ -9,6 +9,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "tools"))
 
 from predict import (
     _game_score_weighted_avg,
+    blend_probabilities,
+    calibrate_probability,
     calculate_player_prediction,
     calculate_win_probability,
     parse_last5,
@@ -410,6 +412,26 @@ class TestWinProbability:
         # Strong home record + weak away record → home team advantage
         assert home_prob > 50.0
         assert home_prob + away_prob == pytest.approx(100.0, abs=0.1)
+
+    def test_blend_probabilities_monotonic(self):
+        """Blended probability should remain within source range."""
+        blended = blend_probabilities(58.0, 70.0, w_elo=0.35)
+        assert blended > 58.0
+        assert blended < 70.0
+
+    def test_calibration_identity_fallback(self):
+        """No bins means identity calibration."""
+        raw = 62.3
+        assert calibrate_probability(raw, bins=None) == pytest.approx(raw, abs=1e-6)
+
+    def test_calibration_bin_mapping(self):
+        """When bins exist, mapped calibrated value is returned."""
+        bins = [
+            {"min": 40.0, "max": 50.0, "value": 47.0},
+            {"min": 50.0, "max": 60.0, "value": 56.0},
+        ]
+        assert calibrate_probability(44.2, bins=bins) == pytest.approx(47.0, abs=1e-6)
+        assert calibrate_probability(51.0, bins=bins) == pytest.approx(56.0, abs=1e-6)
 
 
 # ===========================================================================

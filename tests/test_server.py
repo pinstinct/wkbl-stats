@@ -168,6 +168,32 @@ def test_root_response_includes_security_headers(tmp_path: Path, monkeypatch) ->
     assert resp.headers.get("X-Frame-Options") == server.SECURITY_FRAME_OPTIONS
     assert resp.headers.get("Referrer-Policy") == server.SECURITY_REFERRER_POLICY
     assert "Permissions-Policy" in resp.headers
+    csp = resp.headers.get("Content-Security-Policy")
+    assert csp
+    assert "script-src" in csp
+    assert "'wasm-unsafe-eval'" in csp
+    assert "'unsafe-eval'" not in csp
+    assert "frame-ancestors 'none'" in csp
+
+
+def test_index_html_does_not_embed_csp_meta() -> None:
+    html = Path("index.html").read_text(encoding="utf-8")
+    assert 'http-equiv="Content-Security-Policy"' not in html
+
+
+def test_csp_can_enable_unsafe_eval_via_env(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("SECURITY_ALLOW_UNSAFE_EVAL", "1")
+    sys.modules.pop("config", None)
+    sys.modules.pop("server", None)
+    server = _load_server()
+    monkeypatch.setattr(server, "BASE_DIR", str(tmp_path))
+    (tmp_path / "index.html").write_text("<html>ok</html>", encoding="utf-8")
+
+    client = TestClient(server.app)
+    resp = client.get("/")
+    csp = resp.headers.get("Content-Security-Policy")
+    assert csp
+    assert "'unsafe-eval'" in csp
 
 
 def test_main_runs_uvicorn_and_respects_skip_ingest(monkeypatch) -> None:

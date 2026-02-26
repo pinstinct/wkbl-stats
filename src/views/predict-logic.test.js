@@ -53,4 +53,14 @@ describe("predict logic", () => {
     expect(incorrect.resultClass).toBe("incorrect");
     expect(incorrect.expectedScoreText).toBe("예측: ---");
   });
+
+  it("returns unavailable state when pregame prediction is missing", () => {
+    const unavailable = buildPredictionCompareState({
+      homeWin: true,
+      teamPrediction: null,
+    });
+    expect(unavailable.isAvailable).toBe(false);
+    expect(unavailable.badgeText).toBe("사전 예측 없음");
+    expect(unavailable.resultClass).toBe("unavailable");
+  });
 });

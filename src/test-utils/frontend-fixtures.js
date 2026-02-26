@@ -124,7 +124,22 @@ export async function buildFrontendFixtureDbs() {
     CREATE TABLE game_team_predictions (
       game_id TEXT,
       home_win_prob REAL,
-      away_win_prob REAL
+      away_win_prob REAL,
+      home_predicted_pts REAL,
+      away_predicted_pts REAL,
+      model_version TEXT,
+      pregame_generated_at TEXT
+    );
+    CREATE TABLE game_team_prediction_runs (
+      id INTEGER PRIMARY KEY,
+      game_id TEXT,
+      prediction_kind TEXT,
+      model_version TEXT,
+      generated_at TEXT,
+      home_win_prob REAL,
+      away_win_prob REAL,
+      home_predicted_pts REAL,
+      away_predicted_pts REAL
     );
     CREATE TABLE team_category_stats (
       season_id TEXT,
@@ -205,7 +220,13 @@ export async function buildFrontendFixtureDbs() {
       ('04601002', 'p1', 'kb', 1, 18.5),
       ('04601002', 'p3', 'kb', 1, 12.3),
       ('04601002', 'p2', 'samsung', 1, 17.7);
-    INSERT INTO game_team_predictions VALUES ('04601002', 56.0, 44.0);
+    INSERT INTO game_team_predictions VALUES (
+      '04601002', 56.0, 44.0, 71.0, 67.0, 'v2', '2025-11-07 08:00:00'
+    );
+    INSERT INTO game_team_prediction_runs VALUES
+      (1, '04601002', 'pregame', 'v2', '2025-11-07 08:00:00', 56.0, 44.0, 71.0, 67.0),
+      (2, '04601001', 'pregame', 'v2', '2025-10-31 08:00:00', 54.0, 46.0, 74.0, 70.0),
+      (3, '04601001', 'backfill', 'v2', '2025-11-03 08:00:00', 30.0, 70.0, 61.0, 79.0);
 
     INSERT INTO team_category_stats VALUES
       ('046', 'pts', 'kb', 1, 72.0, 1, '[]'),

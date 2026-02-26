@@ -811,13 +811,24 @@ function createDeps(fixtures) {
       { value: "paint", label: "페인트존" },
       { value: "three", label: "3점" },
     ]),
-    buildPredictionCompareState: vi.fn(({ homeWin, teamPrediction }) => ({
-      resultClass:
-        homeWin === teamPrediction.home_win_prob > 50 ? "match" : "mismatch",
-      badgeText:
-        homeWin === teamPrediction.home_win_prob > 50 ? "적중" : "빗나감",
-      expectedScoreText: `${teamPrediction.away_predicted_pts || "-"}-${teamPrediction.home_predicted_pts || "-"}`,
-    })),
+    buildPredictionCompareState: vi.fn(({ homeWin, teamPrediction }) => {
+      if (!teamPrediction || teamPrediction.home_win_prob == null) {
+        return {
+          isAvailable: false,
+          resultClass: "unavailable",
+          badgeText: "사전 예측 없음",
+          expectedScoreText: "사전 예측 없음",
+        };
+      }
+      return {
+        isAvailable: true,
+        resultClass:
+          homeWin === teamPrediction.home_win_prob > 50 ? "match" : "mismatch",
+        badgeText:
+          homeWin === teamPrediction.home_win_prob > 50 ? "적중" : "빗나감",
+        expectedScoreText: `${teamPrediction.away_predicted_pts || "-"}-${teamPrediction.home_predicted_pts || "-"}`,
+      };
+    }),
     buildQuarterSeries: vi.fn((shots) => {
       const labels = ["Q1", "Q2", "Q3", "Q4"];
       const made = labels.map(
@@ -1728,6 +1739,21 @@ describe("app behavior integration", () => {
     );
 
     chartInstances.forEach((chart) => runChartOptionCallbacks(chart));
+  });
+
+  it("shows no-pregame badge for recent results when pregame run is missing", async () => {
+    const { hooks, wkblDb } = createHarness();
+    await hooks.initLocalDb();
+
+    wkblDb.getGamePredictions.mockReturnValue({
+      players: [],
+      team: null,
+    });
+
+    await hooks.loadSchedulePage();
+    expect(document.getElementById("recentResultsList").innerHTML).toContain(
+      "사전 예측 없음",
+    );
   });
 
   it("covers search/compare/predict control branches and table interactions", async () => {

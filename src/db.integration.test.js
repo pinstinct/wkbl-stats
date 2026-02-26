@@ -145,6 +145,14 @@ describe("db integration", () => {
     expect(gamePredictions.team).toBeTruthy();
     expect(db.hasGamePredictions("04601002")).toBe(true);
 
+    const pregameOnly = db.getGamePredictions("04601001", {
+      pregameOnly: true,
+      asOfDate: "2025-11-01",
+    });
+    expect(pregameOnly.team).toBeTruthy();
+    expect(pregameOnly.team.prediction_kind).toBe("pregame");
+    expect(pregameOnly.team.home_win_prob).toBe(54);
+
     expect(db.getPlayByPlay("04601001")).toHaveLength(2);
     expect(db.getShotChart("04601001")).toHaveLength(2);
     expect(db.getShotChart("04601001", "p1")).toHaveLength(1);
@@ -472,6 +480,46 @@ describe("db integration", () => {
     });
     const brokenDb = await importDatabaseModule({ fetchImpl: failFetch });
     await expect(brokenDb.initDatabase()).rejects.toThrow();
+  });
+
+  it("falls back to legacy team predictions when pregame timestamp is unavailable", async () => {
+    const legacyCoreBuffer = await cloneBufferWithSql(
+      fixtures.coreBuffer,
+      `
+      DROP TABLE game_team_prediction_runs;
+      ALTER TABLE game_team_predictions ADD COLUMN created_at TEXT;
+      UPDATE game_team_predictions
+      SET pregame_generated_at = NULL, created_at = '2025-11-07 08:00:00'
+      WHERE game_id = '04601002';
+      INSERT OR REPLACE INTO game_team_predictions
+      (game_id, home_win_prob, away_win_prob, home_predicted_pts, away_predicted_pts, model_version, pregame_generated_at, created_at)
+      VALUES ('04601001', 54.0, 46.0, 74.0, 70.0, 'v1', NULL, '2025-10-31 08:00:00');
+      `,
+    );
+
+    const fetchMock = vi.fn(async (url) => {
+      if (String(url).includes("wkbl-core.db")) {
+        return mockFetchResponse({ buffer: legacyCoreBuffer });
+      }
+      return mockFetchResponse({ buffer: legacyCoreBuffer });
+    });
+
+    const db = await importDatabaseModule({ fetchImpl: fetchMock });
+    await db.initDatabase();
+
+    const upcomingLegacy = db.getGamePredictions("04601002", {
+      pregameOnly: true,
+    });
+    expect(upcomingLegacy.team).toBeTruthy();
+    expect(upcomingLegacy.team.prediction_kind).toBe("legacy");
+    expect(upcomingLegacy.team.home_win_prob).toBe(56);
+
+    const recentLegacy = db.getGamePredictions("04601001", {
+      pregameOnly: true,
+      asOfDate: "20251101",
+    });
+    expect(recentLegacy.team).toBeTruthy();
+    expect(recentLegacy.team.home_win_prob).toBe(54);
   });
 
   describe("refreshDatabase", () => {

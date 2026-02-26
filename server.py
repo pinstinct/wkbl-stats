@@ -28,6 +28,7 @@ from config import (
     HOST,
     OUTPUT_PATH,
     PORT,
+    SECURITY_CONTENT_SECURITY_POLICY,
     SECURITY_FRAME_OPTIONS,
     SECURITY_HSTS_INCLUDE_SUBDOMAINS,
     SECURITY_HSTS_MAX_AGE,
@@ -159,6 +160,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = SECURITY_REFERRER_POLICY
         response.headers["Permissions-Policy"] = SECURITY_PERMISSIONS_POLICY
         response.headers["X-Frame-Options"] = SECURITY_FRAME_OPTIONS
+        response.headers["Content-Security-Policy"] = SECURITY_CONTENT_SECURITY_POLICY
         return response
 
 
