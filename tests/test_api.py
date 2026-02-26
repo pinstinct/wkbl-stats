@@ -93,6 +93,41 @@ class TestHealthEndpoint:
         assert limited.status_code == 429
         assert limited.headers.get("Retry-After") is not None
 
+    def test_rate_limit_does_not_trust_xff_by_default(self, client):
+        """Without trusted proxy mode, changing XFF should not bypass limits."""
+        assert client.get("/health").status_code == 200
+        guard = _find_traffic_guard_middleware(client)
+        assert guard is not None
+
+        guard._general_limit = 2
+        guard._request_window = 60
+        guard._hits.clear()
+
+        h1 = {"x-forwarded-for": "198.51.100.10"}
+        h2 = {"x-forwarded-for": "198.51.100.11"}
+        h3 = {"x-forwarded-for": "198.51.100.12"}
+        assert client.get("/teams", headers=h1).status_code == 200
+        assert client.get("/teams", headers=h2).status_code == 200
+        # Still rate-limited because source IP "testclient" is used by default.
+        assert client.get("/teams", headers=h3).status_code == 429
+
+    def test_rate_limit_sweep_caps_key_growth(self, client):
+        """Rate-limit in-memory buckets should be swept/capped to avoid unbounded growth."""
+        assert client.get("/health").status_code == 200
+        guard = _find_traffic_guard_middleware(client)
+        assert guard is not None
+
+        guard._max_keys = 3
+        guard._hits = {
+            "k1": [1.0],
+            "k2": [2.0],
+            "k3": [3.0],
+            "k4": [4.0],
+            "k5": [5.0],
+        }
+        guard._sweep(cutoff=0.0)
+        assert len(guard._hits) <= 3
+
 
 class TestPlayersEndpoint:
     """Tests for /players endpoint."""

@@ -26,8 +26,12 @@ from config import (
     API_ALLOW_ORIGINS,
     API_MAX_REQUEST_BYTES,
     API_RATE_LIMIT_PER_MINUTE,
+    API_RATE_LIMIT_MAX_KEYS,
+    API_RATE_LIMIT_SWEEP_EVERY,
     API_RATE_LIMIT_WINDOW_SECONDS,
     API_SEARCH_RATE_LIMIT_PER_MINUTE,
+    API_TRUST_PROXY,
+    API_TRUSTED_PROXIES,
     CURRENT_SEASON,
     SEASON_CODES,
     setup_logging,
@@ -1615,14 +1619,22 @@ app = FastAPI(
 
 
 def _resolve_client_ip(request: Request) -> str:
-    """Extract client IP with basic proxy header support."""
+    """Extract client IP and only trust XFF from trusted proxy sources."""
+    client = request.client
+    source_ip = client.host if client and client.host else "unknown"
+
+    if not API_TRUST_PROXY:
+        return source_ip
+
+    if source_ip not in API_TRUSTED_PROXIES:
+        return source_ip
+
     forwarded_for = request.headers.get("x-forwarded-for")
     if forwarded_for:
-        return forwarded_for.split(",")[0].strip() or "unknown"
-    client = request.client
-    if client and client.host:
-        return client.host
-    return "unknown"
+        forwarded_ip = forwarded_for.split(",")[0].strip()
+        if forwarded_ip:
+            return forwarded_ip
+    return source_ip
 
 
 class TrafficGuardMiddleware(BaseHTTPMiddleware):
@@ -1637,7 +1649,10 @@ class TrafficGuardMiddleware(BaseHTTPMiddleware):
         self._general_limit = max(API_RATE_LIMIT_PER_MINUTE, 1)
         self._search_limit = max(API_SEARCH_RATE_LIMIT_PER_MINUTE, 1)
         self._max_request_bytes = max(API_MAX_REQUEST_BYTES, 1024)
+        self._max_keys = max(API_RATE_LIMIT_MAX_KEYS, 100)
+        self._sweep_every = max(API_RATE_LIMIT_SWEEP_EVERY, 1)
         self._hits: dict[str, list[float]] = {}
+        self._request_counter = 0
         self._lock = Lock()
 
     def _bucket_limit(self, path: str) -> tuple[str, int]:
@@ -1652,6 +1667,30 @@ class TrafficGuardMiddleware(BaseHTTPMiddleware):
         elapsed = now - oldest
         wait = int(self._request_window - elapsed)
         return max(wait, 1)
+
+    def _sweep(self, cutoff: float) -> None:
+        """Evict expired rate-limit entries and cap key cardinality."""
+        expired = []
+        for key, history in self._hits.items():
+            filtered = [ts for ts in history if ts >= cutoff]
+            if filtered:
+                self._hits[key] = filtered
+            else:
+                expired.append(key)
+        for key in expired:
+            self._hits.pop(key, None)
+
+        if len(self._hits) <= self._max_keys:
+            return
+
+        # Remove least recently used buckets first when cardinality spikes.
+        ordered = sorted(
+            self._hits.items(),
+            key=lambda item: item[1][-1] if item[1] else 0.0,
+        )
+        overflow = len(self._hits) - self._max_keys
+        for key, _ in ordered[:overflow]:
+            self._hits.pop(key, None)
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
@@ -1671,6 +1710,16 @@ class TrafficGuardMiddleware(BaseHTTPMiddleware):
                     )
             except ValueError:
                 pass
+        elif request.method in {"POST", "PUT", "PATCH"}:
+            body = await request.body()
+            if len(body) > self._max_request_bytes:
+                return JSONResponse(
+                    status_code=413,
+                    content={
+                        "detail": "Request payload too large",
+                        "max_bytes": self._max_request_bytes,
+                    },
+                )
 
         bucket, limit = self._bucket_limit(path)
         client_ip = _resolve_client_ip(request)
@@ -1682,6 +1731,9 @@ class TrafficGuardMiddleware(BaseHTTPMiddleware):
         cutoff = now - self._request_window
 
         with self._lock:
+            self._request_counter += 1
+            if self._request_counter % self._sweep_every == 0:
+                self._sweep(cutoff)
             history = self._hits.get(key, [])
             history = [ts for ts in history if ts >= cutoff]
             if len(history) >= limit:

@@ -120,10 +120,14 @@ uv run python3 server.py
 - `API_ALLOW_METHODS` (기본: `GET`)
 - `API_ALLOW_HEADERS` (기본: `Content-Type`)
 - `API_ALLOW_CREDENTIALS` (기본: `false`)
+- `API_TRUST_PROXY` (기본: `false`)
+- `API_TRUSTED_PROXIES` (기본: `127.0.0.1,::1,localhost`)
 - `API_RATE_LIMIT_PER_MINUTE` (기본: `60`)
 - `API_SEARCH_RATE_LIMIT_PER_MINUTE` (기본: `20`)
 - `API_RATE_LIMIT_WINDOW_SECONDS` (기본: `60`)
 - `API_MAX_REQUEST_BYTES` (기본: `1048576`)
+- `API_RATE_LIMIT_MAX_KEYS` (기본: `10000`)
+- `API_RATE_LIMIT_SWEEP_EVERY` (기본: `200`)
 
 ## 테스트
 
