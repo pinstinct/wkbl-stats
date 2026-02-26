@@ -258,6 +258,32 @@ class TestIngestSingleSeason:
 
         mock_db.bulk_insert_team_category_stats.assert_called_once()
 
+    @patch(
+        "ingest_wkbl.fetch_team_category_stats",
+        side_effect=Exception("cat stats error"),
+    )
+    @patch("ingest_wkbl.database")
+    @patch("ingest_wkbl._fetch_game_records")
+    @patch("ingest_wkbl.get_season_meta_by_code")
+    def test_single_season_category_stats_exception(
+        self, mock_meta, mock_fetch, mock_db, mock_cat
+    ):
+        """Category stats fetch failure should not abort season ingest."""
+        from ingest_wkbl import _ingest_single_season
+
+        mock_meta.return_value = {
+            "firstGameDate": "20251027",
+            "selectedId": "04601001",
+            "selectedGameDate": "20251027",
+        }
+        mock_fetch.return_value = ([], [], [], {})
+
+        args = _make_args(save_db=True, fetch_team_category_stats=True)
+        _ingest_single_season(args, "046", "2025-26", [], ["01"])
+
+        mock_cat.assert_called_once()
+        mock_db.bulk_insert_team_category_stats.assert_not_called()
+
     @patch("ingest_wkbl._fetch_game_records")
     @patch("ingest_wkbl.get_season_meta_by_code")
     def test_single_season_no_save_db(self, mock_meta, mock_fetch):
@@ -326,6 +352,29 @@ class TestIngestSingleSeason:
         mock_mvp.assert_called_once()
         mock_db.bulk_insert_game_mvp.assert_called_once()
 
+    @patch("ingest_wkbl.fetch_game_mvp", side_effect=Exception("mvp error"))
+    @patch("ingest_wkbl.database")
+    @patch("ingest_wkbl._fetch_game_records")
+    @patch("ingest_wkbl.get_season_meta_by_code")
+    def test_single_season_mvp_exception(
+        self, mock_meta, mock_fetch, mock_db, mock_mvp
+    ):
+        """MVP fetch failure should not abort season ingest."""
+        from ingest_wkbl import _ingest_single_season
+
+        mock_meta.return_value = {
+            "firstGameDate": "20251027",
+            "selectedId": "04601001",
+            "selectedGameDate": "20251027",
+        }
+        mock_fetch.return_value = ([], [], [], {})
+
+        args = _make_args(save_db=True, fetch_game_mvp=True)
+        _ingest_single_season(args, "046", "2025-26", [], ["01"])
+
+        mock_mvp.assert_called_once()
+        mock_db.bulk_insert_game_mvp.assert_not_called()
+
     @patch("ingest_wkbl.fetch_quarter_scores")
     @patch("ingest_wkbl.database")
     @patch("ingest_wkbl._fetch_game_records")
@@ -378,6 +427,33 @@ class TestIngestSingleSeason:
         mock_shots.assert_called_once()
         mock_db.bulk_insert_play_by_play.assert_called_once()
         mock_db.bulk_insert_shot_charts.assert_called_once()
+
+    @patch("ingest_wkbl.fetch_play_by_play", side_effect=Exception("pbp error"))
+    @patch("ingest_wkbl.fetch_shot_chart", side_effect=Exception("shot error"))
+    @patch("ingest_wkbl.database")
+    @patch("ingest_wkbl._fetch_game_records")
+    @patch("ingest_wkbl.get_season_meta_by_code")
+    def test_single_season_per_game_data_exceptions(
+        self, mock_meta, mock_fetch, mock_db, mock_shots, mock_pbp
+    ):
+        """Per-game fetch failures should be logged and skipped."""
+        from ingest_wkbl import _ingest_single_season
+
+        mock_meta.return_value = {
+            "firstGameDate": "20251027",
+            "selectedId": "04601001",
+            "selectedGameDate": "20251027",
+        }
+        mock_fetch.return_value = ([], [], [], {})
+        mock_db.get_existing_game_ids.return_value = {"04601010"}
+
+        args = _make_args(save_db=True, fetch_play_by_play=True, fetch_shot_charts=True)
+        _ingest_single_season(args, "046", "2025-26", [], ["01"])
+
+        mock_pbp.assert_called_once()
+        mock_shots.assert_called_once()
+        mock_db.bulk_insert_play_by_play.assert_not_called()
+        mock_db.bulk_insert_shot_charts.assert_not_called()
 
 
 # =========================================================================
@@ -510,6 +586,39 @@ class TestMain:
 
         mock_multi.assert_called_once()
 
+    @patch("ingest_wkbl.logger.warning")
+    @patch("ingest_wkbl.aggregate_players", return_value=[])
+    @patch("ingest_wkbl.load_active_players", return_value=[])
+    @patch("ingest_wkbl._fetch_game_records", return_value=([], [], [], {}))
+    @patch("ingest_wkbl._resolve_season_params", return_value="20260224")
+    @patch("ingest_wkbl.database")
+    @patch("ingest_wkbl._write_output")
+    def test_main_warns_when_save_db_without_lineup_sources(
+        self,
+        mock_write,
+        mock_db,
+        mock_resolve,
+        mock_fetch,
+        mock_load,
+        mock_agg,
+        mock_warn,
+    ):
+        """--save-db without pbp/lineups should warn about +/- completeness."""
+        from ingest_wkbl import main
+
+        with patch("sys.argv", ["ingest", "--season-label", "2025-26", "--save-db"]):
+            main()
+
+        mock_warn.assert_called_once()
+
+    def test_main_requires_season_label_in_single_season_mode(self):
+        """Single-season mode without --season-label should fail parser validation."""
+        from ingest_wkbl import main
+
+        with patch("sys.argv", ["ingest"]):
+            with pytest.raises(SystemExit):
+                main()
+
     @patch("ingest_wkbl._write_output")
     @patch("ingest_wkbl.aggregate_players", return_value=[])
     @patch("ingest_wkbl.load_active_players", return_value=[])
@@ -569,13 +678,21 @@ class TestMain:
         assert players[0]["name"] == "A"
 
     @patch("ingest_wkbl._write_output")
+    @patch("ingest_wkbl._compute_lineups_for_season")
     @patch("ingest_wkbl._convert_db_stats_to_players")
     @patch("ingest_wkbl.load_active_players", return_value=[])
     @patch("ingest_wkbl._fetch_game_records")
     @patch("ingest_wkbl._resolve_season_params", return_value="20260224")
     @patch("ingest_wkbl.database")
     def test_main_db_aggregation(
-        self, mock_db, mock_resolve, mock_fetch, mock_load, mock_convert, mock_write
+        self,
+        mock_db,
+        mock_resolve,
+        mock_fetch,
+        mock_load,
+        mock_convert,
+        mock_lineups,
+        mock_write,
     ):
         """save_db + existing games → DB aggregation used."""
         from ingest_wkbl import main
@@ -601,13 +718,21 @@ class TestMain:
         mock_convert.assert_called_once()
 
     @patch("ingest_wkbl._write_output")
+    @patch("ingest_wkbl._compute_lineups_for_season")
     @patch("ingest_wkbl.aggregate_players", return_value=[{"name": "fallback"}])
     @patch("ingest_wkbl.load_active_players", return_value=[])
     @patch("ingest_wkbl._fetch_game_records")
     @patch("ingest_wkbl._resolve_season_params", return_value="20260224")
     @patch("ingest_wkbl.database")
     def test_main_db_aggregation_fallback(
-        self, mock_db, mock_resolve, mock_fetch, mock_load, mock_agg, mock_write
+        self,
+        mock_db,
+        mock_resolve,
+        mock_fetch,
+        mock_load,
+        mock_agg,
+        mock_lineups,
+        mock_write,
     ):
         """DB stats empty → falls back to aggregate_players."""
         from ingest_wkbl import main

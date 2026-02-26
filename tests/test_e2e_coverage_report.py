@@ -247,6 +247,24 @@ def test_collect_playwright_statuses_with_errors(tmp_path: Path) -> None:
     assert any("invalid json result file" in e for e in errors)
 
 
+def test_collect_playwright_statuses_handles_malformed_suites(tmp_path: Path) -> None:
+    malformed = tmp_path / "malformed.json"
+    _write(malformed, json.dumps({"suites": ["bad-suite"], "errors": []}))
+
+    statuses, errors = report.collect_playwright_statuses([malformed])
+    assert statuses == {}
+    assert any("invalid suite payload" in e for e in errors)
+
+
+def test_collect_playwright_statuses_handles_non_list_suites(tmp_path: Path) -> None:
+    malformed = tmp_path / "non_list_suites.json"
+    _write(malformed, json.dumps({"suites": {"title": "not-list"}, "errors": []}))
+
+    statuses, errors = report.collect_playwright_statuses([malformed])
+    assert statuses == {}
+    assert any("invalid suites payload" in e for e in errors)
+
+
 def test_metric_for_tier_counts_and_mapping_errors(tmp_path: Path) -> None:
     matrix = tmp_path / "e2e/scenarios/scenario-matrix.yaml"
     _write(matrix, _matrix_yaml())
@@ -338,6 +356,25 @@ def test_main_end_to_end_and_failure_modes(
     )
     assert payload["threshold_passed"] is True
     assert payload["tiers"]["required"]["coverage_pct"] == 100.0
+
+    # threshold boundary (exact match) should pass
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "prog",
+            "--tier",
+            "required",
+            "--results",
+            "reports/playwright-required.json",
+            "--json-out",
+            "reports/out-required-boundary.json",
+            "--md-out",
+            "reports/out-required-boundary.md",
+            "--min-coverage",
+            "100",
+        ],
+    )
+    assert report.main() == 0
 
     # strict mapping failure due to unknown id in results
     _write(

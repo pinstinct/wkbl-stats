@@ -176,10 +176,20 @@ def collect_playwright_statuses(
             continue
 
         suites = data.get("suites", [])
+        if not isinstance(suites, list):
+            errors.append(f"invalid suites payload: {result_file}")
+            continue
+
         for suite in suites:
+            if not isinstance(suite, dict):
+                errors.append(f"invalid suite payload: {result_file}")
+                continue
             for full_title, test in iter_suite_tests(suite, []):
                 scenario_ids = SCENARIO_ID_RE.findall(full_title)
                 if not scenario_ids:
+                    continue
+                if not isinstance(test, dict):
+                    errors.append(f"invalid test payload: {result_file}")
                     continue
                 status = summarize_test_status(test)
                 for scenario_id in scenario_ids:

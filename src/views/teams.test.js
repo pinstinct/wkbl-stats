@@ -9,6 +9,20 @@ import {
 } from "./teams.js";
 
 describe("teams view", () => {
+  it("returns early when render targets are missing", () => {
+    expect(() =>
+      renderStandingsTable({ tbody: null, standings: [] }),
+    ).not.toThrow();
+    expect(() => renderTeamRoster({ tbody: null, roster: [] })).not.toThrow();
+    expect(() =>
+      renderTeamRecentGames({ tbody: null, games: [], formatDate: () => "" }),
+    ).not.toThrow();
+    expect(() => renderTeamStats({ container: null, stats: {} })).not.toThrow();
+    expect(() =>
+      renderTeamStats({ container: { innerHTML: "" }, stats: null }),
+    ).not.toThrow();
+  });
+
   it("renders standings table", () => {
     const tbody = { innerHTML: "" };
     renderStandingsTable({
@@ -34,6 +48,33 @@ describe("teams view", () => {
     expect(tbody.innerHTML).toContain('href="#/teams/hana"');
     expect(tbody.innerHTML).toContain("101.2");
     expect(tbody.innerHTML).toContain("+8.7");
+  });
+
+  it("renders standings fallbacks for null numeric fields", () => {
+    const tbody = { innerHTML: "" };
+    renderStandingsTable({
+      tbody,
+      standings: [
+        {
+          rank: 2,
+          team_id: "bnk",
+          team_name: "BNK",
+          wins: 1,
+          losses: 1,
+          win_pct: 0.5,
+          home_record: "1-0",
+          away_record: "0-1",
+          off_rtg: null,
+          def_rtg: undefined,
+          net_rtg: null,
+          pace: undefined,
+          games_behind: "",
+          streak: "",
+          last5: "",
+        },
+      ],
+    });
+    expect(tbody.innerHTML).toContain(">-</td>");
   });
 
   it("renders roster and recent games", () => {
@@ -86,5 +127,17 @@ describe("teams view", () => {
     ];
     const sorted = sortStandings(standings, { key: "net_rtg", dir: "desc" });
     expect(sorted.map((row) => row.team_id)).toEqual(["b", "a"]);
+  });
+
+  it("sorts strings and nulls consistently", () => {
+    const standings = [
+      { team_id: "a", team_name: null, rank: 2 },
+      { team_id: "b", team_name: "가", rank: 1 },
+      { team_id: "c", team_name: "나", rank: 3 },
+    ];
+    const asc = sortStandings(standings, { key: "team_name", dir: "asc" });
+    expect(asc.map((row) => row.team_id)).toEqual(["b", "c", "a"]);
+    const desc = sortStandings(standings, { key: "team_name", dir: "desc" });
+    expect(desc.map((row) => row.team_id)).toEqual(["c", "b", "a"]);
   });
 });
