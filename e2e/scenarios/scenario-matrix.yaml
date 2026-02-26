@@ -1,5 +1,5 @@
 version: 1
-updated_at: "2026-02-25"
+updated_at: "2026-02-26"
 schema:
   required_fields:
     - id
@@ -671,3 +671,83 @@ scenarios:
     enabled: true
     since: "2026-02-25"
     notes: reload handling
+
+  - id: E2E-RESILIENCE-002
+    title: predict invalid deep-link shows graceful error state
+    tier: optional
+    area: resilience
+    owner: frontend
+    risk: medium
+    preconditions: predict route opened with unknown player id
+    expected: predict result panel shows fallback error text without crash
+    testRefs:
+      - spec: e2e/optional/resilience.spec.js
+        title: "[E2E-RESILIENCE-002]"
+        tag: "@optional"
+    enabled: true
+    since: "2026-02-26"
+    notes: deep-link failure handling
+
+  - id: E2E-RESILIENCE-003
+    title: global search escape closes modal and reopen resets state
+    tier: optional
+    area: resilience
+    owner: frontend
+    risk: medium
+    preconditions: global search modal opened with a query that returns no hit
+    expected: escape closes modal and reopen clears input and stale result state
+    testRefs:
+      - spec: e2e/optional/resilience.spec.js
+        title: "[E2E-RESILIENCE-003]"
+        tag: "@optional"
+    enabled: true
+    since: "2026-02-26"
+    notes: keyboard close plus state reset
+
+  - id: E2E-RESILIENCE-004
+    title: compare enforces four-player cap and supports removal
+    tier: optional
+    area: resilience
+    owner: frontend
+    risk: medium
+    preconditions: compare route loaded with at least five selectable players
+    expected: selected chips cap at four and remove interaction updates button state
+    testRefs:
+      - spec: e2e/optional/resilience.spec.js
+        title: "[E2E-RESILIENCE-004]"
+        tag: "@optional"
+    enabled: true
+    since: "2026-02-26"
+    notes: selection guardrails
+
+  - id: E2E-RESILIENCE-005
+    title: game boxscore sort clicks keep table rows stable
+    tier: optional
+    area: resilience
+    owner: frontend
+    risk: medium
+    preconditions: game detail route loaded with boxscore tables
+    expected: sort header clicks do not break rendering and row counts stay stable
+    testRefs:
+      - spec: e2e/optional/resilience.spec.js
+        title: "[E2E-RESILIENCE-005]"
+        tag: "@optional"
+    enabled: true
+    since: "2026-02-26"
+    notes: sort interaction resilience
+
+  - id: E2E-RESILIENCE-006
+    title: schedule season switch preserves controls and list regions
+    tier: optional
+    area: resilience
+    owner: frontend
+    risk: medium
+    preconditions: schedule route loaded with season options
+    expected: season switch keeps team filter and both list containers visible
+    testRefs:
+      - spec: e2e/optional/resilience.spec.js
+        title: "[E2E-RESILIENCE-006]"
+        tag: "@optional"
+    enabled: true
+    since: "2026-02-26"
+    notes: rerender stability
