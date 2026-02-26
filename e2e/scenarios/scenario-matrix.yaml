@@ -512,6 +512,70 @@ scenarios:
     since: "2026-02-26"
     notes: keyboard interaction path
 
+  - id: E2E-VALUE-001
+    title: players table row mirrors summary card identity
+    tier: recommended
+    area: players
+    owner: frontend
+    risk: high
+    preconditions: players table has at least one row
+    expected: selected first row name/team/pos are reflected in summary card
+    testRefs:
+      - spec: e2e/recommended/value-integrity.spec.js
+        title: "[E2E-VALUE-001]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-26"
+    notes: list-detail identity consistency
+
+  - id: E2E-VALUE-002
+    title: standings row values stay consistent on team detail header
+    tier: recommended
+    area: teams
+    owner: frontend
+    risk: high
+    preconditions: standings table has at least one team row
+    expected: rank wins losses and win% from standings appear in detail header
+    testRefs:
+      - spec: e2e/recommended/value-integrity.spec.js
+        title: "[E2E-VALUE-002]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-26"
+    notes: standings to detail consistency
+
+  - id: E2E-VALUE-003
+    title: games list card score matches boxscore header score
+    tier: recommended
+    area: games
+    owner: frontend
+    risk: high
+    preconditions: games list has at least one game card
+    expected: away and home scores on first card match boxscore header values
+    testRefs:
+      - spec: e2e/recommended/value-integrity.spec.js
+        title: "[E2E-VALUE-003]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-26"
+    notes: list to detail score consistency
+
+  - id: E2E-VALUE-004
+    title: prediction cards keep value within displayed range
+    tier: recommended
+    area: predict
+    owner: frontend
+    risk: high
+    preconditions: predict flow can select at least one player with prediction cards
+    expected: each prediction stat card has low <= value <= high
+    testRefs:
+      - spec: e2e/recommended/value-integrity.spec.js
+        title: "[E2E-VALUE-004]"
+        tag: "@recommended"
+    enabled: true
+    since: "2026-02-26"
+    notes: prediction numeric integrity
+
   - id: E2E-MOBILE-001
     title: mobile nav toggle opens menu
     tier: optional
