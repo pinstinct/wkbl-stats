@@ -8,7 +8,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "json-summary", "html"],
       include: ["src/**/*.js"],
-      exclude: ["src/**/*.test.js", "src/**/*.global.js"],
+      exclude: ["src/**/*.test.js", "src/**/*.global.js", "src/vendor/**"],
       thresholds: {
         lines: 95,
       },
