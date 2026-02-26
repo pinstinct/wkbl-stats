@@ -4087,6 +4087,27 @@ import { hideSkeleton } from "./ui/skeleton.js";
 
     initEventListeners();
     handleRoute();
+
+    // Auto-refresh database when returning to a stale tab
+    let lastCheckTime = Date.now();
+    const STALE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+
+    document.addEventListener("visibilitychange", async () => {
+      if (document.visibilityState !== "visible") return;
+      if (!state.dbInitialized) return;
+      if (Date.now() - lastCheckTime < STALE_THRESHOLD) return;
+
+      lastCheckTime = Date.now();
+      try {
+        const updated = await WKBLDatabase.refreshDatabase();
+        if (updated) {
+          console.log("[app.js] Database updated, re-rendering current view");
+          handleRoute();
+        }
+      } catch (_e) {
+        // Silent fail — stale data is acceptable
+      }
+    });
   }
 
   if (document.readyState === "loading") {

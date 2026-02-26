@@ -473,4 +473,233 @@ describe("db integration", () => {
     const brokenDb = await importDatabaseModule({ fetchImpl: failFetch });
     await expect(brokenDb.initDatabase()).rejects.toThrow();
   });
+
+  describe("refreshDatabase", () => {
+    it("returns false when no cache is available", async () => {
+      const fetchMock = vi.fn(async (url) => {
+        if (String(url).includes("wkbl-core.db")) {
+          return mockFetchResponse({ buffer: fixtures.coreBuffer });
+        }
+        return mockFetchResponse({ buffer: fixtures.coreBuffer });
+      });
+
+      // No cache provided — IDBCache will be undefined in the vm context
+      const db = await importDatabaseModule({ fetchImpl: fetchMock });
+      await db.initDatabase();
+      expect(await db.refreshDatabase()).toBe(false);
+    });
+
+    it("returns false when ETag has not changed", async () => {
+      const cache = {
+        loadFromCache: vi.fn(async () => ({
+          buffer: fixtures.coreBuffer,
+          etag: '"same-etag"',
+        })),
+        saveToCache: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const fetchMock = vi.fn(async (url, options = {}) => {
+        if (options.method === "HEAD") {
+          return mockFetchResponse({ etag: '"same-etag"' });
+        }
+        if (String(url).includes("wkbl-core.db")) {
+          return mockFetchResponse({
+            buffer: fixtures.coreBuffer,
+            etag: '"same-etag"',
+          });
+        }
+        return mockFetchResponse({ buffer: fixtures.coreBuffer });
+      });
+
+      const db = await importDatabaseModule({ fetchImpl: fetchMock, cache });
+      await db.initDatabase();
+      await new Promise((r) => setTimeout(r, 0));
+
+      const updated = await db.refreshDatabase();
+      expect(updated).toBe(false);
+      // HEAD request was made to check
+      expect(
+        fetchMock.mock.calls.some(([, opts]) => opts && opts.method === "HEAD"),
+      ).toBe(true);
+      // No new data was fetched for refresh
+      expect(cache.saveToCache).not.toHaveBeenCalledWith(
+        "wkbl-core",
+        expect.any(ArrayBuffer),
+        expect.stringContaining("new"),
+      );
+    });
+
+    it("refreshes core DB when server ETag differs", async () => {
+      const cache = {
+        loadFromCache: vi
+          .fn()
+          .mockResolvedValue({ buffer: fixtures.coreBuffer, etag: '"old-v1"' }),
+        saveToCache: vi.fn().mockResolvedValue(undefined),
+      };
+
+      let headCallCount = 0;
+      const fetchMock = vi.fn(async (url, options = {}) => {
+        if (options.method === "HEAD") {
+          headCallCount++;
+          // During init background check, return old; during refresh, return new
+          return mockFetchResponse({
+            etag: headCallCount <= 1 ? '"old-v1"' : '"new-v2"',
+          });
+        }
+        if (String(url).includes("wkbl-core.db")) {
+          return mockFetchResponse({
+            buffer: fixtures.coreBuffer,
+            etag: '"new-v2"',
+          });
+        }
+        return mockFetchResponse({ buffer: fixtures.coreBuffer });
+      });
+
+      const db = await importDatabaseModule({ fetchImpl: fetchMock, cache });
+      await db.initDatabase();
+      await new Promise((r) => setTimeout(r, 0));
+
+      const updated = await db.refreshDatabase();
+      expect(updated).toBe(true);
+      // Verify cache was updated with new etag
+      expect(cache.saveToCache).toHaveBeenCalledWith(
+        "wkbl-core",
+        expect.any(ArrayBuffer),
+        '"new-v2"',
+      );
+      // DB should still work after refresh
+      expect(db.isReady()).toBe(true);
+      expect(db.getSeasons()).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: "046" })]),
+      );
+    });
+
+    it("refreshes detail DB when loaded and ETag differs", async () => {
+      const cache = {
+        loadFromCache: vi.fn(async (key) => {
+          if (key === "wkbl-core") {
+            return { buffer: fixtures.coreBuffer, etag: '"core-v1"' };
+          }
+          if (key === "wkbl-detail") {
+            return { buffer: fixtures.detailBuffer, etag: '"detail-old"' };
+          }
+          return null;
+        }),
+        saveToCache: vi.fn().mockResolvedValue(undefined),
+      };
+
+      let headCount = 0;
+      const fetchMock = vi.fn(async (url, options = {}) => {
+        if (options.method === "HEAD") {
+          headCount++;
+          // Background checks during init return same etag
+          if (headCount <= 2) {
+            if (String(url).includes("detail")) {
+              return mockFetchResponse({ etag: '"detail-old"' });
+            }
+            return mockFetchResponse({ etag: '"core-v1"' });
+          }
+          // During refreshDatabase, core unchanged but detail changed
+          if (String(url).includes("detail")) {
+            return mockFetchResponse({ etag: '"detail-new"' });
+          }
+          return mockFetchResponse({ etag: '"core-v1"' });
+        }
+        if (String(url).includes("wkbl-detail.db")) {
+          return mockFetchResponse({
+            buffer: fixtures.detailBuffer,
+            etag: '"detail-new"',
+          });
+        }
+        if (String(url).includes("wkbl-core.db")) {
+          return mockFetchResponse({
+            buffer: fixtures.coreBuffer,
+            etag: '"core-v1"',
+          });
+        }
+        return mockFetchResponse({ buffer: fixtures.coreBuffer });
+      });
+
+      const db = await importDatabaseModule({ fetchImpl: fetchMock, cache });
+      await db.initDatabase();
+      await db.initDetailDatabase();
+      await new Promise((r) => setTimeout(r, 0));
+
+      const updated = await db.refreshDatabase();
+      expect(updated).toBe(true);
+      expect(cache.saveToCache).toHaveBeenCalledWith(
+        "wkbl-detail",
+        expect.any(ArrayBuffer),
+        '"detail-new"',
+      );
+    });
+
+    it("handles fetch errors silently during refresh", async () => {
+      const cache = {
+        loadFromCache: vi
+          .fn()
+          .mockResolvedValue({ buffer: fixtures.coreBuffer, etag: '"v1"' }),
+        saveToCache: vi.fn().mockResolvedValue(undefined),
+      };
+
+      let isRefreshPhase = false;
+      const fetchMock = vi.fn(async (url, options = {}) => {
+        if (isRefreshPhase && options.method === "HEAD") {
+          throw new Error("network down");
+        }
+        if (String(url).includes("wkbl-core.db")) {
+          return mockFetchResponse({
+            buffer: fixtures.coreBuffer,
+            etag: '"v1"',
+          });
+        }
+        return mockFetchResponse({ buffer: fixtures.coreBuffer });
+      });
+
+      const db = await importDatabaseModule({ fetchImpl: fetchMock, cache });
+      await db.initDatabase();
+      await new Promise((r) => setTimeout(r, 0));
+
+      isRefreshPhase = true;
+      // Should not throw, just return false
+      const updated = await db.refreshDatabase();
+      expect(updated).toBe(false);
+      expect(db.isReady()).toBe(true);
+    });
+
+    it("skips detail DB refresh when detail DB is not loaded", async () => {
+      const cache = {
+        loadFromCache: vi
+          .fn()
+          .mockResolvedValue({ buffer: fixtures.coreBuffer, etag: '"v1"' }),
+        saveToCache: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const fetchMock = vi.fn(async (url, options = {}) => {
+        if (options.method === "HEAD") {
+          return mockFetchResponse({ etag: '"v1"' });
+        }
+        if (String(url).includes("wkbl-core.db")) {
+          return mockFetchResponse({
+            buffer: fixtures.coreBuffer,
+            etag: '"v1"',
+          });
+        }
+        return mockFetchResponse({ buffer: fixtures.coreBuffer });
+      });
+
+      const db = await importDatabaseModule({ fetchImpl: fetchMock, cache });
+      await db.initDatabase();
+      // Don't init detail DB
+      await new Promise((r) => setTimeout(r, 0));
+
+      await db.refreshDatabase();
+
+      // Only core-related cache loads, no detail
+      const detailLoadCalls = cache.loadFromCache.mock.calls.filter(
+        ([key]) => key === "wkbl-detail",
+      );
+      expect(detailLoadCalls).toHaveLength(0);
+    });
+  });
 });

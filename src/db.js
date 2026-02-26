@@ -105,6 +105,81 @@ const WKBLDatabase = (function () {
   }
 
   // =============================================================================
+  // Tab-return refresh
+  // =============================================================================
+
+  /**
+   * Check if server has newer DB files and reload them into memory.
+   * Used on visibilitychange to keep long-lived tabs up-to-date.
+   * @returns {Promise<boolean>} True if any database was refreshed
+   */
+  async function refreshDatabase() {
+    const cache = typeof IDBCache !== "undefined" ? IDBCache : null; // eslint-disable-line no-undef
+    if (!cache || !db) return false;
+
+    let updated = false;
+
+    // Check core DB
+    try {
+      const cached = await cache.loadFromCache(DB_CACHE_KEY);
+      const cachedEtag = cached?.etag;
+      if (cachedEtag) {
+        const headRes = await fetch("./data/wkbl-core.db", { method: "HEAD" });
+        const serverEtag = headRes.headers.get("ETag");
+        if (serverEtag && serverEtag !== cachedEtag) {
+          console.log("[db.js] Refreshing core DB (new version detected)");
+          const res = await fetch("./data/wkbl-core.db");
+          const buffer = await res.arrayBuffer();
+          const SQL = await initSqlJs({
+            locateFile: (file) =>
+              `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`,
+          });
+          db = new SQL.Database(new Uint8Array(buffer));
+          const newEtag = res.headers.get("ETag") || serverEtag;
+          cache.saveToCache(DB_CACHE_KEY, buffer, newEtag).catch(() => {});
+          updated = true;
+        }
+      }
+    } catch (_e) {
+      console.warn("[db.js] Core DB refresh check failed:", _e.message);
+    }
+
+    // Check detail DB (only if already loaded)
+    if (detailDb) {
+      try {
+        const cached = await cache.loadFromCache("wkbl-detail");
+        const cachedEtag = cached?.etag;
+        if (cachedEtag) {
+          const headRes = await fetch("./data/wkbl-detail.db", {
+            method: "HEAD",
+          });
+          const serverEtag = headRes.headers.get("ETag");
+          if (serverEtag && serverEtag !== cachedEtag) {
+            console.log("[db.js] Refreshing detail DB (new version detected)");
+            const res = await fetch("./data/wkbl-detail.db");
+            const buffer = await res.arrayBuffer();
+            const SQL = await initSqlJs({
+              locateFile: (file) =>
+                `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`,
+            });
+            detailDb = new SQL.Database(new Uint8Array(buffer));
+            const newEtag = res.headers.get("ETag") || serverEtag;
+            cache.saveToCache("wkbl-detail", buffer, newEtag).catch(() => {});
+            updated = true;
+          }
+        }
+      } catch (_e) {
+        console.warn("[db.js] Detail DB refresh check failed:", _e.message);
+      }
+    }
+
+    if (updated) {
+      console.log("[db.js] Database refreshed with latest data");
+    }
+    return updated;
+  }
+
+  // =============================================================================
   // Initialization
   // =============================================================================
 
@@ -2901,6 +2976,7 @@ const WKBLDatabase = (function () {
     // Initialization
     initDatabase,
     initDetailDatabase,
+    refreshDatabase,
     isReady,
     isDetailReady,
 
