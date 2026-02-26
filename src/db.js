@@ -1207,7 +1207,7 @@ const WKBLDatabase = (function () {
     // Add players with no games in selected season (gp=0)
     if (includeNoGames && seasonId && seasonId !== "all") {
       const playerIds = new Set(players.map((p) => p.id));
-      let noGamesRows = [];
+      let noGamesRows;
 
       {
         const latestSeasonRow = queryOne(
