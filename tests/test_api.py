@@ -18,6 +18,16 @@ def load_contract_fixture(name: str) -> dict:
     return json.loads(fixture_path.read_text(encoding="utf-8"))
 
 
+def _find_traffic_guard_middleware(client):
+    """Return TrafficGuardMiddleware instance from app stack."""
+    stack = client.app.middleware_stack
+    while stack is not None:
+        if stack.__class__.__name__ == "TrafficGuardMiddleware":
+            return stack
+        stack = getattr(stack, "app", None)
+    return None
+
+
 @pytest.fixture
 def client(populated_db, monkeypatch):
     """Create a test client with populated database."""
@@ -37,6 +47,51 @@ class TestHealthEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
+
+    def test_cors_preflight_allows_known_origin(self, client):
+        """Known origin should receive CORS allow-origin on preflight."""
+        response = client.options(
+            "/players",
+            headers={
+                "Origin": "http://localhost:8000",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        assert response.status_code == 200
+        assert response.headers.get("access-control-allow-origin") in {
+            "http://localhost:8000",
+            "*",
+        }
+
+    def test_cors_preflight_rejects_unknown_origin(self, client):
+        """Unknown origin should not pass preflight when whitelist is enabled."""
+        response = client.options(
+            "/players",
+            headers={
+                "Origin": "https://evil.example",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        assert response.status_code in {400, 403}
+        assert response.headers.get("access-control-allow-origin") is None
+
+    def test_rate_limit_returns_429_with_retry_after(self, client):
+        """Traffic guard should return 429 with Retry-After when quota is exceeded."""
+        # Build middleware stack before access.
+        assert client.get("/health").status_code == 200
+        guard = _find_traffic_guard_middleware(client)
+        assert guard is not None
+
+        guard._general_limit = 2
+        guard._request_window = 60
+        guard._hits.clear()
+        headers = {"x-forwarded-for": "198.51.100.99"}
+
+        assert client.get("/teams", headers=headers).status_code == 200
+        assert client.get("/teams", headers=headers).status_code == 200
+        limited = client.get("/teams", headers=headers)
+        assert limited.status_code == 429
+        assert limited.headers.get("Retry-After") is not None
 
 
 class TestPlayersEndpoint:

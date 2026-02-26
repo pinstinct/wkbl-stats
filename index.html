@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-eval'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self';"
+      content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none';"
     />
     <title>WKBL Stats</title>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
@@ -16,16 +16,8 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./src/styles.css" />
-    <script
-      src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
-      crossorigin="anonymous"
-      referrerpolicy="no-referrer"
-    ></script>
-    <script
-      src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js"
-      crossorigin="anonymous"
-      referrerpolicy="no-referrer"
-    ></script>
+    <script src="./src/vendor/chart.umd.js"></script>
+    <script src="./src/vendor/sql-wasm.js"></script>
     <script src="./src/seasons.js"></script>
     <script src="./src/data/idb-cache.global.js"></script>
     <script src="./src/db.js"></script>
@@ -83,7 +75,7 @@
     </header>
 
     <!-- Global Search Modal -->
-    <div id="searchModal" class="search-modal" style="display: none">
+    <div id="searchModal" class="search-modal">
       <div class="search-modal-backdrop"></div>
       <div class="search-modal-content">
         <input
@@ -188,13 +180,13 @@
       </div>
 
       <!-- Main Home View - Game Prediction -->
-      <section id="view-main" class="view" style="display: none">
+      <section id="view-main" class="view">
         <div class="main-prediction-header">
           <h2 id="mainPredictionTitle">다음 경기 예측</h2>
           <div class="main-prediction-date" id="mainPredictionDate"></div>
         </div>
 
-        <div class="main-game-card" id="mainGameCard" style="display: none">
+        <div class="main-game-card" id="mainGameCard">
           <div class="main-game-matchup">
             <div class="main-team away-team" id="mainAwayTeam">
               <span class="team-name">-</span>
@@ -212,12 +204,12 @@
           </div>
         </div>
 
-        <div class="main-no-game" id="mainNoGame" style="display: none">
+        <div class="main-no-game" id="mainNoGame">
           <p>예정된 경기가 없습니다.</p>
           <a href="#/schedule" class="schedule-link">전체 일정 보기</a>
         </div>
 
-        <div class="main-lineup-grid" id="mainLineupGrid" style="display: none">
+        <div class="main-lineup-grid" id="mainLineupGrid">
           <!-- Away Team Lineup -->
           <div class="main-lineup-section away">
             <div class="lineup-header">
@@ -251,11 +243,7 @@
           </div>
         </div>
 
-        <div
-          class="prediction-explanation"
-          id="predictionExplanation"
-          style="display: none"
-        >
+        <div class="prediction-explanation" id="predictionExplanation">
           <details>
             <summary>예측 방식 안내</summary>
             <div class="explanation-content">
@@ -287,7 +275,7 @@
       </section>
 
       <!-- Players List View -->
-      <section id="view-players" class="view" style="display: none">
+      <section id="view-players" class="view">
         <div class="controls">
           <label class="control">
             시즌
@@ -480,7 +468,7 @@
       </section>
 
       <!-- Player Detail View -->
-      <section id="view-player" class="view" style="display: none">
+      <section id="view-player" class="view">
         <div class="page-header">
           <a href="#/players" class="back-link">&larr; 선수 목록</a>
         </div>
@@ -522,7 +510,6 @@
           <div
             id="playerShotSection"
             class="detail-section player-shot-section"
-            style="display: none"
           >
             <div class="player-shot-header">
               <h3>선수 슛차트</h3>
@@ -579,11 +566,7 @@
               <div class="game-shot-court">
                 <canvas id="playerShotScatterChart"></canvas>
               </div>
-              <p
-                id="playerShotEmptyMsg"
-                class="game-shot-empty"
-                style="display: none"
-              >
+              <p id="playerShotEmptyMsg" class="game-shot-empty">
                 선택한 조건에 해당하는 슛 데이터가 없습니다.
               </p>
             </div>
@@ -632,11 +615,7 @@
             </div>
           </div>
 
-          <div
-            class="player-info-card"
-            id="playerAdvancedSection"
-            style="display: none"
-          >
+          <div class="player-info-card" id="playerAdvancedSection">
             <h3 id="advancedStatsTitle">고급지표</h3>
             <div class="stat-grid" id="playerAdvancedGrid"></div>
           </div>
@@ -676,7 +655,7 @@
       </section>
 
       <!-- Teams List View -->
-      <section id="view-teams" class="view" style="display: none">
+      <section id="view-teams" class="view">
         <div class="page-header">
           <h2>팀 순위</h2>
           <select id="teamsSeasonSelect" class="season-select"></select>
@@ -718,7 +697,7 @@
       </section>
 
       <!-- Team Detail View -->
-      <section id="view-team" class="view" style="display: none">
+      <section id="view-team" class="view">
         <div class="page-header">
           <a href="#/teams" class="back-link">&larr; 팀 순위</a>
         </div>
@@ -728,11 +707,7 @@
             <div id="teamDetailStanding" class="team-standing-badge"></div>
           </div>
 
-          <div
-            class="detail-section"
-            id="teamStatsSection"
-            style="display: none"
-          >
+          <div class="detail-section" id="teamStatsSection">
             <h3>팀 고급 지표</h3>
             <div class="stat-grid" id="teamStatGrid"></div>
           </div>
@@ -774,7 +749,7 @@
       </section>
 
       <!-- Games List View -->
-      <section id="view-games" class="view" style="display: none">
+      <section id="view-games" class="view">
         <div class="page-header">
           <h2>경기 일정</h2>
           <select id="gamesSeasonSelect" class="season-select"></select>
@@ -783,7 +758,7 @@
       </section>
 
       <!-- Game Detail View (Boxscore) -->
-      <section id="view-game" class="view" style="display: none">
+      <section id="view-game" class="view">
         <div class="page-header">
           <a href="#/games" class="back-link">&larr; 경기 목록</a>
         </div>
@@ -804,17 +779,9 @@
           </div>
 
           <!-- Prediction Summary -->
-          <div
-            id="boxscorePrediction"
-            class="boxscore-prediction"
-            style="display: none"
-          ></div>
+          <div id="boxscorePrediction" class="boxscore-prediction"></div>
 
-          <div
-            id="gameShotSection"
-            class="game-shot-section"
-            style="display: none"
-          >
+          <div id="gameShotSection" class="game-shot-section">
             <div class="game-shot-header">
               <div class="game-shot-title-row">
                 <h3>게임 슛차트</h3>
@@ -903,11 +870,7 @@
                 <div class="game-shot-court">
                   <canvas id="gameShotScatterChart"></canvas>
                 </div>
-                <p
-                  id="gameShotEmptyMsg"
-                  class="game-shot-empty"
-                  style="display: none"
-                >
+                <p id="gameShotEmptyMsg" class="game-shot-empty">
                   선택한 조건에 해당하는 슛 데이터가 없습니다.
                 </p>
               </div>
@@ -1000,11 +963,7 @@
           </div>
 
           <!-- Prediction Legend -->
-          <div
-            id="boxscorePredictionLegend"
-            class="prediction-legend"
-            style="display: none"
-          >
+          <div id="boxscorePredictionLegend" class="prediction-legend">
             <span class="legend-title">예측 비교:</span>
             <span class="legend-item pred-hit">예측 범위 내</span>
             <span class="legend-item pred-over">예측 초과</span>
@@ -1015,7 +974,7 @@
       </section>
 
       <!-- Leaders View -->
-      <section id="view-leaders" class="view" style="display: none">
+      <section id="view-leaders" class="view">
         <div class="page-header">
           <h2>리더보드</h2>
           <select id="leadersSeasonSelect" class="season-select"></select>
@@ -1024,7 +983,7 @@
       </section>
 
       <!-- Compare View -->
-      <section id="view-compare" class="view" style="display: none">
+      <section id="view-compare" class="view">
         <div class="page-header">
           <h2>선수 비교</h2>
           <select id="compareSeasonSelect" class="season-select"></select>
@@ -1044,7 +1003,7 @@
           <button id="compareBtn" class="compare-btn" disabled>비교하기</button>
         </div>
 
-        <div class="compare-result" id="compareResult" style="display: none">
+        <div class="compare-result" id="compareResult">
           <div class="compare-cards" id="compareCards"></div>
 
           <div class="compare-charts-grid">
@@ -1081,7 +1040,7 @@
       </section>
 
       <!-- Schedule View -->
-      <section id="view-schedule" class="view" style="display: none">
+      <section id="view-schedule" class="view">
         <div class="page-header">
           <h2>경기 일정</h2>
           <div class="schedule-filters">
@@ -1094,7 +1053,7 @@
 
         <div class="schedule-content">
           <!-- Next Game Highlight -->
-          <div class="next-game-card" id="nextGameCard" style="display: none">
+          <div class="next-game-card" id="nextGameCard">
             <div class="next-game-label">다음 경기</div>
             <div class="next-game-countdown" id="nextGameCountdown"></div>
             <div class="next-game-matchup" id="nextGameMatchup"></div>
@@ -1122,7 +1081,7 @@
       </section>
 
       <!-- Predict View -->
-      <section id="view-predict" class="view" style="display: none">
+      <section id="view-predict" class="view">
         <div class="page-header">
           <h2>선수 활약 예측</h2>
           <select id="predictSeasonSelect" class="season-select"></select>
@@ -1140,7 +1099,7 @@
           </div>
         </div>
 
-        <div class="predict-result" id="predictResult" style="display: none">
+        <div class="predict-result" id="predictResult">
           <div class="predict-player-info" id="predictPlayerInfo"></div>
 
           <div class="predict-cards" id="predictCards"></div>

@@ -1195,7 +1195,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
     } catch (error) {
       console.error("Failed to load players:", error);
       $("statsBody").innerHTML =
-        `<tr><td colspan="22" style="text-align:center;color:#c00;">데이터를 불러올 수 없습니다.</td></tr>`;
+        '<tr><td colspan="22" class="table-message-cell table-message-cell--error">데이터를 불러올 수 없습니다.</td></tr>';
     }
   }
 
@@ -1704,7 +1704,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
 
     if (seasons.length < 2) {
       canvas.parentElement.innerHTML =
-        '<div style="text-align:center;color:rgba(27,28,31,0.5);padding:40px;">시즌 데이터가 부족합니다</div>';
+        '<div class="chart-empty-message">시즌 데이터가 부족합니다</div>';
       return;
     }
 
@@ -1791,7 +1791,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
 
     if (seasons.length < 2) {
       canvas.parentElement.innerHTML =
-        '<div style="text-align:center;color:rgba(27,28,31,0.5);padding:40px;">시즌 데이터가 부족합니다</div>';
+        '<div class="chart-empty-message">시즌 데이터가 부족합니다</div>';
       return;
     }
 
@@ -1984,7 +1984,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
 
     if (!games || games.length === 0) {
       canvas.parentElement.innerHTML =
-        '<div style="text-align:center;color:rgba(27,28,31,0.5);padding:40px;">경기 기록이 없습니다</div>';
+        '<div class="chart-empty-message">경기 기록이 없습니다</div>';
       return;
     }
 
@@ -2079,7 +2079,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
 
     if (!standings || standings.length === 0) {
       canvas.parentElement.innerHTML =
-        '<div style="text-align:center;color:rgba(27,28,31,0.5);padding:40px;">데이터가 없습니다</div>';
+        '<div class="chart-empty-message">데이터가 없습니다</div>';
       return;
     }
 
@@ -3402,7 +3402,7 @@ import { hideSkeleton } from "./ui/skeleton.js";
                 <div class="compare-bar-item">
                   <span class="compare-bar-name">${escapeHtml(p.name)}</span>
                   <div class="compare-bar-track">
-                    <div class="compare-bar-fill" style="width: ${escapeAttr(width)}%; background: ${escapeAttr(colors[i % colors.length])};"></div>
+                    <div class="compare-bar-fill" data-width="${escapeAttr(width)}" data-color="${escapeAttr(colors[i % colors.length])}"></div>
                   </div>
                   <span class="compare-bar-value">${formatNumber(value)}</span>
                 </div>
@@ -3413,6 +3413,13 @@ import { hideSkeleton } from "./ui/skeleton.js";
         </div>
       `;
     }).join("");
+
+    barsContainer.querySelectorAll(".compare-bar-fill").forEach((bar) => {
+      const width = Number(bar.dataset.width || 0);
+      const color = bar.dataset.color || "#6366f1";
+      bar.style.width = `${Math.max(0, Math.min(width, 100)).toFixed(2)}%`;
+      bar.style.backgroundColor = color;
+    });
 
     // Detail table
     const tableHead = $("compareTableHead");

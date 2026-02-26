@@ -4,6 +4,19 @@
 import logging
 import os
 
+
+def _parse_bool_env(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _parse_csv_env(name: str, default: str) -> list[str]:
+    raw = os.getenv(name, default)
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
 # URL Constants
 BASE_URL = "https://datalab.wkbl.or.kr"
 PLAYER_RECORD_WRAPPER = BASE_URL + "/playerRecord"
@@ -136,6 +149,36 @@ def get_shot_zone(x, y):
 # Server Settings
 HOST = os.getenv("HOST", "")
 PORT = int(os.getenv("PORT", "8000"))
+
+# API Security Settings
+API_ALLOW_ORIGINS = _parse_csv_env(
+    "API_ALLOW_ORIGINS",
+    "http://localhost:8000,http://127.0.0.1:8000",
+)
+API_ALLOW_METHODS = _parse_csv_env("API_ALLOW_METHODS", "GET")
+API_ALLOW_HEADERS = _parse_csv_env("API_ALLOW_HEADERS", "Content-Type")
+API_ALLOW_CREDENTIALS = _parse_bool_env("API_ALLOW_CREDENTIALS", False)
+API_RATE_LIMIT_PER_MINUTE = int(os.getenv("API_RATE_LIMIT_PER_MINUTE", "60"))
+API_SEARCH_RATE_LIMIT_PER_MINUTE = int(
+    os.getenv("API_SEARCH_RATE_LIMIT_PER_MINUTE", "20")
+)
+API_RATE_LIMIT_WINDOW_SECONDS = int(os.getenv("API_RATE_LIMIT_WINDOW_SECONDS", "60"))
+API_MAX_REQUEST_BYTES = int(os.getenv("API_MAX_REQUEST_BYTES", str(1024 * 1024)))
+
+# Response Security Header Settings
+SECURITY_HSTS_MAX_AGE = int(os.getenv("SECURITY_HSTS_MAX_AGE", "31536000"))
+SECURITY_HSTS_INCLUDE_SUBDOMAINS = _parse_bool_env(
+    "SECURITY_HSTS_INCLUDE_SUBDOMAINS", True
+)
+SECURITY_HSTS_PRELOAD = _parse_bool_env("SECURITY_HSTS_PRELOAD", False)
+SECURITY_REFERRER_POLICY = os.getenv(
+    "SECURITY_REFERRER_POLICY", "strict-origin-when-cross-origin"
+)
+SECURITY_PERMISSIONS_POLICY = os.getenv(
+    "SECURITY_PERMISSIONS_POLICY",
+    "geolocation=(), microphone=(), camera=(), payment=(), usb=()",
+)
+SECURITY_FRAME_OPTIONS = os.getenv("SECURITY_FRAME_OPTIONS", "DENY")
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

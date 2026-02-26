@@ -114,6 +114,17 @@ uv run python3 server.py
 - Frontend: http://localhost:8000
 - API Docs: http://localhost:8000/api/docs
 
+### 보안 환경변수 (선택)
+
+- `API_ALLOW_ORIGINS` (기본: `http://localhost:8000,http://127.0.0.1:8000`)
+- `API_ALLOW_METHODS` (기본: `GET`)
+- `API_ALLOW_HEADERS` (기본: `Content-Type`)
+- `API_ALLOW_CREDENTIALS` (기본: `false`)
+- `API_RATE_LIMIT_PER_MINUTE` (기본: `60`)
+- `API_SEARCH_RATE_LIMIT_PER_MINUTE` (기본: `20`)
+- `API_RATE_LIMIT_WINDOW_SECONDS` (기본: `60`)
+- `API_MAX_REQUEST_BYTES` (기본: `1048576`)
+
 ## 테스트
 
 ```bash
@@ -155,6 +166,20 @@ uv run pre-commit run --all-files
 
 - Python: `ruff-check`, `ruff-format`, `mypy`, `bandit`
 - Frontend: `eslint`(보안 규칙 포함), `prettier --check`
+
+## 보안 감사
+
+```bash
+# npm 취약점 리포트 생성 (high/critical 게이트)
+npm audit --json > reports/security/npm-audit-current.json
+node tools/check_npm_audit.mjs \
+  reports/security/npm-audit-current.json \
+  docs/security/npm-audit-baseline.json
+```
+
+- ASVS L1 체크리스트: `docs/security/asvs-l1-checklist.md`
+- 인시던트 런북: `docs/security/incident-runbook.md`
+- 구현 요약(2026-02-26): `docs/security/security-hardening-implementation-2026-02-26.md`
 
 ## REST API
 

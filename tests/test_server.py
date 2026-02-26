@@ -155,6 +155,21 @@ def test_root_and_favicon_routes_with_fallback(tmp_path: Path, monkeypatch) -> N
     assert favicon_resp.status_code == 404
 
 
+def test_root_response_includes_security_headers(tmp_path: Path, monkeypatch) -> None:
+    server = _load_server()
+    monkeypatch.setattr(server, "BASE_DIR", str(tmp_path))
+    (tmp_path / "index.html").write_text("<html>ok</html>", encoding="utf-8")
+
+    client = TestClient(server.app)
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert "Strict-Transport-Security" in resp.headers
+    assert resp.headers.get("X-Content-Type-Options") == "nosniff"
+    assert resp.headers.get("X-Frame-Options") == server.SECURITY_FRAME_OPTIONS
+    assert resp.headers.get("Referrer-Policy") == server.SECURITY_REFERRER_POLICY
+    assert "Permissions-Policy" in resp.headers
+
+
 def test_main_runs_uvicorn_and_respects_skip_ingest(monkeypatch) -> None:
     server = _load_server()
     uvicorn_calls: list[dict] = []

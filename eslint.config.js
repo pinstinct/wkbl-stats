@@ -4,7 +4,7 @@ import security from "eslint-plugin-security";
 
 export default [
   {
-    ignores: ["node_modules/**", "data/**", "dist/**"],
+    ignores: ["node_modules/**", "data/**", "dist/**", "src/vendor/**"],
   },
   js.configs.recommended,
   security.configs.recommended,

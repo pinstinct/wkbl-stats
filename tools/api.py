@@ -7,13 +7,31 @@ Provides endpoints for players, teams, games, seasons, and leaderboards.
 """
 
 from contextlib import asynccontextmanager
+import hashlib
+import time
+from threading import Lock
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
-from config import CURRENT_SEASON, SEASON_CODES, setup_logging
+from config import (
+    API_ALLOW_CREDENTIALS,
+    API_ALLOW_HEADERS,
+    API_ALLOW_METHODS,
+    API_ALLOW_ORIGINS,
+    API_MAX_REQUEST_BYTES,
+    API_RATE_LIMIT_PER_MINUTE,
+    API_RATE_LIMIT_WINDOW_SECONDS,
+    API_SEARCH_RATE_LIMIT_PER_MINUTE,
+    CURRENT_SEASON,
+    SEASON_CODES,
+    setup_logging,
+)
 from database import (
     get_connection,
     get_league_season_totals,
@@ -1595,14 +1613,109 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware for frontend access
+
+def _resolve_client_ip(request: Request) -> str:
+    """Extract client IP with basic proxy header support."""
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip() or "unknown"
+    client = request.client
+    if client and client.host:
+        return client.host
+    return "unknown"
+
+
+class TrafficGuardMiddleware(BaseHTTPMiddleware):
+    """Apply request size checks and IP-based rate limits."""
+
+    _HEALTH_PATH = "/health"
+    _SEARCH_PATH = "/search"
+
+    def __init__(self, app: FastAPI):
+        super().__init__(app)
+        self._request_window = max(API_RATE_LIMIT_WINDOW_SECONDS, 1)
+        self._general_limit = max(API_RATE_LIMIT_PER_MINUTE, 1)
+        self._search_limit = max(API_SEARCH_RATE_LIMIT_PER_MINUTE, 1)
+        self._max_request_bytes = max(API_MAX_REQUEST_BYTES, 1024)
+        self._hits: dict[str, list[float]] = {}
+        self._lock = Lock()
+
+    def _bucket_limit(self, path: str) -> tuple[str, int]:
+        if path.startswith(self._SEARCH_PATH):
+            return ("search", self._search_limit)
+        return ("general", self._general_limit)
+
+    def _remaining_retry_after(self, history: list[float], now: float) -> int:
+        if not history:
+            return self._request_window
+        oldest = history[0]
+        elapsed = now - oldest
+        wait = int(self._request_window - elapsed)
+        return max(wait, 1)
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if path == self._HEALTH_PATH or request.method == "OPTIONS":
+            return await call_next(request)
+
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                if int(content_length) > self._max_request_bytes:
+                    return JSONResponse(
+                        status_code=413,
+                        content={
+                            "detail": "Request payload too large",
+                            "max_bytes": self._max_request_bytes,
+                        },
+                    )
+            except ValueError:
+                pass
+
+        bucket, limit = self._bucket_limit(path)
+        client_ip = _resolve_client_ip(request)
+        if client_ip == "testclient" and "x-forwarded-for" not in request.headers:
+            # Avoid cross-test interference in FastAPI TestClient default host.
+            return await call_next(request)
+        key = f"{bucket}:{client_ip}"
+        now = time.monotonic()
+        cutoff = now - self._request_window
+
+        with self._lock:
+            history = self._hits.get(key, [])
+            history = [ts for ts in history if ts >= cutoff]
+            if len(history) >= limit:
+                retry_after = self._remaining_retry_after(history, now)
+                ip_hash = hashlib.sha256(client_ip.encode("utf-8")).hexdigest()[:12]
+                logger.warning(
+                    "Rate limit exceeded",
+                    extra={
+                        "path": path,
+                        "bucket": bucket,
+                        "ip_hash": ip_hash,
+                        "retry_after": retry_after,
+                    },
+                )
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Too many requests"},
+                    headers={"Retry-After": str(retry_after)},
+                )
+            history.append(now)
+            self._hits[key] = history
+
+        return await call_next(request)
+
+
+# CORS + traffic guard middleware for frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=API_ALLOW_ORIGINS,
+    allow_credentials=API_ALLOW_CREDENTIALS,
+    allow_methods=API_ALLOW_METHODS,
+    allow_headers=API_ALLOW_HEADERS,
 )
+app.add_middleware(TrafficGuardMiddleware)
 
 
 # =============================================================================

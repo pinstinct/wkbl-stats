@@ -86,6 +86,7 @@
 }
 
 .view {
+  display: none;
   animation: fadeIn 0.2s ease;
   width: 100%;
   min-width: 0;

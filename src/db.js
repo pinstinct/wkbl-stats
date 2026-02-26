@@ -131,8 +131,7 @@ const WKBLDatabase = (function () {
           const res = await fetch("./data/wkbl-core.db");
           const buffer = await res.arrayBuffer();
           const SQL = await initSqlJs({
-            locateFile: (file) =>
-              `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`,
+            locateFile: (file) => `./src/vendor/${file}`,
           });
           db = new SQL.Database(new Uint8Array(buffer));
           const newEtag = res.headers.get("ETag") || serverEtag;
@@ -159,8 +158,7 @@ const WKBLDatabase = (function () {
             const res = await fetch("./data/wkbl-detail.db");
             const buffer = await res.arrayBuffer();
             const SQL = await initSqlJs({
-              locateFile: (file) =>
-                `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`,
+              locateFile: (file) => `./src/vendor/${file}`,
             });
             detailDb = new SQL.Database(new Uint8Array(buffer));
             const newEtag = res.headers.get("ETag") || serverEtag;
@@ -195,8 +193,7 @@ const WKBLDatabase = (function () {
     initPromise = (async () => {
       try {
         const SQL = await initSqlJs({
-          locateFile: (file) =>
-            `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`,
+          locateFile: (file) => `./src/vendor/${file}`,
         });
 
         // Try split core DB first, fall back to full DB
@@ -207,8 +204,7 @@ const WKBLDatabase = (function () {
         // Fallback: try the original unsplit database
         try {
           const SQL = await initSqlJs({
-            locateFile: (file) =>
-              `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`,
+            locateFile: (file) => `./src/vendor/${file}`,
           });
           db = await fetchDbWithCache("./data/wkbl.db", "wkbl-full", SQL);
           console.log("[db.js] Loaded full database (fallback)");
@@ -239,8 +235,7 @@ const WKBLDatabase = (function () {
     detailInitPromise = (async () => {
       try {
         const SQL = await initSqlJs({
-          locateFile: (file) =>
-            `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`,
+          locateFile: (file) => `./src/vendor/${file}`,
         });
 
         detailDb = await fetchDbWithCache(

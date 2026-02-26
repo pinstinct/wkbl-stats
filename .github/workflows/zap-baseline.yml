@@ -1,0 +1,36 @@
+name: ZAP Baseline
+
+on:
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dast:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Start static server
+        run: |
+          python3 -m http.server 8000 >/tmp/wkbl-http.log 2>&1 &
+          echo $! > /tmp/wkbl-http.pid
+          sleep 2
+
+      - name: Run ZAP baseline scan
+        uses: zaproxy/action-baseline@7c4deb10e6261301961c86d65d54a516394f9aed
+        with:
+          target: "http://127.0.0.1:8000"
+          cmd_options: "-a -j -m 5"
+          fail_action: true
+
+      - name: Stop static server
+        if: always()
+        run: |
+          if [ -f /tmp/wkbl-http.pid ]; then
+            kill "$(cat /tmp/wkbl-http.pid)" || true
+          fi

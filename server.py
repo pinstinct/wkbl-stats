@@ -18,10 +18,25 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools"))
 
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
-from config import CURRENT_SEASON, HOST, OUTPUT_PATH, PORT, STATUS_PATH, setup_logging
+from config import (
+    CURRENT_SEASON,
+    HOST,
+    OUTPUT_PATH,
+    PORT,
+    SECURITY_FRAME_OPTIONS,
+    SECURITY_HSTS_INCLUDE_SUBDOMAINS,
+    SECURITY_HSTS_MAX_AGE,
+    SECURITY_HSTS_PRELOAD,
+    SECURITY_PERMISSIONS_POLICY,
+    SECURITY_REFERRER_POLICY,
+    STATUS_PATH,
+    setup_logging,
+)
 from api import app as api_app
 
 logger = setup_logging("server")
@@ -125,6 +140,29 @@ app = FastAPI(
     description="Korean Women's Basketball League Statistics",
     version="1.0.0",
 )
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Inject security headers for static and API responses."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+
+        hsts_parts = [f"max-age={max(SECURITY_HSTS_MAX_AGE, 0)}"]
+        if SECURITY_HSTS_INCLUDE_SUBDOMAINS:
+            hsts_parts.append("includeSubDomains")
+        if SECURITY_HSTS_PRELOAD:
+            hsts_parts.append("preload")
+
+        response.headers["Strict-Transport-Security"] = "; ".join(hsts_parts)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = SECURITY_REFERRER_POLICY
+        response.headers["Permissions-Policy"] = SECURITY_PERMISSIONS_POLICY
+        response.headers["X-Frame-Options"] = SECURITY_FRAME_OPTIONS
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Mount API routes
 app.mount("/api", api_app)

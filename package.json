@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "lint:front": "eslint \"src/**/*.js\" \"vitest.config.js\"",
-    "format:front": "prettier --write \"src/**/*.js\" \"index.html\" \"vitest.config.js\" \"package.json\"",
-    "format:front:check": "prettier --check \"src/**/*.js\" \"index.html\" \"vitest.config.js\" \"package.json\"",
+    "lint:front": "eslint \"src/**/*.js\" \"vitest.config.js\" --ignore-pattern \"src/vendor/**\"",
+    "format:front": "prettier --write \"src/**/*.js\" \"index.html\" \"vitest.config.js\" \"package.json\" --ignore-path .prettierignore",
+    "format:front:check": "prettier --check \"src/**/*.js\" \"index.html\" \"vitest.config.js\" \"package.json\" --ignore-path .prettierignore",
     "test:front": "vitest run",
     "test:front:watch": "vitest",
     "test:front:coverage": "vitest run --coverage",
@@ -26,13 +26,14 @@
   "devDependencies": {
     "@eslint/js": "^9.39.0",
     "@playwright/test": "^1.58.2",
-    "@vitest/coverage-v8": "^2.1.9",
+    "@vitest/coverage-v8": "^3.2.4",
+    "chart.js": "^4.5.1",
     "eslint": "^9.39.0",
     "eslint-plugin-security": "^3.0.1",
     "globals": "^16.4.0",
     "jsdom": "^26.1.0",
     "prettier": "^3.6.2",
     "sql.js": "^1.13.0",
-    "vitest": "^2.1.8"
+    "vitest": "^3.2.4"
   }
 }
