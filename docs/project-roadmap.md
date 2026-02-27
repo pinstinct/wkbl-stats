@@ -9,7 +9,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
 - P0~P4 전체 완료 (시즌 상수 공통화, 뷰/데이터/이벤트 분리, CSS 분할, 데이터 정확도, 테스트 보강)
 - 상세 기록: `docs/complete/refactor-plan.md`
 
-## 현재 상태 (2026-02-26)
+## 현재 상태 (2026-02-27)
 
 | 단계       | 상태    | 설명                                                                           |
 | ---------- | ------- | ------------------------------------------------------------------------------ |
@@ -428,7 +428,7 @@ Basketball Reference 스타일의 종합 WKBL 통계 사이트 구축
   - 2단계 로딩: core DB 우선 로드 → detail DB 백그라운드 프리로드
   - `wkbl.db` 폴백 지원 (미분할 환경 호환)
 - [x] GitHub Actions + server.py 인제스트 후 자동 분할
-- [x] 테스트 22개 추가 (총 523개)
+- [x] Python 테스트 22개 추가 (Python 총 523개)
 - [x] 탭 복귀 시 자동 데이터 갱신 (`visibilitychange`)
   - `src/db.js`: `refreshDatabase()` — ETag 비교 → core/detail DB 메모리 교체 + IndexedDB 캐시 업데이트
   - `src/app.js`: `visibilitychange` 리스너 — 5분 staleness threshold, 갱신 시 `handleRoute()` 재렌더링

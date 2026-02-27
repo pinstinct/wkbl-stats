@@ -98,6 +98,9 @@ python3 tools/split_db.py  # split into core.db + detail.db
 | `--fetch-game-mvp`                  | Fetch game MVP data for the season                                                                       |
 | `--fetch-quarter-scores`            | Fetch quarter scores and venue via Team Analysis (15 requests per season)                                |
 | `--compute-lineups`                 | Compute lineup stints from existing PBP data (also runs auto after --fetch-play-by-play)                 |
+| `--rebuild-pregame SEASON_CODE`     | Rebuild pregame predictions for completed non-exhibition games                                           |
+| `--repair-missing-pregame`          | Repair missing pregame predictions only                                                                  |
+| `--season-code`                     | Season code for repair mode (e.g. 046)                                                                   |
 
 ### Testing
 
@@ -113,7 +116,7 @@ uv run pytest tests/test_database.py -v
 uv run pytest tests/test_api.py -v
 
 # Frontend unit tests (vitest)
-npm test
+npm run test:front
 
 # E2E tests (Playwright, tiered)
 npm run test:e2e:required
