@@ -92,6 +92,50 @@ describe("data client", () => {
     );
   });
 
+  it("returns empty for list endpoints when db init returns null", async () => {
+    const client = createDataClient({
+      initDb: async () => true,
+      getDb: () => null,
+      getSeasonLabel: () => "시즌",
+    });
+
+    await expect(
+      client.getPlayers({ season: "046", defaultSeason: "046" }),
+    ).resolves.toEqual([]);
+    await expect(client.getPlayerGamelog("p1")).resolves.toEqual([]);
+    await expect(client.getPlayerShotChart("p1")).resolves.toEqual([]);
+    await expect(client.getTeams()).resolves.toEqual({ teams: [] });
+    const standings = await client.getStandings("046");
+    expect(standings.standings).toEqual([]);
+    await expect(client.getGameShotChart("g1")).resolves.toEqual([]);
+    await expect(client.getLeadersAll("046")).resolves.toEqual({});
+    await expect(client.search("kim")).resolves.toEqual({
+      players: [],
+      teams: [],
+    });
+    await expect(client.getPlayerComparison(["p1"], "046")).resolves.toEqual(
+      [],
+    );
+  });
+
+  it("throws when db returns null for detail endpoints", async () => {
+    const client = createDataClient({
+      initDb: async () => true,
+      getDb: () => null,
+      getSeasonLabel: () => "시즌",
+    });
+
+    await expect(client.getPlayerDetail("p1")).rejects.toThrow(
+      "Player not found",
+    );
+    await expect(client.getTeamDetail("t1", "046")).rejects.toThrow(
+      "Team not found",
+    );
+    await expect(client.getGameBoxscore("g1")).rejects.toThrow(
+      "Game not found",
+    );
+  });
+
   it("returns normalized payload wrappers for teams and standings", async () => {
     const client = createDataClient({
       initDb: async () => true,
@@ -155,6 +199,66 @@ describe("data client", () => {
     const rows = await client.getGameShotChart("g1", "p1");
     expect(getShotChart).toHaveBeenCalledWith("g1", "p1");
     expect(rows).toEqual([{ id: 1 }]);
+  });
+
+  it("returns player detail from db", async () => {
+    const getPlayerDetail = vi.fn(() => ({
+      id: "p1",
+      name: "김",
+      seasons: {},
+    }));
+    const client = createDataClient({
+      initDb: async () => true,
+      getDb: () => ({ getPlayerDetail }),
+      getSeasonLabel: () => "시즌",
+    });
+
+    const detail = await client.getPlayerDetail("p1");
+    expect(getPlayerDetail).toHaveBeenCalledWith("p1");
+    expect(detail.id).toBe("p1");
+  });
+
+  it("returns player gamelog from db", async () => {
+    const getPlayerGamelog = vi.fn(() => [{ game_id: "g1" }]);
+    const client = createDataClient({
+      initDb: async () => true,
+      getDb: () => ({ getPlayerGamelog }),
+      getSeasonLabel: () => "시즌",
+    });
+
+    const log = await client.getPlayerGamelog("p1");
+    expect(getPlayerGamelog).toHaveBeenCalledWith("p1");
+    expect(log).toEqual([{ game_id: "g1" }]);
+  });
+
+  it("returns team detail with season from db", async () => {
+    const getTeamDetail = vi.fn(() => ({ id: "kb", name: "KB" }));
+    const client = createDataClient({
+      initDb: async () => true,
+      getDb: () => ({ getTeamDetail }),
+      getSeasonLabel: () => "시즌",
+    });
+
+    const detail = await client.getTeamDetail("kb", "046");
+    expect(getTeamDetail).toHaveBeenCalledWith("kb", "046");
+    expect(detail).toEqual({ season: "046", id: "kb", name: "KB" });
+  });
+
+  it("returns game boxscore from db", async () => {
+    const getGameBoxscore = vi.fn(() => ({
+      id: "g1",
+      home_team_stats: [],
+      away_team_stats: [],
+    }));
+    const client = createDataClient({
+      initDb: async () => true,
+      getDb: () => ({ getGameBoxscore }),
+      getSeasonLabel: () => "시즌",
+    });
+
+    const box = await client.getGameBoxscore("g1");
+    expect(getGameBoxscore).toHaveBeenCalledWith("g1");
+    expect(box.id).toBe("g1");
   });
 
   it("returns player shot chart rows via db", async () => {

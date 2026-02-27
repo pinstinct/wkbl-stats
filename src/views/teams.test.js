@@ -129,6 +129,25 @@ describe("teams view", () => {
     expect(sorted.map((row) => row.team_id)).toEqual(["b", "a"]);
   });
 
+  it("sorts with both values null", () => {
+    const standings = [
+      { team_id: "a", rank: null },
+      { team_id: "b", rank: null },
+    ];
+    const sorted = sortStandings(standings, { key: "rank", dir: "asc" });
+    expect(sorted).toHaveLength(2);
+  });
+
+  it("sorts with only second value null (bVal null)", () => {
+    const standings = [
+      { team_id: "a", rank: 1 },
+      { team_id: "b", rank: null },
+    ];
+    const sorted = sortStandings(standings, { key: "rank", dir: "asc" });
+    expect(sorted[0].team_id).toBe("a");
+    expect(sorted[1].team_id).toBe("b");
+  });
+
   it("sorts strings and nulls consistently", () => {
     const standings = [
       { team_id: "a", team_name: null, rank: 2 },

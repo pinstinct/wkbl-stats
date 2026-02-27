@@ -67,6 +67,78 @@ describe("schedule view", () => {
     expect(fields.get("nextGameMatchup").textContent).toContain("A vs B");
   });
 
+  it("returns early when containers are null", () => {
+    expect(() =>
+      renderNextGameHighlight({
+        nextGameCard: null,
+        next: { game_date: "2025-01-01" },
+        formatFullDate: () => "1/1",
+        getById: () => ({}),
+      }),
+    ).not.toThrow();
+
+    expect(() =>
+      renderUpcomingGames({
+        container: null,
+        upcomingGames: [{ id: "g1", game_date: "2025-01-01" }],
+        formatFullDate: () => "1/1",
+        getPredictionHtml: () => "",
+      }),
+    ).not.toThrow();
+
+    expect(() =>
+      renderRecentResults({
+        container: null,
+        recentGames: [{ id: "g1" }],
+        formatFullDate: () => "1/1",
+        getPredictionCompareHtml: () => "",
+      }),
+    ).not.toThrow();
+  });
+
+  it("uses short_name with fallback to team_name", () => {
+    const upcoming = { innerHTML: "" };
+    renderUpcomingGames({
+      container: upcoming,
+      upcomingGames: [
+        {
+          id: "g1",
+          game_date: "2025-01-01",
+          away_team_short: "KB",
+          away_team_name: "KB스타즈",
+          home_team_short: null,
+          home_team_name: "삼성생명",
+        },
+      ],
+      formatFullDate: () => "1/1",
+      getPredictionHtml: () => "",
+    });
+    expect(upcoming.innerHTML).toContain("KB");
+    expect(upcoming.innerHTML).toContain("삼성생명");
+
+    const recent = { innerHTML: "" };
+    renderRecentResults({
+      container: recent,
+      recentGames: [
+        {
+          id: "g2",
+          game_date: "2025-01-02",
+          away_team_short: "KB",
+          away_team_name: "KB스타즈",
+          home_team_short: null,
+          home_team_name: "삼성생명",
+          away_score: 80,
+          home_score: 75,
+        },
+      ],
+      formatFullDate: () => "1/2",
+      getPredictionCompareHtml: () => "",
+    });
+    expect(recent.innerHTML).toContain("KB");
+    expect(recent.innerHTML).toContain("삼성생명");
+    expect(recent.innerHTML).toContain("winner");
+  });
+
   it("renders empty states for schedule lists and hides missing next game", () => {
     const upcoming = { innerHTML: "" };
     const recent = { innerHTML: "" };

@@ -6,6 +6,24 @@ import {
   renderCompareSuggestions,
 } from "./compare.js";
 
+describe("compare view null guards", () => {
+  it("returns early for null containers", () => {
+    expect(() =>
+      renderCompareSelected({ container: null, selectedPlayers: [] }),
+    ).not.toThrow();
+    expect(() =>
+      renderCompareSuggestions({ container: null, players: [] }),
+    ).not.toThrow();
+    expect(() =>
+      renderCompareCards({
+        container: null,
+        players: [],
+        formatNumber: () => "",
+      }),
+    ).not.toThrow();
+  });
+});
+
 describe("compare view", () => {
   it("renders selected tags and suggestions", () => {
     const selected = { innerHTML: "" };

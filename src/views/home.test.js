@@ -27,6 +27,41 @@ describe("home view", () => {
     expect(container.innerHTML).toContain("선수1");
   });
 
+  it("returns early when container is null", () => {
+    expect(() =>
+      renderLineupPlayers({
+        container: null,
+        lineup: [{ id: "p1" }],
+        predictions: [
+          {
+            pts: { pred: 12, low: 8, high: 16 },
+            reb: { pred: 5, low: 3, high: 7 },
+            ast: { pred: 4, low: 2, high: 6 },
+            stl: { pred: 2, low: 1, high: 3 },
+            blk: { pred: 1, low: 0, high: 2 },
+          },
+        ],
+        formatNumber: (v) => String(v),
+      }),
+    ).not.toThrow();
+
+    expect(() =>
+      renderTotalStats({
+        container: null,
+        predictions: [
+          {
+            pts: { pred: 10 },
+            reb: { pred: 4 },
+            ast: { pred: 3 },
+            stl: { pred: 2 },
+            blk: { pred: 1 },
+          },
+        ],
+        formatNumber: (v) => String(v),
+      }),
+    ).not.toThrow();
+  });
+
   it("renders total stats", () => {
     const container = { innerHTML: "" };
     renderTotalStats({

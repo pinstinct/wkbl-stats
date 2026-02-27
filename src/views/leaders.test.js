@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { renderLeadersGrid } from "./leaders.js";
 
+describe("leaders view null guard", () => {
+  it("returns early for null grid", () => {
+    expect(() =>
+      renderLeadersGrid({ grid: null, categories: {}, leaderCategories: [] }),
+    ).not.toThrow();
+  });
+});
+
 describe("leaders view", () => {
   it("renders leader cards", () => {
     const grid = { innerHTML: "" };

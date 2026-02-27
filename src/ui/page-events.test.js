@@ -65,6 +65,11 @@ describe("page events", () => {
     byId.compareSearchInput.emit("input", { target: { value: "kim" } });
     expect(onSearch).toHaveBeenCalledWith("kim");
 
+    // focus event shows suggestions when results exist
+    state.compareSearchResults = [{ id: "p1" }];
+    byId.compareSearchInput.emit("focus");
+    expect(byId.compareSuggestions.classList.contains("active")).toBe(true);
+
     byId.compareSuggestions.emit("click", {
       target: {
         closest: () => ({ dataset: { id: "p1", name: "김", team: "A" } }),
@@ -184,6 +189,193 @@ describe("page events", () => {
     unmount();
     byId.globalSearchBtn.emit("click");
     expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows/hides predict suggestions on focus and outside click", () => {
+    const suggestionsEl = {
+      ...emitter(),
+      classList: classList(),
+      innerHTML: "<div>suggestion</div>",
+    };
+    const byId = {
+      predictSearchInput: emitter(),
+      predictSuggestions: suggestionsEl,
+    };
+    const documentRef = emitter();
+
+    mountPredictEvents({
+      getById: (id) => byId[id],
+      documentRef,
+      debounce: (fn) => fn,
+      delay: 150,
+      onSearch: vi.fn(),
+      onSelectPlayer: vi.fn(),
+    });
+
+    // Focus shows suggestions
+    byId.predictSearchInput.emit("focus");
+    expect(suggestionsEl.classList.contains("active")).toBe(true);
+
+    // Click outside hides suggestions
+    documentRef.emit("click", { target: { closest: () => null } });
+    expect(suggestionsEl.classList.contains("active")).toBe(false);
+  });
+
+  it("ignores predict suggestion click without closest match", () => {
+    const byId = {
+      predictSearchInput: emitter(),
+      predictSuggestions: {
+        ...emitter(),
+        classList: classList(),
+        innerHTML: "",
+      },
+    };
+    const onSelectPlayer = vi.fn();
+
+    mountPredictEvents({
+      getById: (id) => byId[id],
+      documentRef: emitter(),
+      debounce: (fn) => fn,
+      delay: 150,
+      onSearch: vi.fn(),
+      onSelectPlayer,
+    });
+
+    byId.predictSuggestions.emit("click", {
+      target: { closest: () => null },
+    });
+    expect(onSelectPlayer).not.toHaveBeenCalled();
+  });
+
+  it("handles compare suggestion closest miss and outside click", () => {
+    const suggestionsEl = { ...emitter(), classList: classList() };
+    const byId = {
+      compareSearchInput: emitter(),
+      compareSuggestions: suggestionsEl,
+      compareSelected: emitter(),
+      compareBtn: emitter(),
+    };
+    const documentRef = emitter();
+    const onAddPlayer = vi.fn();
+
+    mountCompareEvents({
+      getById: (id) => byId[id],
+      documentRef,
+      state: { compareSearchResults: [] },
+      debounce: (fn) => fn,
+      delay: 150,
+      onSearch: vi.fn(),
+      onAddPlayer,
+      onRemovePlayer: vi.fn(),
+      onExecute: vi.fn(),
+    });
+
+    // Click with no closest match
+    byId.compareSuggestions.emit("click", {
+      target: { closest: () => null },
+    });
+    expect(onAddPlayer).not.toHaveBeenCalled();
+
+    // Outside click hides suggestions
+    documentRef.emit("click", { target: { closest: () => null } });
+    expect(suggestionsEl.classList.contains("active")).toBe(false);
+
+    // Click on compare-selected with no remove-btn
+    byId.compareSelected.emit("click", {
+      target: { classList: { contains: () => false }, dataset: {} },
+    });
+  });
+
+  it("handles ArrowUp and Escape keys in global search", () => {
+    const byId = {
+      globalSearchBtn: emitter(),
+      searchModal: { ...emitter(), querySelector: () => emitter() },
+      globalSearchInput: emitter(),
+      globalSearchResults: emitter(),
+    };
+    const onNavigate = vi.fn();
+    const onClose = vi.fn();
+
+    mountGlobalSearchEvents({
+      getById: (id) => byId[id],
+      documentRef: emitter(),
+      debounce: (fn) => fn,
+      delay: 150,
+      onOpen: vi.fn(),
+      onClose,
+      onSearch: vi.fn(),
+      onNavigate,
+      onSelect: vi.fn(),
+      onResultSelect: vi.fn(),
+    });
+
+    byId.globalSearchInput.emit("keydown", {
+      key: "ArrowUp",
+      preventDefault: vi.fn(),
+    });
+    expect(onNavigate).toHaveBeenCalledWith(-1);
+
+    byId.globalSearchInput.emit("keydown", { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("handles Ctrl+K shortcut to open search", () => {
+    const byId = {
+      globalSearchBtn: emitter(),
+      searchModal: { ...emitter(), querySelector: () => emitter() },
+      globalSearchInput: emitter(),
+      globalSearchResults: emitter(),
+    };
+    const documentRef = emitter();
+    const onOpen = vi.fn();
+
+    mountGlobalSearchEvents({
+      getById: (id) => byId[id],
+      documentRef,
+      debounce: (fn) => fn,
+      delay: 150,
+      onOpen,
+      onClose: vi.fn(),
+      onSearch: vi.fn(),
+      onNavigate: vi.fn(),
+      onSelect: vi.fn(),
+      onResultSelect: vi.fn(),
+    });
+
+    documentRef.emit("keydown", {
+      ctrlKey: true,
+      key: "k",
+      preventDefault: vi.fn(),
+    });
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores search result click without closest match", () => {
+    const byId = {
+      globalSearchBtn: emitter(),
+      searchModal: { ...emitter(), querySelector: () => emitter() },
+      globalSearchInput: emitter(),
+      globalSearchResults: emitter(),
+    };
+    const onResultSelect = vi.fn();
+
+    mountGlobalSearchEvents({
+      getById: (id) => byId[id],
+      documentRef: emitter(),
+      debounce: (fn) => fn,
+      delay: 150,
+      onOpen: vi.fn(),
+      onClose: vi.fn(),
+      onSearch: vi.fn(),
+      onNavigate: vi.fn(),
+      onSelect: vi.fn(),
+      onResultSelect,
+    });
+
+    byId.globalSearchResults.emit("click", {
+      target: { closest: () => null },
+    });
+    expect(onResultSelect).not.toHaveBeenCalled();
   });
 
   it("delegates players table header click for sorting", () => {

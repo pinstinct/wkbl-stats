@@ -120,6 +120,184 @@ describe("idb-cache", () => {
     expect(result.etag).toBe('"v2"');
   });
 
+  it("rejects on openDB error", async () => {
+    const openError = new Error("open fail");
+    globalThis.indexedDB = {
+      open: () => ({
+        get result() {
+          return null;
+        },
+        set onupgradeneeded(_fn) {},
+        set onsuccess(_fn) {},
+        set onerror(fn) {
+          fn();
+        },
+        get error() {
+          return openError;
+        },
+      }),
+    };
+
+    await expect(saveToCache("key", new ArrayBuffer(4), "etag")).rejects.toBe(
+      openError,
+    );
+    await expect(loadFromCache("key")).rejects.toBe(openError);
+    await expect(clearCache("key")).rejects.toBe(openError);
+  });
+
+  it("creates object store on upgrade", async () => {
+    const createObjectStore = vi.fn();
+    const mockDb = {
+      transaction: (name) => ({
+        objectStore: () => ({
+          put() {
+            return {};
+          },
+        }),
+        set oncomplete(fn) {
+          fn();
+        },
+        set onerror(_fn) {},
+      }),
+      close: vi.fn(),
+      objectStoreNames: { contains: () => false },
+      createObjectStore,
+    };
+    globalThis.indexedDB = {
+      open: () => ({
+        get result() {
+          return mockDb;
+        },
+        set onupgradeneeded(fn) {
+          fn();
+        },
+        set onsuccess(fn) {
+          fn();
+        },
+        set onerror(_fn) {},
+      }),
+    };
+
+    await saveToCache("key", new ArrayBuffer(4), "etag");
+    expect(createObjectStore).toHaveBeenCalledWith("db-files");
+  });
+
+  it("rejects on saveToCache transaction error", async () => {
+    const txError = new Error("tx write fail");
+    const mockDb = {
+      transaction: () => ({
+        objectStore: () => ({
+          put() {
+            return {};
+          },
+        }),
+        set oncomplete(_fn) {},
+        set onerror(fn) {
+          fn();
+        },
+        get error() {
+          return txError;
+        },
+      }),
+      close: vi.fn(),
+      objectStoreNames: { contains: () => true },
+    };
+    globalThis.indexedDB = {
+      open: () => ({
+        get result() {
+          return mockDb;
+        },
+        set onupgradeneeded(_fn) {},
+        set onsuccess(fn) {
+          fn();
+        },
+        set onerror(_fn) {},
+      }),
+    };
+
+    await expect(saveToCache("key", new ArrayBuffer(4), "etag")).rejects.toBe(
+      txError,
+    );
+  });
+
+  it("rejects on loadFromCache request error", async () => {
+    const reqError = new Error("req read fail");
+    const mockDb = {
+      transaction: () => ({
+        objectStore: () => ({
+          get() {
+            return {
+              get result() {
+                return undefined;
+              },
+              set onsuccess(_fn) {},
+              set onerror(fn) {
+                fn();
+              },
+              get error() {
+                return reqError;
+              },
+            };
+          },
+        }),
+        set oncomplete(_fn) {},
+        set onerror(_fn) {},
+      }),
+      close: vi.fn(),
+      objectStoreNames: { contains: () => true },
+    };
+    globalThis.indexedDB = {
+      open: () => ({
+        get result() {
+          return mockDb;
+        },
+        set onupgradeneeded(_fn) {},
+        set onsuccess(fn) {
+          fn();
+        },
+        set onerror(_fn) {},
+      }),
+    };
+
+    await expect(loadFromCache("key")).rejects.toBe(reqError);
+  });
+
+  it("rejects on clearCache transaction error", async () => {
+    const txError = new Error("tx clear fail");
+    const mockDb = {
+      transaction: () => ({
+        objectStore: () => ({
+          delete() {
+            return {};
+          },
+        }),
+        set oncomplete(_fn) {},
+        set onerror(fn) {
+          fn();
+        },
+        get error() {
+          return txError;
+        },
+      }),
+      close: vi.fn(),
+      objectStoreNames: { contains: () => true },
+    };
+    globalThis.indexedDB = {
+      open: () => ({
+        get result() {
+          return mockDb;
+        },
+        set onupgradeneeded(_fn) {},
+        set onsuccess(fn) {
+          fn();
+        },
+        set onerror(_fn) {},
+      }),
+    };
+
+    await expect(clearCache("key")).rejects.toBe(txError);
+  });
+
   it("handles multiple keys independently", async () => {
     const buf1 = new ArrayBuffer(4);
     const buf2 = new ArrayBuffer(8);

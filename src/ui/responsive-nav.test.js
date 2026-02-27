@@ -19,6 +19,20 @@ function createEmitter() {
   };
 }
 
+describe("responsive nav null guard", () => {
+  it("returns noop cleanup when params are missing", () => {
+    const cleanup = mountResponsiveNav({
+      mainNav: null,
+      navToggle: null,
+      navMenu: null,
+      documentRef: null,
+      windowRef: null,
+    });
+    expect(typeof cleanup).toBe("function");
+    expect(() => cleanup()).not.toThrow();
+  });
+});
+
 describe("responsive nav", () => {
   it("opens/closes from toggle and closes on menu click", () => {
     const classSet = new Set();

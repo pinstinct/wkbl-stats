@@ -124,7 +124,7 @@ npm run test:e2e:optional
 npm run test:e2e:coverage:required
 ```
 
-**Test coverage (728 tests: Python 600 + Frontend 128, 95% line coverage):**
+**Test coverage (786 tests: Python 600 + Frontend 186, 95% line coverage):**
 
 - `test_parsers.py`: Parser functions (108 tests)
   - Play-by-play, head-to-head, shot chart, player profile, event type mapping

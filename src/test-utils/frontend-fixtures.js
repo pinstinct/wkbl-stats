@@ -279,7 +279,8 @@ export async function buildFrontendFixtureDbs() {
       start_score_against INTEGER,
       end_score_for INTEGER,
       end_score_against INTEGER,
-      duration_seconds INTEGER
+      duration_seconds INTEGER,
+      stint_order INTEGER
     );
     CREATE TABLE position_matchups (
       id INTEGER PRIMARY KEY,
@@ -296,7 +297,7 @@ export async function buildFrontendFixtureDbs() {
       (1, '04601001', 'p1', 'kb', 1, 9, 30, 10, 5, 1),
       (2, '04601001', 'p2', 'samsung', 1, 8, 55, 22, 11, 0);
     INSERT INTO lineup_stints VALUES
-      ('04601001', 'kb', 'p1', 'p3', 'p5', 'p4', 'p2', 0, 0, 10, 6, 300);
+      ('04601001', 'kb', 'p1', 'p3', 'p5', 'p4', 'p2', 0, 0, 10, 6, 300, 1);
     INSERT INTO position_matchups VALUES (1, '04601001', 'G');
   `);
 

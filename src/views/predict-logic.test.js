@@ -26,6 +26,44 @@ describe("predict logic", () => {
     expect(prediction.pts.low).toBeGreaterThanOrEqual(0);
   });
 
+  it("detects down trend when recent games are lower", () => {
+    // gamelog[0] is most recent → decreasing scores = down trend
+    const gamelog = [
+      { pts: 2, reb: 5, ast: 1 },
+      { pts: 4, reb: 5, ast: 1 },
+      { pts: 6, reb: 5, ast: 2 },
+      { pts: 8, reb: 5, ast: 2 },
+      { pts: 10, reb: 5, ast: 3 },
+      { pts: 12, reb: 5, ast: 3 },
+      { pts: 14, reb: 5, ast: 2 },
+      { pts: 16, reb: 5, ast: 3 },
+      { pts: 18, reb: 5, ast: 4 },
+      { pts: 20, reb: 5, ast: 3 },
+    ];
+
+    const prediction = calculatePrediction(gamelog);
+    expect(prediction.pts.trend).toBe("down");
+    expect(prediction.pts.trendLabel).toContain("하락세");
+  });
+
+  it("handles empty gamelog gracefully", () => {
+    const prediction = calculatePrediction([]);
+    expect(prediction.pts.predicted).toBe(0);
+    // std is NaN with empty array, resulting in NaN bounds
+    expect(prediction.pts.trend).toBe("stable");
+  });
+
+  it("returns stable trend when avg differences are small", () => {
+    const gamelog = Array.from({ length: 10 }, () => ({
+      pts: 10,
+      reb: 5,
+      ast: 3,
+    }));
+    const prediction = calculatePrediction(gamelog);
+    expect(prediction.pts.trend).toBe("stable");
+    expect(prediction.pts.trendLabel).toContain("보합");
+  });
+
   it("builds prediction result badge/class state", () => {
     const correct = buildPredictionCompareState({
       homeWin: true,

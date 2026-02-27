@@ -2,6 +2,55 @@ import { describe, expect, it } from "vitest";
 
 import { renderBoxscoreRows, sortBoxscorePlayers } from "./game-detail.js";
 
+describe("game-detail null container and edge cases", () => {
+  it("compareNullableNumbers handles null/NaN values", () => {
+    const withNull = [
+      { player_id: "p1", pts: null },
+      { player_id: "p2", pts: 10 },
+      { player_id: "p3", pts: NaN },
+      { player_id: "p4", pts: 10 },
+    ];
+    const sorted = sortBoxscorePlayers(withNull, { key: "pts", dir: "desc" });
+    // Non-null values first, nulls/NaN at end
+    expect(sorted[0].player_id).toBe("p2");
+    expect(sorted[1].player_id).toBe("p4");
+
+    // Both null — returns 0 (stable sort)
+    const bothNull = [
+      { player_id: "a", pts: null },
+      { player_id: "b", pts: undefined },
+    ];
+    const sortedBoth = sortBoxscorePlayers(bothNull, {
+      key: "pts",
+      dir: "desc",
+    });
+    expect(sortedBoth).toHaveLength(2);
+
+    // First non-null, second null (bNull) — returns -1
+    const secondNull = [
+      { player_id: "x", pts: 5 },
+      { player_id: "y", pts: null },
+    ];
+    const sortedSecond = sortBoxscorePlayers(secondNull, {
+      key: "pts",
+      dir: "desc",
+    });
+    expect(sortedSecond[0].player_id).toBe("x");
+  });
+
+  it("handles equal name comparison", () => {
+    const sameName = [
+      { player_id: "p1", player_name: "가", pts: 5 },
+      { player_id: "p2", player_name: "가", pts: 10 },
+    ];
+    const sorted = sortBoxscorePlayers(sameName, {
+      key: "player_name",
+      dir: "asc",
+    });
+    expect(sorted).toHaveLength(2);
+  });
+});
+
 describe("game-detail sort", () => {
   const players = [
     {
@@ -58,6 +107,24 @@ describe("game-detail sort", () => {
       dir: "asc",
     });
     expect(sorted.map((p) => p.player_name)).toEqual(["가드", "센터"]);
+  });
+
+  it("sorts by all numeric stat keys", () => {
+    const allKeys = [
+      "minutes",
+      "reb",
+      "ast",
+      "stl",
+      "blk",
+      "tov",
+      "ts_pct",
+      "pir",
+      "plus_minus_game",
+    ];
+    for (const key of allKeys) {
+      const sorted = sortBoxscorePlayers(players, { key, dir: "desc" });
+      expect(sorted).toHaveLength(2);
+    }
   });
 
   it("sorts by shooting efficiency keys", () => {
@@ -137,6 +204,65 @@ describe("game-detail view", () => {
     expect(awayRows).toContain("미출장");
     expect(awayRows).toContain('href="#/predict/p2"');
     expect(homeRows).toBe("");
+  });
+
+  it("renders home team DNP rows for predicted starters", () => {
+    const game = {
+      away_team_id: "a",
+      home_team_id: "h",
+      away_team_stats: [],
+      home_team_stats: [
+        {
+          player_id: "h1",
+          player_name: "홈선수",
+          minutes: 25,
+          pts: 15,
+          reb: 5,
+          ast: 3,
+          stl: 1,
+          blk: 0,
+          tov: 2,
+          fgm: 6,
+          fga: 12,
+          tpm: 1,
+          tpa: 4,
+          ftm: 2,
+          fta: 2,
+          ts_pct: 0.55,
+          pir: 14,
+          plus_minus_game: null,
+        },
+      ],
+    };
+    const predictions = {
+      players: [
+        {
+          player_id: "h2",
+          player_name: "홈예측",
+          team_id: "h",
+          is_starter: true,
+          predicted_pts: 10,
+          predicted_reb: 3,
+          predicted_ast: 2,
+          predicted_stl: 1,
+          predicted_blk: 0.5,
+        },
+      ],
+    };
+    const { awayRows, homeRows } = renderBoxscoreRows({
+      game,
+      predictions,
+      predictionMap: {},
+      getPredStyle: () => ({ cls: "", title: "" }),
+      formatNumber: (v) => String(v),
+      formatPct: (v) => `${Math.round((v ?? 0) * 100)}%`,
+      formatSigned: (v, d = 1) => `${v >= 0 ? "+" : ""}${Number(v).toFixed(d)}`,
+    });
+
+    expect(homeRows).toContain("홈선수");
+    expect(homeRows).toContain("홈예측");
+    expect(homeRows).toContain("미출장");
+    expect(awayRows).toBe("");
   });
 
   it("keeps player detail links for completed games", () => {

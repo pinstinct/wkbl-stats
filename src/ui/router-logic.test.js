@@ -36,6 +36,38 @@ describe("router logic", () => {
       view: "player",
       action: "loadPlayerPage",
     });
+    expect(resolveRouteTarget("teams", "kb")).toEqual({
+      view: "team",
+      action: "loadTeamPage",
+    });
+    expect(resolveRouteTarget("teams", null)).toEqual({
+      view: "teams",
+      action: "loadTeamsPage",
+    });
+    expect(resolveRouteTarget("games", "g1")).toEqual({
+      view: "game",
+      action: "loadGamePage",
+    });
+    expect(resolveRouteTarget("games", null)).toEqual({
+      view: "games",
+      action: "loadGamesPage",
+    });
+    expect(resolveRouteTarget("leaders", null)).toEqual({
+      view: "leaders",
+      action: "loadLeadersPage",
+    });
+    expect(resolveRouteTarget("compare", null)).toEqual({
+      view: "compare",
+      action: "loadComparePage",
+    });
+    expect(resolveRouteTarget("schedule", null)).toEqual({
+      view: "schedule",
+      action: "loadSchedulePage",
+    });
+    expect(resolveRouteTarget("predict", null)).toEqual({
+      view: "predict",
+      action: "loadPredictPage",
+    });
     expect(resolveRouteTarget("unknown", null)).toEqual({
       view: "main",
       action: "loadMainPage",

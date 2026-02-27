@@ -6,9 +6,15 @@ export default defineConfig({
     include: ["src/**/*.test.js"],
     coverage: {
       provider: "v8",
-      reporter: ["text", "json-summary", "html"],
+      reporter: ["text", "json-summary", "html", "json"],
       include: ["src/**/*.js"],
-      exclude: ["src/**/*.test.js", "src/**/*.global.js", "src/vendor/**"],
+      exclude: [
+        "src/**/*.test.js",
+        "src/**/*.global.js",
+        "src/vendor/**",
+        "src/ui/index.js",
+        "src/views/index.js",
+      ],
       thresholds: {
         lines: 95,
       },

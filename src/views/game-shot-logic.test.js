@@ -106,6 +106,29 @@ describe("game shot logic", () => {
     expect(filtered[0].quarter).toBe(2);
   });
 
+  it("filters by quarter only", () => {
+    const normalized = normalizeGameShots(rawShots, {
+      p1: "선수1",
+      p2: "선수2",
+    });
+
+    const q1 = filterGameShots(normalized, { quarter: "1" });
+    expect(q1.every((s) => s.quarter === 1)).toBe(true);
+    expect(q1.length).toBeGreaterThan(0);
+    expect(q1.length).toBeLessThan(normalized.length);
+  });
+
+  it("filters by result made", () => {
+    const normalized = normalizeGameShots(rawShots, {
+      p1: "선수1",
+      p2: "선수2",
+    });
+
+    const filtered = filterGameShots(normalized, { result: "made" });
+    expect(filtered).toHaveLength(2);
+    expect(filtered.every((s) => s.made)).toBe(true);
+  });
+
   it("filters by team id", () => {
     const normalized = normalizeGameShots(rawShots, {
       p1: "선수1",
@@ -262,6 +285,62 @@ describe("game shot logic", () => {
     );
   });
 
+  it("parseQuarterCode handles null, numeric, and non-standard inputs", () => {
+    expect(parseQuarterCode(null)).toEqual({
+      code: "Q0",
+      period: 0,
+      label: "Q0",
+    });
+    expect(parseQuarterCode(undefined)).toEqual({
+      code: "Q0",
+      period: 0,
+      label: "Q0",
+    });
+    expect(parseQuarterCode(2)).toEqual({
+      code: "Q2",
+      period: 2,
+      label: "Q2",
+    });
+    expect(parseQuarterCode(5)).toEqual({
+      code: "OT1",
+      period: 5,
+      label: "OT1",
+    });
+    expect(parseQuarterCode("OT")).toEqual({
+      code: "OT1",
+      period: 5,
+      label: "OT1",
+    });
+    expect(parseQuarterCode("invalid")).toEqual({
+      code: "Q0",
+      period: 0,
+      label: "Q0",
+    });
+    expect(parseQuarterCode("3")).toEqual({
+      code: "Q3",
+      period: 3,
+      label: "Q3",
+    });
+  });
+
+  it("normalizeGameShots handles missing fields gracefully", () => {
+    const shots = normalizeGameShots([
+      {
+        player_id: "p1",
+        quarter: null,
+        made: 1,
+        x: 100,
+        y: 50,
+        game_minute: null,
+        game_second: undefined,
+      },
+    ]);
+    expect(shots[0].quarter).toBe(0);
+    expect(shots[0].gameMinute).toBeNull();
+    expect(shots[0].gameSecond).toBeNull();
+    expect(shots[0].playerName).toBe("p1");
+  });
+
   it("reconciles shot team ids by player-team map", () => {
     const normalized = normalizeGameShots(rawShots, {
       p1: "선수1",
@@ -278,5 +357,15 @@ describe("game shot logic", () => {
         (shot) => shot.playerId === "p2" && shot.teamId === "samsung",
       ),
     ).toBe(true);
+  });
+
+  it("reconcileShotTeams keeps original teamId for unmapped players", () => {
+    const shots = [
+      { playerId: "p1", teamId: "home" },
+      { playerId: "p99", teamId: "away" },
+    ];
+    const result = reconcileShotTeams(shots, { p1: "kb" });
+    expect(result[0].teamId).toBe("kb");
+    expect(result[1].teamId).toBe("away");
   });
 });

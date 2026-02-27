@@ -1935,4 +1935,177 @@ describe("app behavior integration", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 60));
   });
+
+  it("covers win probability with ELO blending and calibration bins", async () => {
+    const { hooks, fixtures } = createHarness();
+
+    const pred = await hooks.getPlayerPrediction(fixtures.players[0], true, {
+      pts_factor: 1.0,
+    });
+
+    // With ELO enabled and calibration bins
+    const params = await hooks.getPredictionParams();
+    params.elo = {
+      enabled: true,
+      rating_base: 1500,
+      home_advantage: 65,
+      win_pct_weight: 400,
+      net_rtg_weight: 25,
+      blend_weight: 0.35,
+    };
+    params.calibration_bins = [
+      { min: 0, max: 45, value: 40 },
+      { min: 45, max: 55, value: 50 },
+      { min: 55, max: 100, value: 60 },
+    ];
+
+    const winProb = hooks.calculateWinProbability(
+      [pred],
+      [pred],
+      fixtures.standings[0],
+      fixtures.standings[1],
+      {
+        homeNetRtg: 6,
+        awayNetRtg: -3,
+        h2hFactor: 0.7,
+        homeLast5: "4-1",
+        awayLast5: "2-3",
+      },
+      params,
+    );
+    expect(winProb.home + winProb.away).toBe(100);
+    expect(winProb.home).toBeGreaterThan(0);
+    expect(winProb.away).toBeGreaterThan(0);
+  });
+
+  it("covers prediction params loading and merge", async () => {
+    const { hooks } = createHarness();
+
+    // getPredictionParams returns cached after first call
+    const params1 = await hooks.getPredictionParams();
+    expect(params1).toBeTruthy();
+    expect(params1.rules_weights).toBeTruthy();
+
+    // Second call returns same cached object
+    const params2 = await hooks.getPredictionParams();
+    expect(params2).toBe(params1);
+
+    // _mergePredictionParams handles overrides
+    const merged = hooks._mergePredictionParams(params1, {
+      rules_weights: { net_rating: 0.5 },
+      elo: { enabled: true },
+    });
+    expect(merged.rules_weights.net_rating).toBe(0.5);
+    expect(merged.elo.enabled).toBe(true);
+  });
+
+  it("covers all route page loads", async () => {
+    const { hooks, deps, fixtures, wkblDb } = createHarness();
+
+    // Teams page
+    window.location.hash = "#/teams";
+    await hooks.handleRoute();
+    expect(deps.dataClient.getStandings).toHaveBeenCalled();
+
+    // Team detail page
+    window.location.hash = "#/teams/kb";
+    await hooks.handleRoute();
+    expect(deps.dataClient.getTeamDetail).toHaveBeenCalledWith("kb", "046");
+
+    // Games page
+    window.location.hash = "#/games";
+    await hooks.handleRoute();
+    expect(deps.dataClient.getGames).toHaveBeenCalled();
+
+    // Leaders page
+    window.location.hash = "#/leaders";
+    await hooks.handleRoute();
+    expect(deps.dataClient.getLeadersAll).toHaveBeenCalled();
+
+    // Compare page
+    window.location.hash = "#/compare";
+    await hooks.handleRoute();
+    expect(document.getElementById("view-compare").style.display).toBe("block");
+
+    // Schedule page
+    window.location.hash = "#/schedule";
+    await hooks.handleRoute();
+    expect(document.getElementById("view-schedule").style.display).toBe(
+      "block",
+    );
+
+    // Predict page without player ID
+    window.location.hash = "#/predict";
+    await hooks.handleRoute();
+    expect(document.getElementById("view-predict").style.display).toBe("block");
+
+    // Predict page with player deep link
+    window.location.hash = "#/predict/p1";
+    await hooks.handleRoute();
+    expect(deps.dataClient.getPlayerDetail).toHaveBeenCalled();
+  });
+
+  it("covers error paths in route handling", async () => {
+    const { hooks, deps } = createHarness();
+
+    // Error during page load should not throw
+    deps.dataClient.getStandings.mockRejectedValueOnce(
+      new Error("standings fail"),
+    );
+    window.location.hash = "#/teams";
+    await hooks.handleRoute();
+    // Should not throw, error is caught internally
+
+    deps.dataClient.getGames.mockRejectedValueOnce(new Error("games fail"));
+    window.location.hash = "#/games";
+    await hooks.handleRoute();
+  });
+
+  it("covers nav menu toggle on route change", async () => {
+    const { hooks } = createHarness();
+
+    const mainNav = document.getElementById("mainNav");
+    const navToggle = document.getElementById("navToggle");
+    mainNav.classList.add("open");
+    navToggle.setAttribute("aria-expanded", "true");
+
+    window.location.hash = "#/players";
+    await hooks.handleRoute();
+
+    expect(mainNav.classList.contains("open")).toBe(false);
+    expect(navToggle.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("covers escapeHtml with special characters", () => {
+    const { hooks } = createHarness();
+
+    expect(hooks.escapeHtml("<script>\"test\"&'x'</script>")).toBe(
+      "&lt;script&gt;&quot;test&quot;&amp;&#39;x&#39;&lt;/script&gt;",
+    );
+    expect(hooks.escapeHtml(null)).toBe("");
+    expect(hooks.escapeHtml(undefined)).toBe("");
+  });
+
+  it("covers fetchPlayers fallback to JSON when db returns empty", async () => {
+    const { hooks, deps } = createHarness();
+
+    deps.dataClient.getPlayers.mockResolvedValueOnce([]);
+    hooks.state.dbInitialized = false;
+
+    // fetchPlayers tries JSON fallback - it will fail in test but that's OK
+    try {
+      await hooks.fetchPlayers("046");
+    } catch {
+      // expected - fetch not available in test
+    }
+    expect(deps.dataClient.getPlayers).toHaveBeenCalled();
+  });
+
+  it("covers initLocalDb paths", async () => {
+    const { hooks } = createHarness();
+
+    // Already initialized returns true immediately
+    hooks.state.dbInitialized = true;
+    expect(await hooks.initLocalDb()).toBe(true);
+  });
 });

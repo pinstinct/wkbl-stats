@@ -53,6 +53,7 @@ describe("player shot logic", () => {
   it("filters by result, quarter, and zone", () => {
     const shots = normalizePlayerShots(raw);
     expect(filterPlayerShots(shots, { result: "made" })).toHaveLength(1);
+    expect(filterPlayerShots(shots, { result: "miss" })).toHaveLength(1);
     expect(filterPlayerShots(shots, { quarter: "5" })).toHaveLength(1);
     expect(filterPlayerShots(shots, { zone: "paint" })).toHaveLength(1);
     expect(
@@ -70,6 +71,52 @@ describe("player shot logic", () => {
       { value: "paint", label: "PAINT" },
       { value: "three_pt", label: "3PT" },
     ]);
+  });
+
+  it("classifies unknown zone by coordinates", () => {
+    const shots = normalizePlayerShots([
+      {
+        game_id: "g5",
+        quarter: "Q1",
+        made: 1,
+        shot_zone: "unknown",
+        x: 10,
+        y: 30,
+      },
+      {
+        game_id: "g6",
+        quarter: "Q1",
+        made: 0,
+        shot_zone: "something_else",
+        x: 145,
+        y: 50,
+      },
+      {
+        game_id: "g7",
+        quarter: "Q1",
+        made: 1,
+        shot_zone: "other",
+        x: 80,
+        y: 100,
+      },
+    ]);
+    expect(shots[0].shotZone).toBe("three_pt");
+    expect(shots[1].shotZone).toBe("paint");
+    expect(shots[2].shotZone).toBe("mid_range");
+  });
+
+  it("falls back to mid_range for known zone with mid-range coordinates", () => {
+    const shots = normalizePlayerShots([
+      {
+        game_id: "g8",
+        quarter: "Q1",
+        made: 1,
+        shot_zone: "paint",
+        x: 80,
+        y: 50,
+      },
+    ]);
+    expect(shots[0].shotZone).toBe("mid_range");
   });
 
   it("reclassifies zone by coordinates when raw zone is inconsistent", () => {

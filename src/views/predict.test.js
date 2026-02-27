@@ -7,6 +7,23 @@ import {
   renderPredictSuggestions,
 } from "./predict.js";
 
+describe("predict view null guards", () => {
+  it("returns early for null containers", () => {
+    expect(() =>
+      renderPredictSuggestions({ container: null, players: [] }),
+    ).not.toThrow();
+    expect(() =>
+      renderPredictPlayerInfo({ container: null, player: {} }),
+    ).not.toThrow();
+    expect(() =>
+      renderPredictCards({ container: null, prediction: {} }),
+    ).not.toThrow();
+    expect(() =>
+      renderPredictFactors({ container: null, prediction: {} }),
+    ).not.toThrow();
+  });
+});
+
 describe("predict view", () => {
   it("renders suggestions", () => {
     const suggestions = { innerHTML: "" };

@@ -3126,6 +3126,12 @@ const WKBLDatabase = (function () {
       computePER,
       calculateAdvancedStats,
       computeWinShares,
+      computePlusMinusPer100,
+      computeFallbackPlusMinusPer100,
+      computePlayerOffRtg,
+      computePlayerDefRtg,
+      normalizeDateKey,
+      isOnOrBefore,
     },
   };
 })();
