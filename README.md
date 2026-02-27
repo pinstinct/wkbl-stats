@@ -264,45 +264,61 @@ GitHub Pages로 정적 파일 호스팅 (sql.js로 브라우저에서 SQLite 쿼
 .
 ├── index.html               # SPA 메인 페이지 (모든 뷰 템플릿)
 ├── package.json             # 프론트 테스트(vitest/e2e) 설정
+├── vitest.config.js         # Vitest 설정 (커버리지 95% 게이트)
 ├── playwright.config.js     # Playwright E2E 설정
+├── eslint.config.js         # ESLint 설정 (보안 규칙 포함)
 ├── server.py                # FastAPI 서버 (로컬/Render)
 ├── pyproject.toml           # 프로젝트 의존성
 ├── uv.lock                  # 의존성 잠금
 ├── e2e/                     # Playwright E2E (required/recommended/optional + scenario matrix)
 ├── src/
 │   ├── app.js               # 프론트엔드 엔트리 (라우팅/페이지 orchestration)
-│   ├── db.js                # 브라우저 SQLite (sql.js 래퍼)
+│   ├── db.js                # 브라우저 SQLite (sql.js 래퍼, 고급 지표 계산)
 │   ├── seasons.js           # 프론트 공유 시즌 상수
 │   ├── styles.css           # 스타일 import 엔트리
-│   ├── data/                # 프론트 데이터 접근 레이어
-│   ├── ui/                  # 이벤트 바인딩/라우터 로직
+│   ├── data/                # 데이터 접근 레이어
+│   │   ├── client.js        # API/DB 추상화 클라이언트
+│   │   └── idb-cache.js     # IndexedDB 캐싱 (ETag 재검증)
+│   ├── ui/                  # DOM 이벤트 바인딩/라우터 로직
 │   │   └── index.js         # ui 배럴 export
-│   ├── views/               # 페이지 렌더링/순수 로직
+│   ├── views/               # 페이지 렌더링/순수 로직 (18개 모듈)
 │   │   └── index.js         # views 배럴 export
-│   └── styles/              # core/components/pages/responsive 분할 스타일
+│   ├── styles/              # core/components/pages/responsive/skeleton 분할 스타일
+│   ├── test-utils/          # 테스트 픽스처 (프론트엔드 DB 빌더)
+│   └── vendor/              # CDN 로컬 폴백 (chart.js, sql-wasm)
 ├── data/
+│   ├── wkbl-core.db         # Core DB (선수/팀/경기 — 빠른 초기 로드)
+│   ├── wkbl-detail.db       # Detail DB (PBP/샷차트/라인업 — 지연 로드)
+│   ├── wkbl.db              # 풀 SQLite DB (미분할 폴백)
 │   ├── wkbl-active.json     # 현역 선수 스탯 (자동 생성)
-│   ├── wkbl.db              # SQLite 데이터베이스
 │   └── cache/               # 크롤링 캐시 (git 제외)
 ├── tools/
 │   ├── api.py               # REST API 엔드포인트
 │   ├── config.py            # 설정 모듈
 │   ├── database.py          # SQLite 스키마 및 쿼리
-│   ├── ingest_wkbl.py       # 데이터 수집 스크립트
-│   ├── stats.py             # 고급 스탯 계산 (PER, ORtg/DRtg, USG% 등)
+│   ├── ingest_wkbl.py       # 데이터 수집 파이프라인
+│   ├── stats.py             # 고급 스탯 계산 (PER, ORtg/DRtg, WS 등)
+│   ├── predict.py           # 예측 시스템 (Game Score 가중, 승률, 라인업)
 │   ├── lineup.py            # 라인업 추적 엔진 (+/-, On/Off Rating)
-│   └── season_utils.py      # 시즌 코드 해석
-├── tests/                   # Python 테스트 (143개)
+│   ├── split_db.py          # DB 분할기 (core/detail 분리)
+│   ├── season_utils.py      # 시즌 코드 해석
+│   └── e2e_coverage_report.py # E2E 시나리오 커버리지 리포터
+├── tests/                   # Python 테스트 (600개, 95% 커버리지)
 ├── docs/
 │   ├── project-roadmap.md   # 프로젝트 로드맵
 │   ├── project-structure.md # 구조 원칙/디렉터리 역할 가이드
 │   ├── data-sources.md      # 데이터 소스/DB 스키마 문서
 │   ├── sql-query-contract.md # SQL 쿼리 계약
-│   ├── regression-checklist.md # QA 체크리스트
-│   └── bak/                 # 완료된 계획 문서 아카이브
+│   ├── e2e-coverage-guideline.md # E2E 시나리오 커버리지 운영 가이드
+│   ├── regression-checklist.md # 모바일/반응형 QA 체크리스트
+│   ├── security/            # 보안 감사 (ASVS L1, 인시던트 런북)
+│   └── complete/            # 완료된 계획 문서 아카이브
 └── .github/workflows/
-    ├── update-data.yml      # 일일 데이터 업데이트
-    └── update-data-full.yml # 전체 히스토리 업데이트 (수동)
+    ├── update-data.yml      # 일일 데이터 업데이트 (6AM KST)
+    ├── update-data-full.yml # 전체 히스토리 업데이트 (수동)
+    ├── ci.yml               # PR/push CI (테스트, 린트, 커버리지)
+    ├── codeql.yml           # CodeQL 보안 분석
+    └── deploy.yml           # GitHub Pages 배포
 ```
 
 ## 라이선스
