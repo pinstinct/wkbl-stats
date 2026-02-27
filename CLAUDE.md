@@ -220,7 +220,7 @@ Frontend SPA (src/app.js)
 sql.js (WASM) ← fetch(data/wkbl-core.db) + lazy fetch(data/wkbl-detail.db)
 ```
 
-**Server Mode (Render/Local):**
+**Server Mode (Local):**
 
 ```
 server.py (FastAPI) ─┬─ /api/* → tools/api.py (REST API)
@@ -278,10 +278,6 @@ tools/ingest_wkbl.py → SQLite DB (data/wkbl.db) → split_db.py → core.db + 
 - `data/cache/` - HTTP response cache (reduces network requests)
 - `pyproject.toml` - Project dependencies (managed by uv)
 - `uv.lock` - Locked dependency versions
-- `Dockerfile` - Docker build for Render deployment
-- `render.yaml` - Render service configuration
-- `requirements.txt` - Python dependencies for Docker/Render
-- `.dockerignore` - Files excluded from Docker build
 
 ## REST API
 
@@ -448,36 +444,6 @@ Format: `SSSTTGGG` (e.g., `04601055`)
 
 ## Development
 
-### Render Deployment (Server Mode)
-
-Render provides server-based API with FastAPI. Use this for server-side features or if you prefer traditional API architecture.
-
-**Setup:**
-
-1. Go to [render.com](https://render.com) and connect GitHub repo
-2. Create **New Web Service** → Select repo
-3. Settings: Runtime = Docker, Instance Type = Free
-4. Deploy
-
-**Deployment Files:**
-
-- `Dockerfile` - Docker build configuration (Python 3.12 + uvicorn)
-- `render.yaml` - Render service configuration
-- `requirements.txt` - Python dependencies (fastapi, uvicorn)
-- `.dockerignore` - Excludes cache files from Docker build
-- `tools/config.py` - Reads `PORT` from environment variable
-
-**Free Tier Limitations:**
-
-- Server sleeps after 15 minutes of inactivity
-- First request after sleep takes 10-30 seconds (cold start)
-- Data persists in Docker image (from repo), not runtime changes
-
-**Updating Data on Render:**
-
-1. Run GitHub Action to update repo data (see below)
-2. Render auto-redeploys on push, or manually trigger deploy
-
 ### GitHub Actions (Data Updates)
 
 | Workflow               | Trigger         | Description                                             |
@@ -560,10 +526,10 @@ uv run pre-commit run --all-files
 
 ## Branches
 
-| Branch       | Description                                          |
-| ------------ | ---------------------------------------------------- |
-| `main`       | Static hosting with sql.js (GitHub Pages compatible) |
-| `server-api` | Server-based API version (FastAPI + REST endpoints)  |
+| Branch       | Description                                              |
+| ------------ | -------------------------------------------------------- |
+| `main`       | Static hosting with sql.js (GitHub Pages compatible)     |
+| `server-api` | Legacy server-based API branch (Render 배포 파일 삭제됨) |
 
 ## Known Limitations
 
