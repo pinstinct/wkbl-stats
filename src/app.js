@@ -562,9 +562,6 @@ import { hideSkeleton } from "./ui/skeleton.js";
       const homeRoster = await getTeamRoster(nextGame.home_team_id);
       const awayRoster = await getTeamRoster(nextGame.away_team_id);
 
-      console.log("Home roster:", homeRoster.length, "players");
-      console.log("Away roster:", awayRoster.length, "players");
-
       // Build recent games map for lineup minutes filtering
       const homeRecentMap = {};
       const awayRecentMap = {};
@@ -587,9 +584,6 @@ import { hideSkeleton } from "./ui/skeleton.js";
 
       const homeLineup = generateOptimalLineup(homeRoster, homeRecentMap);
       const awayLineup = generateOptimalLineup(awayRoster, awayRecentMap);
-
-      console.log("Home lineup:", homeLineup.length, "players");
-      console.log("Away lineup:", awayLineup.length, "players");
 
       if (homeLineup.length === 0 && awayLineup.length === 0) {
         console.warn("No lineup data available");
