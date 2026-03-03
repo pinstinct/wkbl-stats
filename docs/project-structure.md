@@ -67,6 +67,7 @@
 | `complete/loading-optimization-plan.md`      | 로딩 최적화 계획                     |
 | `complete/win-shares-plan.md`                | Win Shares 구현 계획                 |
 | `complete/e2e-playwright-plan.md`            | E2E Playwright 운영 체계 계획        |
+| `complete/prediction-accuracy-tdd-plan.md`   | 예측 정확도 TDD 계획                 |
 
 ## Structure Rules
 

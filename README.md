@@ -267,7 +267,7 @@ GitHub Pages로 정적 파일 호스팅 (sql.js로 브라우저에서 SQLite 쿼
 ├── vitest.config.js         # Vitest 설정 (커버리지 95% 게이트)
 ├── playwright.config.js     # Playwright E2E 설정
 ├── eslint.config.js         # ESLint 설정 (보안 규칙 포함)
-├── server.py                # FastAPI 서버 (로컬/Render)
+├── server.py                # FastAPI 서버 (로컬 개발용)
 ├── pyproject.toml           # 프로젝트 의존성
 ├── uv.lock                  # 의존성 잠금
 ├── e2e/                     # Playwright E2E (required/recommended/optional + scenario matrix)

@@ -524,13 +524,6 @@ uv run pre-commit run --all-files
 | eslint      | Frontend JS linting/security      |
 | prettier    | Frontend formatting check         |
 
-## Branches
-
-| Branch       | Description                                              |
-| ------------ | -------------------------------------------------------- |
-| `main`       | Static hosting with sql.js (GitHub Pages compatible)     |
-| `server-api` | Legacy server-based API branch (Render 배포 파일 삭제됨) |
-
 ## Known Limitations
 
 - **Playoff data unavailable**: WKBL Data Lab does not provide boxscore data for playoff games. Game IDs with type code "04" (e.g., `04604010`) return empty player records. Only regular season and all-star games have detailed statistics.
